@@ -103,7 +103,12 @@ async function runTests() {
     console.log("\nAll Phase 3 Backend Foundation tests passed successfully!");
 }
 
-runTests().catch((err) => {
-    console.error("Test failed:", err);
-    process.exit(1);
-});
+module.exports = { runFoundationTests: runTests };
+
+if (require.main === module) {
+    runTests().catch((err) => {
+        console.error("Test failed:", err);
+        process.exit(1);
+    });
+}
+

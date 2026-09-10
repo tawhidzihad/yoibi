@@ -7,14 +7,14 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-11
-- Active task: Phase 4 — Milestone 1: Authentication & User Profile Integration (Completed & Verified)
-- Overall phase: Phase 4 — Milestone 1 Complete -> Next: Phase 4 — Milestone 2: Feed & Posts Slice Integration
+- Active task: Phase 4 — Milestone 2: Feed & Posts Slice Integration (Completed & Verified)
+- Overall phase: Phase 4 — Milestone 2 Complete -> Next: Phase 4 — Milestone 3
 - Git repository status: Initialized at `yoibi/` root
 - Current branch: `main`
-- Latest commit: `feat: integrate authentication and user profiles`
+- Latest commit: `feat: integrate feed and posts`
 - Working tree state: Clean
-- Last completed step: Integrated Better Auth in Next.js App Router, JWT acquisition & transport, centralized API client, AuthContext hydration, protected route layout guard with safe return URL, auth forms (login, signup, verify email, forgot/reset password), source of truth resolution for `/api/v1/auth/me` (Better Auth identity + MongoDB profile data), profile endpoints (`GET /api/v1/users/:handle`, `PATCH /api/v1/users/me`), profile wall UI with EditProfileModal. Tests, linters, and Next.js build verified 100%.
-- Next exact step: Phase 4 — Milestone 2: Feed & Posts Slice Integration (`/api/v1/posts`).
+- Last completed step: Implemented backend Post domain and Comment domain (`post.model.js`, `posts.repository.js`, create/read/update/delete services, controllers, Zod validation schemas, `posts.routes.js`, `tests/posts.test.js`, and test runner `tests/index.js`), frontend `postsApi.js` centralized client, React Hook Form post creator (`CreatePostCard.js`), optimistic like/share/delete post card (`PostCard.js`), threaded comment section (`CommentSection.js`), paginated feed stream (`PostList.js`), and integrated `FeedView.js` connected to real backend APIs. Verified with backend tests (100%), backend ESLint (0 errors, 0 warnings), frontend ESLint (0 errors, 0 warnings), and Next.js production build (14 static pages generated cleanly).
+- Next exact step: Phase 4 — Milestone 3.
 
 ## What Is Working
 - Better Auth server & client integration in Next.js (`frontend/src/lib/auth.js`, `frontend/src/lib/auth-client.js`, `/api/auth/[...all]`).
@@ -25,48 +25,64 @@ At the end of every meaningful session/task, the active model must update this f
 - Auth UI forms (`LoginForm`, `SignupForm`, `VerifyEmailView`, `ForgotPasswordForm`, `ResetPasswordForm`) connected to Better Auth flows.
 - Source of truth for `/api/v1/auth/me`: Better Auth JWT (identity: id, email, role, isEmailVerified, isBlocked) merged with live MongoDB `User` collection (profile: name, handle, avatarUrl, bio).
 - Profile endpoints (`GET /api/v1/users/:handle`, `PATCH /api/v1/users/me`) and frontend `WallView` + `EditProfileModal`.
-- Backend unit test suite (`npm test`) passing 100%.
+- **Post & Feed Backend:**
+  - Mongoose schema `Post` (`backend/src/models/post.model.js`) with indexes on `createdAt` and `authorId`.
+  - Repository layer (`backend/src/repositories/posts.repository.js`) supporting CRUD, pagination, author enrichment, and disconnected DB safety.
+  - Zod validators (`backend/src/validators/posts.validator.js`) for `createPost`, `listPostsQuery`, `postIdParam`, `createComment`, `commentParams`.
+  - CRUD Services: create (`createPost`), read (`listPosts`, `getPostById`), update (`likePost`, `unlikePost`), delete (`deletePost` with author/admin verification), and comment services (`createComment`, `getComments`, `deleteComment`).
+  - Controllers and route definitions (`backend/src/routes/posts.routes.js`) mounted on `/api/v1`.
+  - Automated test runner (`backend/tests/index.js`) executing foundation + posts test suites.
+- **Post & Feed Frontend:**
+  - Centralized posts API helper (`frontend/src/features/posts/api/postsApi.js`).
+  - `CreatePostCard.js`: React Hook Form + Zod validation, character counter, media URL input, loading states, and unauthenticated redirect.
+  - `PostCard.js`: Author metadata, relative timestamp, media rendering, optimistic like toggling with rollback on failure, comment toggling, link sharing with clipboard feedback, and delete confirmation modal.
+  - `CommentSection.js`: Threaded comments list, React Hook Form + Zod comment composer, live comment counter sync, and author/admin delete capabilities.
+  - `PostList.js`: Feed rendering with `LoadingFallback`, `ErrorState` retry, `EmptyState`, and "Load more" pagination.
+  - `FeedView.js`: Main feed page connected to live posts API with All/Following filter tabs and instant post creation prepending.
+- Backend test suite (`npm test`) passing 100%.
 - Backend ESLint (`npm run lint`) passing with 0 errors, 0 warnings.
 - Frontend ESLint (`npm run lint`) passing with 0 errors, 0 warnings.
 - Frontend Next.js production build (`npm run build`) passing with 14 static pages generated cleanly.
 
 ## What Is Not Working / Remaining Scope
-- Posts/Feed, Tweets, Videos, Streams, Meetup, Messages slices are next for Phase 4 integration.
+- Tweets (Micro-posts domain), Videos, Streams, Meetup, Messages slices are next for subsequent Phase 4 milestones.
 
 ## Files Changed in Latest Session
-- `frontend/package.json` & `package-lock.json`
-- `frontend/jsconfig.json`
-- `frontend/.env.example`
-- `frontend/src/lib/auth.js`
-- `frontend/src/app/api/auth/[...all]/route.js`
-- `frontend/src/lib/auth-client.js`
-- `frontend/src/lib/api/client.js`
-- `frontend/src/lib/api/authApi.js`
-- `frontend/src/features/users/api/usersApi.js`
-- `frontend/src/features/auth/context/AuthContext.js`
-- `frontend/src/app/layout.js`
-- `frontend/src/app/(protected)/layout.js`
-- `frontend/src/features/auth/ui/LoginForm.js`
-- `frontend/src/features/auth/ui/SignupForm.js`
-- `frontend/src/features/auth/ui/VerifyEmailView.js`
-- `frontend/src/features/auth/ui/ForgotPasswordForm.js`
-- `frontend/src/features/auth/ui/ResetPasswordForm.js`
-- `frontend/src/features/users/ui/WallView.js`
-- `frontend/src/features/users/ui/EditProfileModal.js`
-- `backend/src/models/user.model.js`
-- `backend/src/controllers/read/auth.controller.js`
-- `backend/src/controllers/read/users.controller.js`
-- `backend/src/controllers/update/users.controller.js`
+- `backend/package.json`
+- `backend/src/middleware/validate.js`
+- `backend/src/models/post.model.js`
+- `backend/src/repositories/posts.repository.js`
+- `backend/src/validators/posts.validator.js`
+- `backend/src/services/create/posts.service.js`
+- `backend/src/services/read/posts.service.js`
+- `backend/src/services/update/posts.service.js`
+- `backend/src/services/delete/posts.service.js`
+- `backend/src/services/create/comments.service.js`
+- `backend/src/services/read/comments.service.js`
+- `backend/src/services/delete/comments.service.js`
+- `backend/src/controllers/create/posts.controller.js`
+- `backend/src/controllers/read/posts.controller.js`
+- `backend/src/controllers/update/posts.controller.js`
+- `backend/src/controllers/delete/posts.controller.js`
+- `backend/src/controllers/create/comments.controller.js`
+- `backend/src/controllers/read/comments.controller.js`
+- `backend/src/controllers/delete/comments.controller.js`
+- `backend/src/routes/posts.routes.js`
+- `backend/src/routes/index.js`
+- `backend/tests/foundation.test.js`
+- `backend/tests/posts.test.js`
+- `backend/tests/index.js`
+- `frontend/src/features/posts/api/postsApi.js`
+- `frontend/src/features/posts/ui/CreatePostCard.js`
+- `frontend/src/features/posts/ui/PostCard.js`
+- `frontend/src/features/posts/ui/CommentSection.js`
+- `frontend/src/features/posts/ui/PostList.js`
+- `frontend/src/features/feed/ui/FeedView.js`
 - `docs/WORKBASE.md`
 - `docs/MODEL-HANDOFF.md`
 
-## Environment Variables Architecture
-- **Frontend Public (browser-safe):** `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_BETTER_AUTH_URL`
-- **Frontend Server-Only (Next.js server runtime):** `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
-- **Backend Server-Only (Express runtime):** `PORT`, `HOST`, `MONGODB_URI`, `BETTER_AUTH_BASE_URL`, `BETTER_AUTH_JWKS_URL`, `FRONTEND_URL`, `CORS_ORIGIN`
-
 ## Tests/Checks Run
-- Backend tests (`npm test`): Passed 100%
+- Backend tests (`npm test`): Passed 100% (Foundation test suite + Posts & Comments test suite)
 - Backend ESLint (`npm run lint`): 0 errors, 0 warnings
 - Frontend ESLint (`npm run lint`): 0 errors, 0 warnings
 - Frontend build (`npm run build`): Compiled and prerendered 14 static pages cleanly
@@ -74,4 +90,5 @@ At the end of every meaningful session/task, the active model must update this f
 - Tab check: Zero tab characters across `frontend/src` and `backend/src`
 
 ## Exact Resume Instruction
-> Continue with Phase 4 — Milestone 2: Feed & Posts Slice Integration (`GET /api/v1/posts`, `POST /api/v1/posts`, `GET /api/v1/posts/:id`, `DELETE /api/v1/posts/:id`, `POST /api/v1/posts/:id/like`).
+> Continue with Phase 4 — Milestone 3.
+

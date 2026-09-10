@@ -1,128 +1,154 @@
 "use client";
 
-import { useState } from "react";
-import { Heart, MessageCircle, Share2, FileText, AtSign } from "lucide-react";
-import { mockFeed } from "../api/mock-feed";
-import { cn } from "../../../shared/utils/cn";
-
-function formatRelative(isoString) {
-    const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
-    if (diff < 60) return `${diff}s`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-    return `${Math.floor(diff / 86400)}d`;
-}
-
-function Avatar({ name }) {
-    const initials = name
-        .split(" ")
-        .slice(0, 2)
-        .map((w) => w[0])
-        .join("")
-        .toUpperCase();
-    return (
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-sm font-semibold text-cyan-600">
-            {initials}
-        </div>
-    );
-}
-
-function FeedCard({ item }) {
-    const [liked, setLiked] = useState(false);
-    const [likes, setLikes] = useState(item.likesCount);
-
-    function toggleLike() {
-        setLiked((v) => !v);
-        setLikes((n) => (liked ? n - 1 : n + 1));
-    }
-
-    return (
-        <article className="border-b border-border/50 px-4 py-4 transition-colors hover:bg-secondary/20">
-            <div className="flex gap-3">
-                <Avatar name={item.author.name} />
-                <div className="min-w-0 flex-1">
-                    {/* Author + type badge */}
-                    <div className="mb-1 flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm text-foreground">{item.author.name}</span>
-                        <span className="text-xs text-muted-foreground">@{item.author.handle}</span>
-                        <span className="text-xs text-muted-foreground">·</span>
-                        <span className="text-xs text-muted-foreground">{formatRelative(item.createdAt)}</span>
-                        <span
-                            className={cn(
-                                "ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-                                item.type === "post"
-                                    ? "bg-blue-500/10 text-blue-500"
-                                    : "bg-cyan-500/10 text-cyan-500"
-                            )}
-                        >
-                            {item.type === "post" ? (
-                                <FileText size={10} aria-hidden="true" />
-                            ) : (
-                                <AtSign size={10} aria-hidden="true" />
-                            )}
-                            {item.type}
-                        </span>
-                    </div>
-
-                    {/* Content */}
-                    <p className="mb-3 text-sm leading-relaxed text-foreground/90 whitespace-pre-line">
-                        {item.content}
-                    </p>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-5 text-muted-foreground">
-                        <button
-                            type="button"
-                            id={`feed-like-${item.id}`}
-                            onClick={toggleLike}
-                            aria-label={liked ? "Unlike" : "Like"}
-                            aria-pressed={liked}
-                            className={cn(
-                                "flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-pink-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded",
-                                liked && "text-pink-400"
-                            )}
-                        >
-                            <Heart size={14} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
-                            {likes}
-                        </button>
-
-                        <button
-                            type="button"
-                            id={`feed-comment-${item.id}`}
-                            aria-label="View comments"
-                            className="flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
-                        >
-                            <MessageCircle size={14} aria-hidden="true" />
-                            {item.commentsCount}
-                        </button>
-
-                        <button
-                            type="button"
-                            id={`feed-share-${item.id}`}
-                            aria-label="Share"
-                            className="flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-green-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
-                        >
-                            <Share2 size={14} aria-hidden="true" />
-                            {item.sharesCount}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </article>
-    );
-}
+import { useState, useEffect, useCallback } from "react";
+import { CreatePostCard } from "@/features/posts/ui/CreatePostCard";
+import { PostList } from "@/features/posts/ui/PostList";
+import { postsApi } from "@/features/posts/api/postsApi";
+import { cn } from "@/shared/utils/cn";
 
 export function FeedView() {
+    const [posts, setPosts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [filter, setFilter] = useState("all");
+    const [page, setPage] = useState(1);
+    const [hasNextPage, setHasNextPage] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+
+    const fetchPosts = useCallback(async (pageNum = 1, activeFilter = "all", append = false) => {
+        if (append) {
+            setLoadingMore(true);
+        }
+
+        try {
+            const res = await postsApi.getPosts({
+                page: pageNum,
+                limit: 20,
+                filter: activeFilter,
+            });
+
+            if (!res.success) {
+                setError(res.error?.message || "Failed to load feed posts.");
+            } else {
+                const items = res.data?.items || [];
+                const pagination = res.data?.pagination;
+                if (append) {
+                    setPosts((prev) => [...prev, ...items]);
+                } else {
+                    setPosts(items);
+                }
+                setHasNextPage(Boolean(pagination?.hasNextPage));
+                setPage(pageNum);
+            }
+        } catch (err) {
+            setError(err.message || "Unable to connect to the server.");
+        } finally {
+            setLoading(false);
+            setLoadingMore(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        let isCancelled = false;
+        async function load() {
+            setLoading(true);
+            setError("");
+            try {
+                const res = await postsApi.getPosts({
+                    page: 1,
+                    limit: 20,
+                    filter,
+                });
+                if (!isCancelled) {
+                    if (!res.success) {
+                        setError(res.error?.message || "Failed to load feed posts.");
+                    } else {
+                        setPosts(res.data?.items || []);
+                        setHasNextPage(Boolean(res.data?.pagination?.hasNextPage));
+                        setPage(1);
+                    }
+                }
+            } catch (err) {
+                if (!isCancelled) setError(err.message || "Unable to connect to the server.");
+            } finally {
+                if (!isCancelled) setLoading(false);
+            }
+        }
+
+        load();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [filter]);
+
+    const handlePostCreated = (newPost) => {
+        setPosts((prev) => [newPost, ...prev]);
+    };
+
+    const handlePostDeleted = (deletedId) => {
+        setPosts((prev) => prev.filter((p) => p.id !== deletedId));
+    };
+
+    const handleLoadMore = () => {
+        if (!loadingMore && hasNextPage) {
+            fetchPosts(page + 1, filter, true);
+        }
+    };
+
     return (
-        <div>
-            <div className="border-b border-border/50 px-4 py-3">
-                <h1 className="text-lg font-bold text-foreground">Feed</h1>
+        <div className="min-h-screen">
+            {/* Feed Header */}
+            <div className="sticky top-0 z-20 border-b border-border/60 bg-background/90 backdrop-blur-md">
+                <div className="flex items-center justify-between px-4 py-3">
+                    <h1 className="text-lg font-bold text-foreground">Feed</h1>
+                </div>
+
+                {/* Filter Tabs */}
+                <div className="flex border-t border-border/40">
+                    <button
+                        type="button"
+                        onClick={() => setFilter("all")}
+                        id="feed-filter-all"
+                        className={cn(
+                            "flex-1 py-2.5 text-center text-xs font-semibold transition-colors cursor-pointer border-b-2",
+                            filter === "all"
+                                ? "border-cyan-500 text-cyan-500"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        All Posts
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setFilter("following")}
+                        id="feed-filter-following"
+                        className={cn(
+                            "flex-1 py-2.5 text-center text-xs font-semibold transition-colors cursor-pointer border-b-2",
+                            filter === "following"
+                                ? "border-cyan-500 text-cyan-500"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        Following
+                    </button>
+                </div>
             </div>
-            <div>
-                {mockFeed.map((item) => (
-                    <FeedCard key={item.id} item={item} />
-                ))}
-            </div>
+
+            {/* Create Post Composer */}
+            <CreatePostCard onPostCreated={handlePostCreated} />
+
+            {/* Posts Stream */}
+            <PostList
+                posts={posts}
+                loading={loading}
+                error={error}
+                onRetry={() => fetchPosts(1, filter, false)}
+                onPostDeleted={handlePostDeleted}
+                hasNextPage={hasNextPage}
+                onLoadMore={handleLoadMore}
+                loadingMore={loadingMore}
+            />
         </div>
     );
 }
