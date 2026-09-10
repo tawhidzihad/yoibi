@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: YOIBI API
+  version: 1.0.0
+  description: Human-readable starter contract. Expand each endpoint before implementing it.
+servers:
+  - url: http://localhost:5000/api/v1
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Backend is healthy
+  /auth/me:
+    get:
+      summary: Current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
