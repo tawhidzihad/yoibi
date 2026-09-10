@@ -6,15 +6,20 @@ This file prevents a new AI model from restarting work from zero.
 At the end of every meaningful session/task, the active model must update this file. A new model must read it before changing code.
 
 ## Current Snapshot
-- Last updated: 2026-09-10
-- Active task: Phase 1 Verification & Transition to Phase 2 API Contract Design
+- Last updated: 2026-09-11
+- Active task: Git Tracking Initialization & Transition to Phase 2 API Contract Design
 - Overall phase: Phase 1 Frontend Foundation (Completed & Verified) → Phase 2 API & Realtime Contract Design
-- Last completed step: Verified complete Phase 1 frontend implementation; configured ESLint 9 flat config (`frontend/eslint.config.mjs`), resolved accessibility and JSX warnings (0 errors, 0 warnings), verified production build (`next build`) generating all 14 static routes cleanly.
+- Git repository status: Initialized at `yoibi/` root, tracking frontend, backend, contracts, docs, skills, configs
+- Current branch: `main`
+- Baseline commit: `6d167d0` ("chore: initialize yoibi workspace")
+- Working tree state: Clean (secrets, `.env*`, `node_modules/`, `.next/` properly ignored by root `.gitignore`)
+- Last completed step: Initialized Git at workspace root, created comprehensive `.gitignore`, committed initial baseline `6d167d0`, verified clean working tree, and updated documentation.
 - Current step: Transitioning to Phase 2 (Complete API and Realtime Contract specification)
 - Next exact step: Complete `contracts/API-CONTRACT.md` and expand `contracts/openapi.yaml` for all feature endpoints (Auth, Users/Follows, Posts, Tweets, Media, Messaging/Socket.IO, Streams/LiveKit, Meet-Up/LiveKit, Admin) before starting backend code.
 
 ## What Is Working
-- Workspace root verified as YOIBI repo
+- Git repository initialized at root `yoibi/` on branch `main` with baseline commit `6d167d0`
+- Root `.gitignore` in place protecting all secrets, `.env*` files, `node_modules/`, `.next/`, and caches while tracking `.env.example`
 - Frontend and backend directories verified as separate apps with isolated package manifests
 - Full audit of `legacy/original-yoibi/` complete
 - Frontend stack running Next.js 16.3.4 (Turbopack), React 19, Tailwind CSS 4.3.3, Lucide React, Motion
