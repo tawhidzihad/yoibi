@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,6 +10,7 @@ import { Eye, EyeOff, Upload, X, User, Mail, Lock, Phone } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import { Input } from "../../../shared/ui/Input";
 import { YoibiLogo } from "../../../shared/ui/YoibiLogo";
+import { useAuth } from "../context/AuthContext";
 
 const signupSchema = z
     .object({
@@ -48,12 +50,14 @@ export function SignupForm() {
     const [showConfirm, setShowConfirm] = useState(false);
     const [photoPreview, setPhotoPreview] = useState(null);
     const [photoFile, setPhotoFile] = useState(null);
+    const [signupError, setSignupError] = useState("");
+    const router = useRouter();
+    const { signupEmail } = useAuth();
 
     const {
         register,
         handleSubmit,
         formState: { errors, isSubmitting },
-        setError,
     } = useForm({
         resolver: zodResolver(signupSchema),
         defaultValues: {
@@ -81,15 +85,18 @@ export function SignupForm() {
     }
 
     async function onSubmit(data) {
+        setSignupError("");
         try {
-            // Phase 1: UI milestone — API integration deferred to Phase 4 (Better Auth)
-            console.log("Signup submit:", { ...data, photo: photoFile?.name });
-            // TODO Phase 4: call Better Auth signUp.email() and redirect to /verify-email
-            await new Promise((r) => setTimeout(r, 800)); // simulate network
-            // Placeholder — redirect happens here in Phase 4
-            alert("Account created. In Phase 4 this redirects to /verify-email.");
+            const derivedHandle = `@${data.fullName.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+            await signupEmail({
+                email: data.email,
+                password: data.password,
+                name: data.fullName,
+                handle: derivedHandle,
+            });
+            router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
         } catch (err) {
-            setError("root", { message: err?.message ?? "Signup failed. Please try again." });
+            setSignupError(err?.message || "Signup failed. Please try again.");
         }
     }
 
@@ -371,10 +378,10 @@ export function SignupForm() {
                     )}
                 </div>
 
-                {/* Root error */}
-                {errors.root && (
+                {/* Root / Signup error */}
+                {signupError && (
                     <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                        {errors.root.message}
+                        {signupError}
                     </div>
                 )}
 
@@ -404,3 +411,4 @@ export function SignupForm() {
         </div>
     );
 }
+

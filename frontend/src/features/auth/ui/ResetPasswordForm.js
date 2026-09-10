@@ -10,6 +10,7 @@ import { Eye, EyeOff, Lock } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import { Input } from "../../../shared/ui/Input";
 import { YoibiLogo } from "../../../shared/ui/YoibiLogo";
+import { resetPassword } from "@/lib/auth-client";
 
 const resetSchema = z
     .object({
@@ -46,15 +47,19 @@ export function ResetPasswordForm() {
                 setError("root", { message: "Reset token is missing. Please use the link from your email." });
                 return;
             }
-            console.log("Reset password submit with token:", token);
-            await new Promise((r) => setTimeout(r, 600));
-            // TODO Phase 4: call Better Auth resetPassword({ token, newPassword })
+            const res = await resetPassword({
+                newPassword: data.password,
+                token,
+            });
+            if (res?.error) {
+                setError("root", { message: res.error.message || "Failed to reset password. Token may be expired." });
+            }
         } catch (err) {
             setError("root", { message: err?.message ?? "Something went wrong. Please try again." });
         }
     }
 
-    if (isSubmitSuccessful) {
+    if (isSubmitSuccessful && !errors.root) {
         return (
             <div className="w-full max-w-md text-center">
                 <YoibiLogo className="mx-auto mb-4 h-12 w-12 text-cyan-500" />
@@ -173,3 +178,4 @@ export function ResetPasswordForm() {
         </div>
     );
 }
+

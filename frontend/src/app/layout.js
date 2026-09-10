@@ -1,5 +1,6 @@
 import "./globals.css";
 import "@fontsource-variable/geist";
+import { AuthProvider } from "@/features/auth/context/AuthContext";
 
 export const metadata = {
     title: {
@@ -26,8 +27,9 @@ export default function RootLayout({ children }) {
     return (
         <html lang="en" suppressHydrationWarning>
             <body>
-                {children}
+                <AuthProvider>{children}</AuthProvider>
             </body>
         </html>
     );
 }
+

@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
     Home,
     FileText,
@@ -12,11 +13,13 @@ import {
     MessageSquare,
     User,
     Plus,
+    LogOut,
 } from "lucide-react";
 import { YoibiLogo } from "../../shared/ui/YoibiLogo";
 import { Dock, DockIcon } from "../../shared/ui/Dock";
+import { LoadingFallback } from "../../shared/feedback/LoadingFallback";
 import { cn } from "../../shared/utils/cn";
-import { useRouter } from "next/navigation";
+import { useAuth } from "../../features/auth/context/AuthContext";
 
 const navItems = [
     { href: "/feed",     label: "Feed",       icon: Home },
@@ -40,7 +43,17 @@ const dockItems = [
     { icon: User,         label: "Wall",     href: "/wall" },
 ];
 
-function LeftNav() {
+/**
+ * Safely validates redirect return URLs to prevent open redirect vulnerabilities.
+ */
+function getSafeReturnUrl(pathname) {
+    if (!pathname || typeof pathname !== "string" || !pathname.startsWith("/") || pathname.startsWith("//") || pathname.includes(":\\")) {
+        return "/feed";
+    }
+    return pathname;
+}
+
+function LeftNav({ onLogout }) {
     const pathname = usePathname();
 
     return (
@@ -81,31 +94,46 @@ function LeftNav() {
             {/* New Post CTA */}
             <Link
                 href="/posts/new"
-                className="mt-6 flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
             >
                 <Plus size={16} aria-hidden="true" />
                 New Post
             </Link>
+
+            {/* Sign Out Button */}
+            <button
+                type="button"
+                onClick={onLogout}
+                className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded-lg cursor-pointer"
+            >
+                <LogOut size={18} aria-hidden="true" />
+                Sign Out
+            </button>
         </aside>
     );
 }
 
-function RightPanel({ user }) {
+function RightPanel({ user, onLogout }) {
     return (
         <aside className="sticky top-0 h-screen w-[260px] shrink-0 overflow-y-auto border-l border-border/50 bg-background px-4 py-6">
             {user ? (
                 <div className="rounded-xl border border-border/50 bg-card p-4">
                     {/* Avatar */}
                     <div className="mb-3 flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-500/20">
-                            <User size={20} className="text-cyan-500" aria-hidden="true" />
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-500 font-bold uppercase">
+                            {user.avatarUrl ? (
+                                /* eslint-disable-next-line @next/next/no-img-element */
+                                <img src={user.avatarUrl} alt={user.name || user.handle} className="h-10 w-10 rounded-full object-cover" />
+                            ) : (
+                                (user.name?.[0] || user.handle?.[0] || "U")
+                            )}
                         </div>
                         <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-foreground">
-                                {user.name}
+                                {user.name || user.handle || "User"}
                             </p>
                             <p className="truncate text-xs text-muted-foreground">
-                                @{user.handle}
+                                {user.handle ? (user.handle.startsWith("@") ? user.handle : `@${user.handle}`) : ""}
                             </p>
                         </div>
                     </div>
@@ -124,42 +152,62 @@ function RightPanel({ user }) {
                         ))}
                     </div>
 
-                    {/* Profile link */}
-                    <Link
-                        href="/wall"
-                        className="mt-3 block rounded-lg border border-border/60 bg-secondary py-1.5 text-center text-xs font-medium text-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                    >
-                        View My Wall
-                    </Link>
+                    {/* Profile & Logout links */}
+                    <div className="mt-3 flex flex-col gap-2">
+                        <Link
+                            href="/wall"
+                            className="block rounded-lg border border-border/60 bg-secondary py-1.5 text-center text-xs font-medium text-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        >
+                            View My Wall
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={onLogout}
+                            className="block w-full rounded-lg border border-destructive/30 bg-destructive/5 py-1.5 text-center text-xs font-medium text-destructive transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive cursor-pointer"
+                        >
+                            Sign Out
+                        </button>
+                    </div>
                 </div>
-            ) : (
-                <div className="rounded-xl border border-border/50 bg-card p-4 text-center">
-                    <YoibiLogo className="mx-auto mb-3 h-8 w-8 text-cyan-500" />
-                    <p className="mb-3 text-sm text-muted-foreground">Sign in to see your profile</p>
-                    <Link
-                        href="/login"
-                        className="block rounded-xl bg-cyan-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                    >
-                        Sign In
-                    </Link>
-                </div>
-            )}
+            ) : null}
         </aside>
     );
 }
 
 export default function ProtectedLayout({ children }) {
-    // user will come from auth context once Better Auth is integrated.
-    // For Phase 1 mock: show placeholder state.
-    const mockUser = null;
+    const { status, user, logout } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
+
+    useEffect(() => {
+        if (status === "unauthenticated") {
+            const safeRedirect = getSafeReturnUrl(pathname);
+            router.replace(`/login?redirect=${encodeURIComponent(safeRedirect)}`);
+        }
+    }, [status, pathname, router]);
+
+    if (status === "loading") {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-background">
+                <LoadingFallback label="Verifying session..." />
+            </div>
+        );
+    }
+
+    if (status === "unauthenticated") {
+        return null;
+    }
+
+    const handleLogout = async () => {
+        await logout();
+        router.push("/login");
+    };
 
     return (
         <div className="relative min-h-screen bg-background">
             {/* ── DESKTOP: 3-column grid ── */}
             <div className="hidden lg:flex lg:max-w-[1152px] lg:mx-auto">
-                <LeftNav />
+                <LeftNav onLogout={handleLogout} />
 
                 <main
                     id="main-content"
@@ -169,7 +217,7 @@ export default function ProtectedLayout({ children }) {
                     {children}
                 </main>
 
-                <RightPanel user={mockUser} />
+                <RightPanel user={user} onLogout={handleLogout} />
             </div>
 
             {/* ── MOBILE / TABLET: header + dock ── */}
@@ -184,6 +232,14 @@ export default function ProtectedLayout({ children }) {
                         <YoibiLogo className="h-7 w-7 text-cyan-500" />
                         <span className="text-base font-bold tracking-tight text-foreground">Yoibi</span>
                     </Link>
+                    <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded"
+                    >
+                        <LogOut size={16} aria-hidden="true" />
+                        Sign Out
+                    </button>
                 </header>
 
                 <main id="main-content" className="flex-1 pb-24" tabIndex={-1}>
@@ -212,3 +268,4 @@ export default function ProtectedLayout({ children }) {
         </div>
     );
 }
+

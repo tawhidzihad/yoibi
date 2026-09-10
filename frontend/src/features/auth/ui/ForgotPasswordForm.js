@@ -8,6 +8,7 @@ import { Mail } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import { Input } from "../../../shared/ui/Input";
 import { YoibiLogo } from "../../../shared/ui/YoibiLogo";
+import { forgetPassword } from "@/lib/auth-client";
 
 const forgotSchema = z.object({
     email: z.string().email("Enter a valid email address"),
@@ -27,16 +28,19 @@ export function ForgotPasswordForm() {
 
     async function onSubmit(data) {
         try {
-            // Phase 1: UI milestone only
-            console.log("Forgot password submit:", data.email);
-            await new Promise((r) => setTimeout(r, 600));
-            // TODO Phase 4: call Better Auth requestPasswordReset
+            const res = await forgetPassword({
+                email: data.email,
+                redirectTo: "/reset-password",
+            });
+            if (res?.error) {
+                setError("root", { message: res.error.message || "Failed to send reset link." });
+            }
         } catch (err) {
             setError("root", { message: err?.message ?? "Something went wrong. Please try again." });
         }
     }
 
-    if (isSubmitSuccessful) {
+    if (isSubmitSuccessful && !errors.root) {
         return (
             <div className="w-full max-w-md text-center">
                 <YoibiLogo className="mx-auto mb-4 h-12 w-12 text-cyan-500" />
@@ -130,3 +134,4 @@ export function ForgotPasswordForm() {
         </div>
     );
 }
+

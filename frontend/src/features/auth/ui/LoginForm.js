@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,36 +10,54 @@ import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import { Input } from "../../../shared/ui/Input";
 import { YoibiLogo } from "../../../shared/ui/YoibiLogo";
+import { useAuth } from "../context/AuthContext";
 
 const loginSchema = z.object({
     email: z.string().email("Enter a valid email address"),
     password: z.string().min(1, "Password is required"),
 });
 
+function getSafeReturnUrl(rawUrl) {
+    if (!rawUrl || typeof rawUrl !== "string" || !rawUrl.startsWith("/") || rawUrl.startsWith("//") || rawUrl.includes(":\\")) {
+        return "/feed";
+    }
+    return rawUrl;
+}
+
 export function LoginForm() {
     const [showPassword, setShowPassword] = useState(false);
+    const [authError, setAuthError] = useState("");
     const searchParams = useSearchParams();
+    const router = useRouter();
+    const { loginEmail, loginGoogle } = useAuth();
     const returnUrl = searchParams.get("returnUrl") || searchParams.get("redirect") || "/feed";
+    const safeReturnUrl = getSafeReturnUrl(returnUrl);
 
     const {
         register,
         handleSubmit,
         formState: { errors, isSubmitting },
-        setError,
     } = useForm({
         resolver: zodResolver(loginSchema),
         defaultValues: { email: "", password: "" },
     });
 
     async function onSubmit(data) {
+        setAuthError("");
         try {
-            // Phase 1: UI milestone — API integration deferred to Phase 4 (Better Auth)
-            console.log("Login submit:", data.email, "returnUrl:", returnUrl);
-            await new Promise((r) => setTimeout(r, 600));
-            // TODO Phase 4: call Better Auth signIn.email() and router.push(returnUrl)
-            alert("In Phase 4 this redirects to: " + returnUrl);
+            await loginEmail({ email: data.email, password: data.password });
+            router.push(safeReturnUrl);
         } catch (err) {
-            setError("root", { message: err?.message ?? "Invalid email or password." });
+            setAuthError(err?.message || "Invalid email or password.");
+        }
+    }
+
+    async function handleGoogleSignIn() {
+        setAuthError("");
+        try {
+            await loginGoogle();
+        } catch (err) {
+            setAuthError(err?.message || "Google sign-in failed.");
         }
     }
 
@@ -142,10 +160,10 @@ export function LoginForm() {
                     )}
                 </div>
 
-                {/* Root error */}
-                {errors.root && (
+                {/* Root / Auth error */}
+                {authError && (
                     <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                        {errors.root.message}
+                        {authError}
                     </div>
                 )}
 
@@ -171,10 +189,7 @@ export function LoginForm() {
                 <button
                     type="button"
                     id="login-google-btn"
-                    onClick={() => {
-                        // TODO Phase 4: call Better Auth signIn.social({ provider: "google" })
-                        alert("Google Sign-In will be available in Phase 4 (Better Auth integration).");
-                    }}
+                    onClick={handleGoogleSignIn}
                     className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-xl border border-border/70 bg-secondary/50 px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                 >
                     {/* Google SVG icon */}
@@ -190,3 +205,4 @@ export function LoginForm() {
         </div>
     );
 }
+

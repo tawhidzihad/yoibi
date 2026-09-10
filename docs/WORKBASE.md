@@ -3,10 +3,10 @@
 This file is a live task scratchpad. The active AI must update it before and during work.
 
 ## Current Task
-- Task ID: TASK-001
-- Title: Phase 0 Audit & Final Master Implementation Plan Alignment (All 59 Requirements)
-- Goal: Perform complete audit, align implementation plan and workbase with all 59 YOIBI project requirements, resolving all conflicts prior to code changes
-- Scope: Workspace audit, `docs/LEGACY-DESIGN-MAP.md`, `docs/WORKBASE.md`, `docs/MODEL-HANDOFF.md`, and master `implementation_plan.md`
+- Task ID: TASK-002
+- Title: Phase 4 — Milestone 1: Authentication & User Profile Integration
+- Goal: Fully integrate Better Auth and User Profile management across Next.js frontend and Express backend applications.
+- Scope: `frontend/src/lib/auth.js`, `frontend/src/app/api/auth/[...all]/route.js`, `frontend/src/lib/auth-client.js`, `frontend/src/lib/api/client.js`, `frontend/src/lib/api/authApi.js`, `frontend/src/features/users/api/usersApi.js`, `frontend/src/features/auth/context/AuthContext.js`, `frontend/src/app/layout.js`, `frontend/src/app/(protected)/layout.js`, auth UI forms (`LoginForm`, `SignupForm`, `VerifyEmailView`, `ForgotPasswordForm`, `ResetPasswordForm`), user profile UI (`WallView`, `EditProfileModal`), and backend controllers (`auth.controller.js`, `users.controller.js`, `user.model.js`).
 
 ## Required References
 - [x] AI-AGENT.md
@@ -18,68 +18,64 @@ This file is a live task scratchpad. The active AI must update it before and dur
 - [x] Legacy reference (legacy/original-yoibi/)
 
 ## Planned Changes
-- Files/folders expected to change:
-  - `docs/LEGACY-DESIGN-MAP.md` (Updated with explicit removal of obsolete signup fields)
-  - `docs/WORKBASE.md` (Live active state tracking)
-  - `docs/MODEL-HANDOFF.md` (Snapshot updated)
-  - Next in Phase 1A: `frontend/package.json`, `frontend/postcss.config.mjs`, `frontend/eslint.config.mjs`, `frontend/src/app/globals.css`, `frontend/public/*`
-  - Next in Phase 1B: `frontend/src/shared/*` (generic UI, media, feedback, utils)
-  - Next in Phase 1C: `frontend/src/app/layout.js`, `frontend/src/app/(protected)/layout.js`, `not-found.js`, `error.js`, `loading.js`
-  - Next in Phase 1D: `frontend/src/features/auth/*` (minimal signup without color/preferences/confetti, login, forgot-password, verify-email UI, reset-password)
-  - Next in Phase 1E: `frontend/src/app/(public)/page.js` (preserved legacy homepage baseline under strict freeze rule)
-  - Next in Phase 1F: `frontend/src/features/*` (feature-owned mock data: posts, tweets, videos, streams, meet-up, users; Post != Tweet)
-- API contract changes: Phase 2 dedicated API & realtime contract completion across all endpoints before backend implementation
-- Database changes: None for Phase 1 frontend foundation
-- Environment variables required: None currently; matrix defined in plan and READMEs
+- Files/folders changed:
+  - `frontend/package.json` & `package-lock.json`: Added `better-auth` v1.7.4 dependency
+  - `frontend/jsconfig.json`: Configured `@/*` path alias mapping to `./src/*`
+  - `frontend/.env.example`: Documented public (`NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_BETTER_AUTH_URL`) and server-only (`BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) variables
+  - `frontend/src/lib/auth.js`: Configured Better Auth server instance with JWT plugin and Google OAuth
+  - `frontend/src/app/api/auth/[...all]/route.js`: App Router route handler for Better Auth
+  - `frontend/src/lib/auth-client.js`: Better Auth client instance with `jwtClient()` plugin
+  - `frontend/src/lib/api/client.js`: Centralized API client attaching `Authorization: Bearer <token>` from Better Auth
+  - `frontend/src/lib/api/authApi.js`: `GET /api/v1/auth/me` helper
+  - `frontend/src/features/users/api/usersApi.js`: `GET /api/v1/users/:handle` and `PATCH /api/v1/users/me` helpers
+  - `frontend/src/features/auth/context/AuthContext.js`: React auth context providing session hydration (`loading`, `authenticated`, `unauthenticated`)
+  - `frontend/src/app/layout.js`: Wrapped application with `AuthProvider`
+  - `frontend/src/app/(protected)/layout.js`: Connected layout to real auth state with loading fallback and safe redirect
+  - `frontend/src/features/auth/ui/LoginForm.js`: Connected login form to Better Auth `loginEmail` & `loginGoogle`
+  - `frontend/src/features/auth/ui/SignupForm.js`: Connected signup form to Better Auth `signupEmail` with email verification requirement
+  - `frontend/src/features/auth/ui/VerifyEmailView.js`: Connected verification view to Better Auth `verifyEmail` & `sendVerificationEmail`
+  - `frontend/src/features/auth/ui/ForgotPasswordForm.js`: Connected forgot password form to Better Auth `forgetPassword`
+  - `frontend/src/features/auth/ui/ResetPasswordForm.js`: Connected reset password form to Better Auth `resetPassword`
+  - `frontend/src/features/users/ui/WallView.js`: Connected wall view to `usersApi.getUserProfile` with loading, error, and not-found states
+  - `frontend/src/features/users/ui/EditProfileModal.js`: Added edit profile modal connected to `usersApi.updateUserProfile`
+  - `backend/src/models/user.model.js`: Updated User model to support string IDs from Better Auth
+  - `backend/src/controllers/read/auth.controller.js`: Updated `getMe` to merge Better Auth identity with live MongoDB profile
+  - `backend/src/controllers/update/users.controller.js`: Updated `updateMe` to upsert MongoDB profile using verified JWT `req.user.id`
 
 ## Implementation Checklist
-- [x] Inspect existing code before editing
-- [x] Verify workspace structure and separate frontend/backend applications
-- [x] Inspect legacy design, colors, fonts, spacing, patterns, assets, skills, workflows
-- [x] Complete `docs/LEGACY-DESIGN-MAP.md`
-- [x] Revise implementation plan resolving all 59 YOIBI project requirements
-- [x] Phase 1A: Setup frontend dependencies (latest stable Next.js 16.3.4, Tailwind v4.3.3, PostCSS, ESLint, globals.css, assets)
-- [x] Phase 1B: Build generic shared UI (`Button`, `Input`, `Textarea`, `Card`, `Modal`, `Logo`, `Dock`), custom video player (`VideoPlayer`), and feedback primitives (`LoadingFallback`, `EmptyState`, `ErrorState`, `UnauthorizedState`)
-- [x] Phase 1C: Implement App Router shell layouts (3-column desktop grid & mobile dock)
-- [x] Phase 1D: Implement minimal Auth pages using React Hook Form (no favorite color, no preferences, clean verification state without confetti)
-- [x] Phase 1E: Port preserved legacy homepage baseline (strict freeze: no early redesign)
-- [x] Phase 1F: Implement protected social feature slices with feature-owned mock data (feed, posts, tweets, videos, streams, meet-up, wall; Post != Tweet)
-- [x] Phase 1G: Run ESLint, production build, responsive testing, and diff verification
-- [x] Phase 2: Design and document complete API contracts (`contracts/API-CONTRACT.md` and `contracts/openapi.yaml`)
-- [x] Phase 3: Implement Backend foundation (CommonJS Express, MongoDB, Better Auth JWT verification, Railway readiness)
-- [ ] Phase 4: Sliced Frontend/Backend integration (DM follow-rule, docs/BAN-DELETION-PLAN.md before ban, real email verification)
-- [ ] Phase 5: Production verification, security review, and deployment checks
-- [x] Update `docs/WORKBASE.md` and `docs/MODEL-HANDOFF.md`
+- [x] Inspect existing frontend and backend code structure
+- [x] Install and configure Better Auth in Next.js App Router
+- [x] Implement JWT acquisition and transport strategy
+- [x] Create centralized frontend API client with 401/403/network error handling
+- [x] Implement session hydration context (`loading`, `authenticated`, `unauthenticated`)
+- [x] Connect protected routes layout to auth state with safe return URL redirect
+- [x] Connect LoginForm, SignupForm, VerifyEmailView, ForgotPasswordForm, ResetPasswordForm to Better Auth
+- [x] Implement `/api/v1/auth/me` source of truth check (Better Auth identity + MongoDB profile data)
+- [x] Connect User Profile UI (`WallView`) and profile edit modal (`EditProfileModal`) to backend APIs
+- [x] Environment variable verification and documentation
+- [x] Run backend test suite (`npm test`) -> 100% passing
+- [x] Run backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
+- [x] Run frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
+- [x] Run frontend production build (`npm run build`) -> 14 static pages generated cleanly
+- [x] Create Git checkpoint commit: `feat: integrate authentication and user profiles`
 
 ## Verification Log
 | Check | Result | Notes |
 |---|---|---|
-| Legacy Audit | Passed | All visual styles, fonts, tokens, assets, and routes inspected |
-| Workspace Separation Check | Passed | Separate frontend and backend apps verified |
-| Node.js / npm environment | Passed | Node v24.15.0, npm 11.15.0 confirmed |
-| Latest Next.js / Tailwind Check | Passed | next@16.3.4, tailwindcss@4.3.3 verified via npm registry |
-| 59 Requirements Audit Alignment | Passed | Master implementation_plan.md created resolving all conflicts |
-| ESLint Check | Passed | ESLint 9 flat config configured; 0 errors, 0 warnings across all frontend and backend code |
-| Frontend Build Check | Passed | Turbopack Next.js 16.3.4 production build succeeded; 14 static pages generated |
-| Git Tracking Check | Passed | Git initialized at workspace root, branch `main`, baseline commit `6d167d0` |
-| Phase 2 API Contract Check | Passed | `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` complete; YAML 3.0.3 verified with `js-yaml` parser |
-| Phase 3 Backend Foundation Check | Passed | Express CommonJS app, MongoDB Mongoose connector, Better Auth JWKS verification middleware, health endpoint `GET /api/v1/health` (200 OK), auth/admin guards, test suite (`npm test`) passing |
-| Contract Consistency Audit | Passed | Verified all Phase 3 endpoints against `contracts/API-CONTRACT.md` and `contracts/openapi.yaml`; aligned user profile endpoints to canonical `GET /api/v1/users/:handle` and `PATCH /api/v1/users/me` with `handle` attached |
+| Backend Test Suite | Passed | `npm test` passed 100% (env, db, health, auth 401, token 401, admin 403) |
+| Backend ESLint | Passed | `npm run lint` passed with 0 errors, 0 warnings |
+| Frontend ESLint | Passed | `npm run lint` passed with 0 errors, 0 warnings |
+| Frontend Production Build | Passed | `npm run build` compiled cleanly; 14 App Router routes static/prerendered |
+| 4-Space Indentation & Tabs | Passed | Verified 4-space indentation and 0 tab characters across codebase |
+| Git Status | Clean | Working tree clean after milestone commit |
 
 ## Git Status
 - Git Initialized: Yes (root `yoibi/`)
 - Current Branch: `main`
-- Latest Commit: `e0b835b` ("feat: establish backend foundation")
+- Latest Commit: `feat: integrate authentication and user profiles`
 - Working Tree State: Clean
 
 ## Completion State
-- Current Phase: Phase 3 Contract Consistency Verified (Ready for Phase 4: Sliced Frontend/Backend Integration)
-- Completed: Full workspace & legacy audit, frontend toolchain (Next.js 16.3.4, Tailwind CSS 4.3.3, ESLint flat config), shared UI and feedback components, App Router shell layouts, minimal auth flow, preserved legacy homepage baseline, feature-owned mock slices, Git tracking initialization, Phase 2 complete API/realtime contracts, Phase 3 CommonJS backend foundation, Contract-Consistency Audit.
-- Remaining: Phase 4 Sliced Integration -> Phase 5 Production Verification
-- Blocked by: None
-- Next exact step: Phase 4 Milestone 1 — Connect Frontend Authentication client to Backend Auth/Profile routes (`GET /api/v1/auth/me`, `GET /api/v1/users/:handle`, `PATCH /api/v1/users/me`).
-
-
-
-
-
+- Current Phase: Phase 4 — Milestone 1: Authentication & User Profile Integration COMPLETE
+- Completed: Full frontend + backend authentication integration, Better Auth client/server routes, JWT acquisition & transport, centralized API client, session hydration, protected layout guard, auth forms, email verification, password reset, profile API endpoints & UI editing, documentation, test suite & linting, production build, Git checkpoint.
+- Next Milestone: Phase 4 — Milestone 2: Feed & Posts Slice Integration (`GET /api/v1/posts`, `POST /api/v1/posts`, `GET /api/v1/posts/:id`, `DELETE /api/v1/posts/:id`, `POST /api/v1/posts/:id/like`).
