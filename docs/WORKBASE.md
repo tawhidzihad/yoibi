@@ -9,7 +9,7 @@ This file is a live task scratchpad. The active AI must update it before and dur
 ## Current Task
 - Task ID: TASK-005
 - Title: Phase 4 — Milestone 4: Videos Slice Integration
-- Status: IN PROGRESS
+- Status: COMPLETED ✓ (commit `3b2c5eb`)
 - Goal: Implement the complete YOIBI video system with server-controlled Cloudinary upload intents, asset provenance verification, separated playback view tracking, responsive category-filtered discovery, and custom HTML5 playback.
 - Scope:
   - Contract:
@@ -33,11 +33,11 @@ This file is a live task scratchpad. The active AI must update it before and dur
       - `VideoList.js` (Responsive grid, loading skeletons, empty state, error retry, pagination).
       - `VideosView.js` (Live API integration, sticky category pills toolbar, upload modal trigger, video stream).
   - Verification Gates:
-    - Backend test suite (`npm test`) -> 100% passing
-    - Backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
-    - Frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
-    - Frontend Next.js production build (`npm run build`) -> 14 static pages generated cleanly
-    - 4-space indentation and zero tabs
+    - Backend test suite (`npm test`) -> 100% passing ✓
+    - Backend ESLint (`npm run lint`) -> 0 errors, 0 warnings ✓
+    - Frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings ✓
+    - Frontend Next.js production build (`npm run build`) -> 14 static pages generated cleanly ✓
+    - 4-space indentation and zero tabs ✓
 
 ## Required References
 - [x] AI-AGENT.md
@@ -50,23 +50,29 @@ This file is a live task scratchpad. The active AI must update it before and dur
 
 ## Implementation Checklist
 - [x] Synchronize API contracts (`API-CONTRACT.md`, `openapi.yaml`)
-- [ ] Backend: Cloudinary integration & upload intent store (`cloudinary.js`)
-- [ ] Backend: Video model schema & indexes (`video.model.js`)
-- [ ] Backend: Videos repository layer (`videos.repository.js`)
-- [ ] Backend: Videos Zod validators (`videos.validator.js`)
-- [ ] Backend: Videos CRUD services (create, read, update, delete)
-- [ ] Backend: Videos CRUD controllers (create, read, update, delete)
-- [ ] Backend: Videos routes & index mount (`videos.routes.js`, `index.js`)
-- [ ] Backend: Automated in-process test suite (`videos.test.js`, `index.js`)
-- [ ] Frontend: `videosApi.js` API client integration
-- [ ] Frontend: `UploadVideoModal.js` (React Hook Form + Zod, 100MB limit, progress tracking)
-- [ ] Frontend: `VideoCard.js` (Thumbnail, duration, author, views/likes, delete modal)
-- [ ] Frontend: `VideoPlayerModal.js` (Playback initiation view trigger, custom VideoPlayer)
-- [ ] Frontend: `VideoList.js` (Responsive grid, loading skeletons, empty/error/pagination)
-- [ ] Frontend: `VideosView.js` (Connected to live API, category pills filter, upload button)
-- [ ] Run backend tests (`npm test`) -> 100% passing
-- [ ] Run backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
-- [ ] Run frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
-- [ ] Run frontend production build (`npm run build`) -> Clean compile
-- [ ] Update documentation (`README.md`, `WORKBASE.md`, `MODEL-HANDOFF.md`)
-- [ ] Git checkpoint commit
+- [x] Backend: Cloudinary integration & upload intent store (`cloudinary.js`)
+- [x] Backend: Video model schema & indexes (`video.model.js`)
+- [x] Backend: Videos repository layer (`videos.repository.js`)
+- [x] Backend: Videos Zod validators (`videos.validator.js`)
+- [x] Backend: Videos CRUD services (create, read, update, delete)
+- [x] Backend: Videos CRUD controllers (create, read, update, delete)
+- [x] Backend: Videos routes & index mount (`videos.routes.js`, `index.js`)
+- [x] Backend: Automated in-process test suite (`videos.test.js`, `index.js`)
+- [x] Frontend: `videosApi.js` API client integration
+- [x] Frontend: `UploadVideoModal.js` (React Hook Form + Zod, 100MB limit, progress tracking)
+- [x] Frontend: `VideoCard.js` (Thumbnail, duration, author, views/likes, delete modal)
+- [x] Frontend: `VideoPlayerModal.js` (Playback initiation view trigger, custom VideoPlayer)
+- [x] Frontend: `VideoList.js` (Responsive grid, loading skeletons, empty/error/pagination)
+- [x] Frontend: `VideosView.js` (Connected to live API, category pills filter, upload button)
+- [x] Run backend tests (`npm test`) -> 100% passing
+- [x] Run backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
+- [x] Run frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
+- [x] Run frontend production build (`npm run build`) -> Clean compile
+- [x] Update documentation (`README.md`, `WORKBASE.md`, `MODEL-HANDOFF.md`)
+- [x] Git checkpoint commit (`3b2c5eb`)
+
+## Next Task
+- Task ID: TASK-006
+- Title: Phase 4 — Milestone 5: Streams Slice Integration (LiveKit broadcast streams)
+- Status: PENDING
+- Goal: Implement the YOIBI live broadcast system with LiveKit token issuance, stream lifecycle management (create/join/end), and frontend viewer/streamer UI.
