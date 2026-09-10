@@ -83,7 +83,8 @@ async function verifyJwt(req, res, next) {
             id: payload.sub || payload.id,
             email: payload.email,
             name: payload.name || "",
-            username: payload.username || "",
+            handle: payload.handle || (payload.username ? `@${payload.username.replace(/^@/, "")}` : ""),
+            username: payload.username || (payload.handle ? payload.handle.replace(/^@/, "") : ""),
             role: payload.role || "user",
             isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
             isBlocked: Boolean(payload.isBlocked)

@@ -40,24 +40,25 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
 
-  /users/{username}:
+  /users/{handle}:
     get:
-      summary: Get user public profile
+      summary: Get user public profile by handle
       parameters:
-        - name: username
+        - name: handle
           in: path
           required: true
           schema:
             type: string
+            example: "@janedoe"
       responses:
         '200':
           description: Public user profile
         '404':
           $ref: '#/components/responses/NotFoundError'
 
-  /users/profile:
+  /users/me:
     patch:
-      summary: Update user profile
+      summary: Update authenticated user profile
       security:
         - bearerAuth: []
       requestBody:
@@ -807,9 +808,9 @@ components:
             name:
               type: string
               example: Jane Doe
-            username:
+            handle:
               type: string
-              example: janedoe
+              example: "@janedoe"
             role:
               type: string
               example: user

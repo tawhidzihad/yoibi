@@ -7,18 +7,19 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-11
-- Active task: Phase 3 Backend Foundation (Completed & Verified)
-- Overall phase: Phase 3 Backend Foundation (Completed & Verified) → Phase 4 Sliced Frontend/Backend Integration
+- Active task: Phase 3 Contract-Consistency Audit (Completed & Verified)
+- Overall phase: Phase 3 Backend Foundation & Contract Consistency (Completed & Verified) → Phase 4 Sliced Frontend/Backend Integration
 - Git repository status: Initialized at `yoibi/` root, tracking frontend, backend, contracts, docs, skills, configs
 - Current branch: `main`
-- Baseline commit: `6d167d0` ("chore: initialize yoibi workspace")
+- Latest commit: `e0b835b` ("feat: establish backend foundation")
 - Working tree state: Clean
-- Last completed step: Established complete CommonJS Express backend foundation (`backend/src/app.js`, `backend/src/server.js`), environment validator (`backend/src/config/env.js`), Mongoose MongoDB connection manager (`backend/src/config/db.js`), Better Auth JWKS verification middleware (`backend/src/middleware/auth.js`), authorization guards (`backend/src/middleware/authorize.js`), error handlers, and `/api/v1/health`. Successfully verified via `npm test` and `npm run lint`.
+- Last completed step: Performed full contract-consistency audit. Aligned user profile endpoints to canonical `GET /api/v1/users/:handle` and `PATCH /api/v1/users/me` across `contracts/API-CONTRACT.md` and `contracts/openapi.yaml`. Updated `backend/src/middleware/auth.js` to ensure verified `req.user.handle` is attached. Validated all Phase 3 endpoints and confirmed zero undocumented routes exist.
 - Current step: Transitioning to Phase 4 (Sliced Frontend/Backend Integration)
-- Next exact step: Phase 4 Milestone 1 — Integrate Frontend Authentication & Profile with Backend (`/api/v1/auth/me`, `/api/v1/users/profile`).
+- Next exact step: Phase 4 Milestone 1 — Integrate Frontend Authentication & Profile with Backend (`/api/v1/auth/me`, `GET /api/v1/users/:handle`, `PATCH /api/v1/users/me`).
 
 ## What Is Working
-- Git repository initialized at root `yoibi/` on branch `main` with baseline commit `6d167d0`
+- Contract consistency verified: 100% synchronization between implementation, `contracts/API-CONTRACT.md`, and `contracts/openapi.yaml`
+- Git repository initialized at root `yoibi/` on branch `main` with baseline commit `6d167d0` and foundation commit `e0b835b`
 - Root `.gitignore` in place protecting all secrets, `.env*` files, `node_modules/`, `.next/`, and caches while tracking `.env.example`
 - Complete human-readable API contract (`contracts/API-CONTRACT.md`)
 - Complete machine-readable OpenAPI 3.0.3 specification (`contracts/openapi.yaml`)

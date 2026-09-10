@@ -64,19 +64,20 @@ This file is a live task scratchpad. The active AI must update it before and dur
 | Git Tracking Check | Passed | Git initialized at workspace root, branch `main`, baseline commit `6d167d0` |
 | Phase 2 API Contract Check | Passed | `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` complete; YAML 3.0.3 verified with `js-yaml` parser |
 | Phase 3 Backend Foundation Check | Passed | Express CommonJS app, MongoDB Mongoose connector, Better Auth JWKS verification middleware, health endpoint `GET /api/v1/health` (200 OK), auth/admin guards, test suite (`npm test`) passing |
+| Contract Consistency Audit | Passed | Verified all Phase 3 endpoints against `contracts/API-CONTRACT.md` and `contracts/openapi.yaml`; aligned user profile endpoints to canonical `GET /api/v1/users/:handle` and `PATCH /api/v1/users/me` with `handle` attached |
 
 ## Git Status
 - Git Initialized: Yes (root `yoibi/`)
 - Current Branch: `main`
-- Baseline Commit: `6d167d0` ("chore: initialize yoibi workspace")
-- Working Tree State: Staging Phase 3 checkpoint
+- Latest Commit: `e0b835b` ("feat: establish backend foundation")
+- Working Tree State: Clean
 
 ## Completion State
-- Current Phase: Phase 3 Backend Foundation Completed & Verified (Transitioning to Phase 4: Sliced Frontend/Backend Integration)
-- Completed: Full workspace & legacy audit, frontend toolchain (Next.js 16.3.4, Tailwind CSS 4.3.3, ESLint flat config), shared UI and feedback components, App Router shell layouts, minimal auth flow, preserved legacy homepage baseline, feature-owned mock slices, Git tracking initialization, Phase 2 complete API/realtime contracts, Phase 3 CommonJS backend foundation (`express`, `helmet`, `cors`, `mongoose`, `jose`, `dotenv`, health endpoint, error handling, auth middleware, test suite).
+- Current Phase: Phase 3 Contract Consistency Verified (Ready for Phase 4: Sliced Frontend/Backend Integration)
+- Completed: Full workspace & legacy audit, frontend toolchain (Next.js 16.3.4, Tailwind CSS 4.3.3, ESLint flat config), shared UI and feedback components, App Router shell layouts, minimal auth flow, preserved legacy homepage baseline, feature-owned mock slices, Git tracking initialization, Phase 2 complete API/realtime contracts, Phase 3 CommonJS backend foundation, Contract-Consistency Audit.
 - Remaining: Phase 4 Sliced Integration -> Phase 5 Production Verification
 - Blocked by: None
-- Next exact step: Phase 4 Milestone 1 — Connect Frontend Authentication client to Backend Auth/Profile routes (`GET /api/v1/auth/me`, `PATCH /api/v1/users/profile`).
+- Next exact step: Phase 4 Milestone 1 — Connect Frontend Authentication client to Backend Auth/Profile routes (`GET /api/v1/auth/me`, `GET /api/v1/users/:handle`, `PATCH /api/v1/users/me`).
 
 
 

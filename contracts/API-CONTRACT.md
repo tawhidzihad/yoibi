@@ -114,7 +114,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
           "id": "usr_65e1a2b3",
           "email": "user@yoibi.com",
           "name": "Jane Doe",
-          "username": "janedoe",
+          "handle": "@janedoe",
           "role": "user",
           "isEmailVerified": true,
           "isBlocked": false,
@@ -131,16 +131,16 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ## 4. Users & Follows
 
-### `GET /api/v1/users/:username`
+### `GET /api/v1/users/:handle`
 - Auth: Optional (if authenticated, returns `isFollowing` and relationship status)
-- Description: Fetch public user profile and follow counts.
+- Description: Fetch public user profile and follow counts by user handle (e.g. `@janedoe` or `janedoe`).
 - Response (200):
   ```json
   {
       "success": true,
       "data": {
           "id": "usr_65e1a2b3",
-          "username": "janedoe",
+          "handle": "@janedoe",
           "name": "Jane Doe",
           "bio": "Building the future of social networks.",
           "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg",
@@ -156,9 +156,9 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   ```
 - Error (404 `NOT_FOUND`): User not found.
 
-### `PATCH /api/v1/users/profile`
+### `PATCH /api/v1/users/me`
 - Auth: Required (`Bearer <token>`)
-- Description: Update profile bio, display name, and avatar.
+- Description: Update current authenticated user profile bio, display name, and avatar.
 - Request Body:
   ```json
   {
