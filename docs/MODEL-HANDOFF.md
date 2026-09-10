@@ -7,24 +7,31 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-11
-- Active task: Phase 2 API & Realtime Contract Design (Completed & Verified)
-- Overall phase: Phase 2 API Contracts (Completed & Verified) → Phase 3 Backend Foundation
+- Active task: Phase 3 Backend Foundation (Completed & Verified)
+- Overall phase: Phase 3 Backend Foundation (Completed & Verified) → Phase 4 Sliced Frontend/Backend Integration
 - Git repository status: Initialized at `yoibi/` root, tracking frontend, backend, contracts, docs, skills, configs
 - Current branch: `main`
 - Baseline commit: `6d167d0` ("chore: initialize yoibi workspace")
 - Working tree state: Clean
-- Last completed step: Documented complete API & Realtime contracts in `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` covering all 8 feature domains, standard envelopes, error codes, Socket.IO realtime events, LiveKit token endpoints, and admin moderation rules. Verified OpenAPI YAML validity using `js-yaml` parser.
-- Current step: Transitioning to Phase 3 (Backend Foundation)
-- Next exact step: Phase 3 Backend Foundation — Setup CommonJS Express app (`backend/src/app.js`, `backend/src/server.js`), MongoDB Mongoose schemas, Better Auth JWKS verification middleware (`backend/src/middleware/auth.js`), and health check endpoint `/api/v1/health`.
+- Last completed step: Established complete CommonJS Express backend foundation (`backend/src/app.js`, `backend/src/server.js`), environment validator (`backend/src/config/env.js`), Mongoose MongoDB connection manager (`backend/src/config/db.js`), Better Auth JWKS verification middleware (`backend/src/middleware/auth.js`), authorization guards (`backend/src/middleware/authorize.js`), error handlers, and `/api/v1/health`. Successfully verified via `npm test` and `npm run lint`.
+- Current step: Transitioning to Phase 4 (Sliced Frontend/Backend Integration)
+- Next exact step: Phase 4 Milestone 1 — Integrate Frontend Authentication & Profile with Backend (`/api/v1/auth/me`, `/api/v1/users/profile`).
 
 ## What Is Working
 - Git repository initialized at root `yoibi/` on branch `main` with baseline commit `6d167d0`
 - Root `.gitignore` in place protecting all secrets, `.env*` files, `node_modules/`, `.next/`, and caches while tracking `.env.example`
 - Complete human-readable API contract (`contracts/API-CONTRACT.md`)
 - Complete machine-readable OpenAPI 3.0.3 specification (`contracts/openapi.yaml`)
+- Backend CommonJS Express foundation (`express`, `helmet`, `cors`, `dotenv`, `mongoose`, `jose`)
+- Health check endpoint `GET /api/v1/health` responding with 200 OK
+- Centralized error handler returning standard `{ success: false, error: { code, message, fields } }` envelope
+- JWT verification middleware verifying Bearer tokens via Better Auth JWKS and attaching verified `req.user`
+- Authorization guards (`requireAuth`, `requireAdmin`, `requireOwnerOrAdmin`)
+- Backend test suite (`npm test`) fully passing: env validation, db status, health endpoint, 404 handler, unauthorized access (401), invalid token (401), and admin guards (403)
+- Backend ESLint passing with 0 errors and 0 warnings (`npm run lint`)
 - Frontend stack running Next.js 16.3.4 (Turbopack), React 19, Tailwind CSS 4.3.3, Lucide React, Motion
-- ESLint flat configuration working cleanly with 0 errors and 0 warnings (`npm run lint`)
-- Production build passing with 14 static App Router pages prerendered (`npm run build`)
+- Frontend ESLint passing cleanly (`npm run lint`)
+- Frontend production build passing with 14 static App Router pages prerendered (`npm run build`)
 - App Router layout hierarchy active: 3-column desktop shell with mobile dock
 - Minimal auth pages active: signup (minimal fields only, no favorite color/preferences/confetti), login, forgot-password, verify-email, reset-password
 - Preserved legacy homepage baseline intact under strict freeze rule
@@ -32,27 +39,45 @@ At the end of every meaningful session/task, the active model must update this f
 - Strict separation maintained: Post != Tweet, zero cross-feature private imports
 
 ## What Is Not Working
-- Backend implementation in `backend/` has not started yet (scheduled for Phase 3)
+- Features are currently running on feature-owned mock data pending Phase 4 API client wiring
 
 ## Files Changed in Latest Session
-- `contracts/API-CONTRACT.md`
-- `contracts/openapi.yaml`
+- `backend/package.json`
+- `backend/eslint.config.js`
+- `backend/README.md`
+- `backend/src/app.js`
+- `backend/src/server.js`
+- `backend/src/config/env.js`
+- `backend/src/config/db.js`
+- `backend/src/middleware/auth.js`
+- `backend/src/middleware/authorize.js`
+- `backend/src/middleware/errorHandler.js`
+- `backend/src/middleware/cors.js`
+- `backend/src/controllers/read/health.controller.js`
+- `backend/src/controllers/read/auth.controller.js`
+- `backend/src/routes/health.routes.js`
+- `backend/src/routes/auth.routes.js`
+- `backend/src/routes/index.js`
+- `backend/tests/foundation.test.js`
 - `docs/WORKBASE.md`
 - `docs/MODEL-HANDOFF.md`
 
 ## API/Contract Changes
-- Completely documented `/api/v1` endpoints across Auth (`/auth/me`), Users (`/users/:username`, `/users/profile`, `/users/:id/follow`, `/users/suggested`), Posts (`/posts`, `/posts/:id`, `/posts/:id/like`, `/posts/:id/comments`), Tweets (`/tweets`, `/tweets/:id`, `/tweets/:id/like`, `/tweets/:id/retweet`, `/tweets/:id/replies`), Media (`/media/upload`), Messaging (`/messages/conversations`, `/messages`, `/messages/conversations/:id/read`), Streams (`/streams`, `/streams/:id/join`, `/streams/:id/end`), Meet-Up (`/meetup/rooms`, `/meetup/rooms/:id/token`), Reports (`/reports`), and Admin (`/admin/stats`, `/admin/users`, `/admin/reports`, `/admin/users/:id/block`, `/admin/users/:id/unblock`, `/admin/users/:id/ban`).
-- Realtime event contracts established for Socket.IO (`join_conversation`, `send_message`, `new_message`, etc.) and LiveKit token generation.
+- None (Phase 3 implements exactly the endpoints defined in Phase 2: `/api/v1/health` and `/api/v1/auth/me`).
 
 ## Database Changes
-- None
+- MongoDB connector initialized via Mongoose; status reporting active.
 
 ## Environment Variables Added/Needed
-- None currently; full ownership matrix documented in master plan
+- Verified safe in `backend/.env.example`. When ready to connect to a live MongoDB instance, set `MONGODB_URI`. When ready to connect to live Better Auth instance, set `BETTER_AUTH_BASE_URL` and `BETTER_AUTH_JWKS_URL`.
 
 ## Tests/Checks Run
 - Directory structure and file checks: All passed
 - Node.js runtime check: Node v24.15.0, npm 11.15.0 passed
+- Backend unit & in-process tests: `npm test` passed 100%
+- Backend ESLint check: `npm run lint` passed with 0 errors, 0 warnings
+- Frontend ESLint check: `npm run lint` passed with 0 errors, 0 warnings
+- Frontend build check: Turbopack Next.js 16.3.4 production build passed with 14 static pages generated
 - Version check on npm: `next@16.3.4` and `tailwindcss@4.3.3` verified
 - Git status check: Checked repository state
 
