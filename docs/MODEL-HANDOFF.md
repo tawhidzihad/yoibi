@@ -8,13 +8,13 @@ At the end of every meaningful session/task, the active model must update this f
 ## Current Snapshot
 - Last updated: 2026-09-11
 - Active task: Phase 4 — Milestone 3: Tweet / Feed Slice Integration (Unified Social Content Domain)
-- Overall phase: Phase 4 — Milestone 3 COMPLETED & VERIFIED
+- Overall phase: Phase 4 — Milestone 3 COMPLETED & COMMITTED
 - Git repository status: Initialized at `yoibi/` root
 - Current branch: `main`
-- Latest commit: `feat: integrate feed and posts`
-- Working tree state: Ready for checkpoint commit
-- Last completed step: Completed Phase 4 — Milestone 3: Tweet / Feed Slice Integration. Built canonical backend Tweet domain (model, repository, Zod validators, CRUD services, controllers, routes, in-process automated tests), frontend Tweet feature (`tweetsApi`, `CreateTweetCard` with RHF + Zod + 280-char live countdown, `TweetCard` with optimistic like & retweet toggle and delete modal, `TweetReplySection` with threaded replies and thread line connectors, `TweetList` with loading skeleton/error retry/empty state/pagination), connected `FeedView` and `TweetsView` to canonical `/api/v1/tweets`, safely cleaned up duplicate Post domain files. All tests, linters, and production builds pass.
-- Next exact step: Commit Phase 4 Milestone 3 changes, then proceed to Phase 4 — Milestone 4 (Videos Slice Integration).
+- Latest commit: `ddd2e48` (`feat: integrate tweet and feed slice`)
+- Working tree state: Clean
+- Last completed step: Created checkpoint commit `ddd2e48` (`feat: integrate tweet and feed slice`). Completed unification of social content domain into canonical `Tweet` domain across backend and frontend, removing obsolete duplicate Post models, repos, validators, services, controllers, routes, and UI components. FeedView and TweetsView consume canonical `/api/v1/tweets`. All quality gates passed (backend tests 100%, backend ESLint 0 errors, frontend ESLint 0 errors, Next.js build 14/14 static pages generated cleanly, 4-space indentation, 0 tabs).
+- Exact next milestone: Phase 4 — Milestone 4: Videos Slice Integration (Shorts & Longform videos).
 
 ## What Is Working
 - Better Auth server & client integration in Next.js (`frontend/src/lib/auth.js`, `frontend/src/lib/auth-client.js`, `/api/auth/[...all]`).
@@ -48,37 +48,6 @@ At the end of every meaningful session/task, the active model must update this f
 ## What Is Not Working / Remaining Scope
 - Videos (Shorts/Longform), Streams (LiveKit integration), Meetup, Messages slices are next for subsequent Phase 4 milestones.
 
-## Files Changed in Latest Session
-- `contracts/API-CONTRACT.md`
-- `contracts/openapi.yaml`
-- `backend/README.md`
-- `frontend/README.md`
-- `backend/src/models/tweet.model.js`
-- `backend/src/repositories/tweets.repository.js`
-- `backend/src/validators/tweets.validator.js`
-- `backend/src/services/create/tweets.service.js`
-- `backend/src/services/read/tweets.service.js`
-- `backend/src/services/update/tweets.service.js`
-- `backend/src/services/delete/tweets.service.js`
-- `backend/src/controllers/create/tweets.controller.js`
-- `backend/src/controllers/read/tweets.controller.js`
-- `backend/src/controllers/update/tweets.controller.js`
-- `backend/src/controllers/delete/tweets.controller.js`
-- `backend/src/routes/tweets.routes.js`
-- `backend/src/routes/index.js`
-- `backend/tests/tweets.test.js`
-- `backend/tests/index.js`
-- `frontend/src/features/tweets/api/tweetsApi.js`
-- `frontend/src/features/tweets/ui/CreateTweetCard.js`
-- `frontend/src/features/tweets/ui/TweetCard.js`
-- `frontend/src/features/tweets/ui/TweetReplySection.js`
-- `frontend/src/features/tweets/ui/TweetList.js`
-- `frontend/src/features/tweets/ui/TweetsView.js`
-- `frontend/src/features/feed/ui/FeedView.js`
-- `docs/WORKBASE.md`
-- `docs/MODEL-HANDOFF.md`
-- Cleaned up obsolete duplicate post files across backend and frontend.
-
 ## Tests/Checks Run
 - Backend tests (`npm test`): Passed 100% (Foundation test suite + Tweets test suite)
 - Backend ESLint (`npm run lint`): 0 errors, 0 warnings
@@ -88,4 +57,4 @@ At the end of every meaningful session/task, the active model must update this f
 - Tab check: Zero tab characters across `frontend/src` and `backend/src`
 
 ## Exact Resume Instruction
-> Commit Phase 4 Milestone 3 changes, then proceed to Phase 4 — Milestone 4 (Videos Slice Integration).
+> Proceed to Phase 4 — Milestone 4 (Videos Slice Integration).

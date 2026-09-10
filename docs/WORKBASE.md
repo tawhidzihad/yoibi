@@ -9,7 +9,8 @@ This file is a live task scratchpad. The active AI must update it before and dur
 ## Current Task
 - Task ID: TASK-004
 - Title: Phase 4 — Milestone 3: Tweet / Feed Slice Integration (Unified Social Content Domain)
-- Goal: Align the social content system to a single canonical `Tweet` domain across backend and frontend, migrating duplicate Post-domain components into `src/features/tweets` and `backend/src/models/tweet.model.js`.
+- Status: COMPLETED & COMMITTED
+- Checkpoint Commit: `ddd2e48` (`feat: integrate tweet and feed slice`)
 - Scope:
   - Backend:
     - Model: `backend/src/models/tweet.model.js` (Schema with `_id`, `authorId`, `content`, `mediaUrls`, `likes`, `likesCount`, `retweets`, `retweetCount`, `repliesCount`, `replyToId`, `isRetweet`, `quoteTweet`, indexes on `createdAt`, `authorId`, `replyToId`).
@@ -41,35 +42,6 @@ This file is a live task scratchpad. The active AI must update it before and dur
 - [x] API-CONTRACT.md and openapi.yaml
 - [x] Legacy reference (legacy/original-yoibi/)
 
-## Planned Changes
-- `contracts/API-CONTRACT.md`: Unified social content to Section 5 Tweets.
-- `contracts/openapi.yaml`: Removed duplicate `/posts` paths, keeping canonical `/tweets` endpoints.
-- `frontend/README.md` & `backend/README.md`: Documented explicit Tweet entity vs HTTP POST method rule.
-- `backend/src/models/tweet.model.js`: Single Tweet Mongoose model.
-- `backend/src/repositories/tweets.repository.js`: Unified Tweet repository.
-- `backend/src/validators/tweets.validator.js`: Zod validators for Tweets and Replies.
-- `backend/src/services/create/tweets.service.js`
-- `backend/src/services/read/tweets.service.js`
-- `backend/src/services/update/tweets.service.js`
-- `backend/src/services/delete/tweets.service.js`
-- `backend/src/controllers/create/tweets.controller.js`
-- `backend/src/controllers/read/tweets.controller.js`
-- `backend/src/controllers/update/tweets.controller.js`
-- `backend/src/controllers/delete/tweets.controller.js`
-- `backend/src/routes/tweets.routes.js`
-- `backend/src/routes/index.js`
-- `backend/tests/tweets.test.js`
-- `backend/tests/index.js`
-- `frontend/src/features/tweets/api/tweetsApi.js`
-- `frontend/src/features/tweets/ui/CreateTweetCard.js`
-- `frontend/src/features/tweets/ui/TweetCard.js`
-- `frontend/src/features/tweets/ui/TweetReplySection.js`
-- `frontend/src/features/tweets/ui/TweetList.js`
-- `frontend/src/features/tweets/ui/TweetsView.js`
-- `frontend/src/features/feed/ui/FeedView.js`
-- `docs/WORKBASE.md`
-- `docs/MODEL-HANDOFF.md`
-
 ## Implementation Checklist
 - [x] Correct architecture: Define Tweet as single social content entity (`POST` = HTTP method only)
 - [x] Update & synchronize API contracts (`API-CONTRACT.md`, `openapi.yaml`)
@@ -91,7 +63,7 @@ This file is a live task scratchpad. The active AI must update it before and dur
 - [x] Run backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
 - [x] Run frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
 - [x] Run frontend production build (`npm run build`) -> Clean compile (14/14 static pages)
-- [ ] Git checkpoint commit & update MODEL-HANDOFF.md
+- [x] Git checkpoint commit (`ddd2e48`) & update MODEL-HANDOFF.md
 
 ## Verification Log
 | Check | Result | Notes |
@@ -103,15 +75,14 @@ This file is a live task scratchpad. The active AI must update it before and dur
 | Frontend ESLint | Passed | 0 errors, 0 warnings |
 | Frontend Production Build | Passed | 14/14 static pages generated cleanly |
 | 4-Space Indentation & Tabs | Passed | Verified 4-space indentation and 0 tab characters across all files |
-| Git Status | Verified | Ready for checkpoint commit |
+| Git Commit Checkpoint | Passed | Commit `ddd2e48` `feat: integrate tweet and feed slice` |
 
 ## Git Status
 - Git Initialized: Yes (root `yoibi/`)
 - Current Branch: `main`
-- Latest Commit: `feat: integrate feed and posts`
-- Working Tree State: Modified with Phase 4 Milestone 3 Tweet & Feed slice changes
+- Latest Commit: `ddd2e48` (`feat: integrate tweet and feed slice`)
+- Working Tree State: Clean (after docs checkpoint)
 
 ## Completion State
-- Current Phase: Phase 4 — Milestone 3: Tweet / Feed Slice Integration (COMPLETED & VERIFIED)
-- Completed: Unified social content into canonical Tweet domain; created backend schema, repository, validators, services, controllers, routes, tests; created frontend API client, composer with RHF + Zod + 280-char live countdown, interactive tweet card with optimistic likes/retweets, threaded replies section, reusable stream list, updated FeedView and TweetsView; deleted duplicate post domain files.
-- Next Milestone: Phase 4 — Milestone 4: Videos Slice Integration (or next feature in roadmap)
+- Current Phase: Phase 4 — Milestone 3: Tweet / Feed Slice Integration (COMPLETED & COMMITTED)
+- Exact Next Milestone: Phase 4 — Milestone 4: Videos Slice Integration (Shorts & Longform videos)
