@@ -1,28 +1,897 @@
 openapi: 3.0.3
 info:
-  title: YOIBI API
+  title: YOIBI API Specification
   version: 1.0.0
-  description: Human-readable starter contract. Expand each endpoint before implementing it.
+  description: Official OpenAPI contract for the YOIBI modern social platform.
 servers:
   - url: http://localhost:5000/api/v1
+    description: Local Development Server
+  - url: https://api.yoibi.com/api/v1
+    description: Production Server
+
 paths:
   /health:
     get:
       summary: Health check
+      description: Returns lightweight server and database health status.
       responses:
         '200':
-          description: Backend is healthy
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
   /auth/me:
     get:
       summary: Current authenticated user
+      description: Returns the user profile derived from the validated JWT token.
       security:
         - bearerAuth: []
       responses:
         '200':
-          description: Current user
+          description: Authenticated user details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /users/{username}:
+    get:
+      summary: Get user public profile
+      parameters:
+        - name: username
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public user profile
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /users/profile:
+    patch:
+      summary: Update user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                bio:
+                  type: string
+                avatarUrl:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /users/{id}/follow:
+    post:
+      summary: Follow a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User followed successfully
+    delete:
+      summary: Unfollow a user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User unfollowed successfully
+
+  /users/suggested:
+    get:
+      summary: Get suggested accounts to follow
+      responses:
+        '200':
+          description: Suggested accounts list
+
+  /posts:
+    get:
+      summary: List feed posts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, following]
+            default: all
+      responses:
+        '200':
+          description: Paginated posts list
+    post:
+      summary: Create a post
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                media:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      type:
+                        type: string
+                      publicId:
+                        type: string
+      responses:
+        '201':
+          description: Post created successfully
+
+  /posts/{id}:
+    get:
+      summary: Get post by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post details
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete a post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post deleted successfully
+
+  /posts/{id}/like:
+    post:
+      summary: Like a post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post liked
+    delete:
+      summary: Unlike a post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post unliked
+
+  /posts/{id}/comments:
+    get:
+      summary: Get comments for a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of comments
+    post:
+      summary: Add a comment to a post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+      responses:
+        '201':
+          description: Comment created
+
+  /posts/{id}/comments/{commentId}:
+    delete:
+      summary: Delete a comment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comment deleted
+
+  /tweets:
+    get:
+      summary: List micro-post tweets
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated tweets list
+    post:
+      summary: Create a tweet
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 280
+                mediaUrls:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Tweet published
+
+  /tweets/{id}:
+    get:
+      summary: Get tweet details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tweet details
+    delete:
+      summary: Delete a tweet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tweet deleted
+
+  /tweets/{id}/like:
+    post:
+      summary: Like a tweet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tweet liked
+    delete:
+      summary: Unlike a tweet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tweet unliked
+
+  /tweets/{id}/retweet:
+    post:
+      summary: Retweet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Retweet registered
+
+  /tweets/{id}/replies:
+    post:
+      summary: Reply to a tweet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 280
+      responses:
+        '201':
+          description: Reply tweet created
+
+  /media/upload:
+    post:
+      summary: Upload image or video asset via server-side Cloudinary SDK
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                folder:
+                  type: string
+                  enum: [posts, tweets, avatars, videos]
+      responses:
+        '201':
+          description: Media uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaUploadResponse'
+        '413':
+          description: File exceeds size limits (10MB image, 100MB video)
+        '415':
+          description: Unsupported media type
+
+  /messages/conversations:
+    get:
+      summary: List user DM conversations
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of conversations with unread counts
+
+  /messages/conversations/{conversationId}:
+    get:
+      summary: Get paginated message history for a conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: Paginated messages
+
+  /messages:
+    post:
+      summary: Send direct message (enforces DM follow-rule)
+      security:
+        - bearerAuth: []
+      description: Sender must follow recipient; returns 403 DM_FOLLOW_REQUIRED otherwise.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipientId, content]
+              properties:
+                recipientId:
+                  type: string
+                content:
+                  type: string
+      responses:
+        '201':
+          description: Message delivered
+        '403':
+          description: Sender does not follow recipient (DM_FOLLOW_REQUIRED)
+
+  /messages/conversations/{conversationId}/read:
+    patch:
+      summary: Mark conversation messages as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversation marked as read
+
+  /streams:
+    get:
+      summary: List active live streams
+      responses:
+        '200':
+          description: Active streams list
+    post:
+      summary: Create a live stream and generate host LiveKit token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                category:
+                  type: string
+      responses:
+        '201':
+          description: Stream created with host credentials
+
+  /streams/{streamId}/join:
+    post:
+      summary: Join live stream as a viewer
+      parameters:
+        - name: streamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Viewer LiveKit token generated
+
+  /streams/{streamId}/end:
+    post:
+      summary: End live stream (streamer only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: streamId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stream ended
+
+  /meetup/rooms:
+    get:
+      summary: List collaborative meetup rooms
+      responses:
+        '200':
+          description: Active rooms list
+    post:
+      summary: Create collaborative meetup room
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                topic:
+                  type: string
+                maxParticipants:
+                  type: integer
+                  default: 12
+      responses:
+        '201':
+          description: Room created with host token
+
+  /meetup/rooms/{roomId}/token:
+    post:
+      summary: Generate participant token for LiveKit audio/video/screen
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Room token generated
+
+  /reports:
+    post:
+      summary: Submit content or user moderation report
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [targetType, targetId, reason]
+              properties:
+                targetType:
+                  type: string
+                  enum: [post, tweet, user, media]
+                targetId:
+                  type: string
+                reason:
+                  type: string
+                details:
+                  type: string
+      responses:
+        '201':
+          description: Report submitted
+
+  /admin/stats:
+    get:
+      summary: Admin dashboard statistics overview
+      security:
+        - bearerAuth: []
+      description: Requires admin role.
+      responses:
+        '200':
+          description: Platform statistics
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/users:
+    get:
+      summary: Admin list and filter users
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, active, blocked]
+      responses:
+        '200':
+          description: Paginated users list
+
+  /admin/reports:
+    get:
+      summary: Admin list moderation reports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, resolved, dismissed]
+      responses:
+        '200':
+          description: Paginated reports
+
+  /admin/users/{id}/block:
+    post:
+      summary: Block user account (sets isBlocked=true, requires reason)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                notifyEmail:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: User account blocked successfully
+
+  /admin/users/{id}/unblock:
+    post:
+      summary: Unblock user account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User unblocked successfully
+
+  /admin/users/{id}/ban:
+    post:
+      summary: Destructive cascade purge of user account
+      security:
+        - bearerAuth: []
+      description: Destructive purge per docs/BAN-DELETION-PLAN.md. Requires explicit confirmation parameter.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirm, reason]
+              properties:
+                confirm:
+                  type: boolean
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: User account and all cascading data permanently purged
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            status:
+              type: string
+              example: healthy
+            timestamp:
+              type: string
+              format: date-time
+            database:
+              type: string
+              example: connected
+            version:
+              type: string
+              example: 1.0.0
+        message:
+          type: string
+          example: Backend service healthy
+
+    UserMeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              example: usr_65e1a2b3
+            email:
+              type: string
+              format: email
+              example: user@yoibi.com
+            name:
+              type: string
+              example: Jane Doe
+            username:
+              type: string
+              example: janedoe
+            role:
+              type: string
+              example: user
+            isEmailVerified:
+              type: boolean
+              example: true
+            isBlocked:
+              type: boolean
+              example: false
+            avatarUrl:
+              type: string
+              example: https://res.cloudinary.com/.../avatar.jpg
+        message:
+          type: string
+
+    MediaUploadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            publicId:
+              type: string
+              example: yoibi/posts/img_abcdef
+            url:
+              type: string
+              example: https://res.cloudinary.com/.../img_abcdef.webp
+            format:
+              type: string
+              example: webp
+            resourceType:
+              type: string
+              example: image
+            width:
+              type: integer
+              example: 1920
+            height:
+              type: integer
+              example: 1080
+            bytes:
+              type: integer
+              example: 245100
+        message:
+          type: string
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Please correct the form errors.
+            fields:
+              type: object
+
+  responses:
+    UnauthorizedError:
+      description: Access token missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ForbiddenError:
+      description: Access denied or insufficient role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFoundError:
+      description: Resource was not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'

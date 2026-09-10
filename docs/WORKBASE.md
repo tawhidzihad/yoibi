@@ -45,7 +45,7 @@ This file is a live task scratchpad. The active AI must update it before and dur
 - [x] Phase 1E: Port preserved legacy homepage baseline (strict freeze: no early redesign)
 - [x] Phase 1F: Implement protected social feature slices with feature-owned mock data (feed, posts, tweets, videos, streams, meet-up, wall; Post != Tweet)
 - [x] Phase 1G: Run ESLint, production build, responsive testing, and diff verification
-- [ ] Phase 2: Design and document complete API contracts (`contracts/API-CONTRACT.md` and `contracts/openapi.yaml`)
+- [x] Phase 2: Design and document complete API contracts (`contracts/API-CONTRACT.md` and `contracts/openapi.yaml`)
 - [ ] Phase 3: Implement Backend foundation (CommonJS Express, MongoDB, Better Auth JWT verification, Railway readiness)
 - [ ] Phase 4: Sliced Frontend/Backend integration (DM follow-rule, docs/BAN-DELETION-PLAN.md before ban, real email verification)
 - [ ] Phase 5: Production verification, security review, and deployment checks
@@ -62,19 +62,21 @@ This file is a live task scratchpad. The active AI must update it before and dur
 | ESLint Check | Passed | ESLint 9 flat config configured; 0 errors, 0 warnings across all frontend code |
 | Frontend Build Check | Passed | Turbopack Next.js 16.3.4 production build succeeded; 14 static pages generated |
 | Git Tracking Check | Passed | Git initialized at workspace root, branch `main`, baseline commit `6d167d0` |
+| Phase 2 API Contract Check | Passed | `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` complete; YAML 3.0.3 verified with `js-yaml` parser |
 
 ## Git Status
 - Git Initialized: Yes (root `yoibi/`)
 - Current Branch: `main`
 - Baseline Commit: `6d167d0` ("chore: initialize yoibi workspace")
-- Working Tree State: Clean (all secrets/node_modules/.next ignored by root `.gitignore`)
+- Working Tree State: Clean (staged/committed per milestone)
 
 ## Completion State
-- Current Phase: Phase 1 Completed & Verified (Transitioning to Phase 2: Complete API Contract Design)
-- Completed: Full workspace & legacy audit, frontend toolchain (Next.js 16.3.4, Tailwind CSS 4.3.3, ESLint flat config), shared UI and feedback components, App Router shell layouts, minimal auth flow, preserved legacy homepage baseline, feature-owned mock slices (feed, tweets, videos, streams, meetup, messages), ESLint validation, production build, Git tracking initialization & baseline commit.
-- Remaining: Phase 2 API Contracts -> Phase 3 Backend Foundation -> Phase 4 Integration -> Phase 5 Production Verification
+- Current Phase: Phase 2 Completed & Verified (Transitioning to Phase 3: Backend Foundation)
+- Completed: Full workspace & legacy audit, frontend toolchain (Next.js 16.3.4, Tailwind CSS 4.3.3, ESLint flat config), shared UI and feedback components, App Router shell layouts, minimal auth flow, preserved legacy homepage baseline, feature-owned mock slices (feed, tweets, videos, streams, meetup, messages), ESLint validation, production build, Git tracking initialization, Phase 2 complete API and realtime contracts (`contracts/API-CONTRACT.md` and `contracts/openapi.yaml`).
+- Remaining: Phase 3 Backend Foundation -> Phase 4 Integration -> Phase 5 Production Verification
 - Blocked by: None
-- Next exact step: Design and complete `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` covering all endpoints, payload schemas, error formats, and realtime event contracts (Socket.IO + LiveKit) prior to backend coding.
+- Next exact step: Phase 3 Backend Foundation — Setup CommonJS Express app, MongoDB connection repository layer, Better Auth JWKS verification middleware, and Railway readiness scripts.
+
 
 
 

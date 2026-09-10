@@ -7,21 +7,21 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-11
-- Active task: Git Tracking Initialization & Transition to Phase 2 API Contract Design
-- Overall phase: Phase 1 Frontend Foundation (Completed & Verified) → Phase 2 API & Realtime Contract Design
+- Active task: Phase 2 API & Realtime Contract Design (Completed & Verified)
+- Overall phase: Phase 2 API Contracts (Completed & Verified) → Phase 3 Backend Foundation
 - Git repository status: Initialized at `yoibi/` root, tracking frontend, backend, contracts, docs, skills, configs
 - Current branch: `main`
 - Baseline commit: `6d167d0` ("chore: initialize yoibi workspace")
-- Working tree state: Clean (secrets, `.env*`, `node_modules/`, `.next/` properly ignored by root `.gitignore`)
-- Last completed step: Initialized Git at workspace root, created comprehensive `.gitignore`, committed initial baseline `6d167d0`, verified clean working tree, and updated documentation.
-- Current step: Transitioning to Phase 2 (Complete API and Realtime Contract specification)
-- Next exact step: Complete `contracts/API-CONTRACT.md` and expand `contracts/openapi.yaml` for all feature endpoints (Auth, Users/Follows, Posts, Tweets, Media, Messaging/Socket.IO, Streams/LiveKit, Meet-Up/LiveKit, Admin) before starting backend code.
+- Working tree state: Clean
+- Last completed step: Documented complete API & Realtime contracts in `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` covering all 8 feature domains, standard envelopes, error codes, Socket.IO realtime events, LiveKit token endpoints, and admin moderation rules. Verified OpenAPI YAML validity using `js-yaml` parser.
+- Current step: Transitioning to Phase 3 (Backend Foundation)
+- Next exact step: Phase 3 Backend Foundation — Setup CommonJS Express app (`backend/src/app.js`, `backend/src/server.js`), MongoDB Mongoose schemas, Better Auth JWKS verification middleware (`backend/src/middleware/auth.js`), and health check endpoint `/api/v1/health`.
 
 ## What Is Working
 - Git repository initialized at root `yoibi/` on branch `main` with baseline commit `6d167d0`
 - Root `.gitignore` in place protecting all secrets, `.env*` files, `node_modules/`, `.next/`, and caches while tracking `.env.example`
-- Frontend and backend directories verified as separate apps with isolated package manifests
-- Full audit of `legacy/original-yoibi/` complete
+- Complete human-readable API contract (`contracts/API-CONTRACT.md`)
+- Complete machine-readable OpenAPI 3.0.3 specification (`contracts/openapi.yaml`)
 - Frontend stack running Next.js 16.3.4 (Turbopack), React 19, Tailwind CSS 4.3.3, Lucide React, Motion
 - ESLint flat configuration working cleanly with 0 errors and 0 warnings (`npm run lint`)
 - Production build passing with 14 static App Router pages prerendered (`npm run build`)
@@ -32,16 +32,17 @@ At the end of every meaningful session/task, the active model must update this f
 - Strict separation maintained: Post != Tweet, zero cross-feature private imports
 
 ## What Is Not Working
-- Backend implementation in `backend/` has not started yet (strictly awaiting Phase 2 API contract completion as mandated by AI Agent rules)
+- Backend implementation in `backend/` has not started yet (scheduled for Phase 3)
 
 ## Files Changed in Latest Session
-- `docs/LEGACY-DESIGN-MAP.md`
+- `contracts/API-CONTRACT.md`
+- `contracts/openapi.yaml`
 - `docs/WORKBASE.md`
 - `docs/MODEL-HANDOFF.md`
-- `implementation_plan.md` (artifact)
 
 ## API/Contract Changes
-- None yet (Phase 2 dedicated API contract design will document all endpoints before backend implementation)
+- Completely documented `/api/v1` endpoints across Auth (`/auth/me`), Users (`/users/:username`, `/users/profile`, `/users/:id/follow`, `/users/suggested`), Posts (`/posts`, `/posts/:id`, `/posts/:id/like`, `/posts/:id/comments`), Tweets (`/tweets`, `/tweets/:id`, `/tweets/:id/like`, `/tweets/:id/retweet`, `/tweets/:id/replies`), Media (`/media/upload`), Messaging (`/messages/conversations`, `/messages`, `/messages/conversations/:id/read`), Streams (`/streams`, `/streams/:id/join`, `/streams/:id/end`), Meet-Up (`/meetup/rooms`, `/meetup/rooms/:id/token`), Reports (`/reports`), and Admin (`/admin/stats`, `/admin/users`, `/admin/reports`, `/admin/users/:id/block`, `/admin/users/:id/unblock`, `/admin/users/:id/ban`).
+- Realtime event contracts established for Socket.IO (`join_conversation`, `send_message`, `new_message`, etc.) and LiveKit token generation.
 
 ## Database Changes
 - None
