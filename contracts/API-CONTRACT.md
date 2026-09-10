@@ -201,113 +201,88 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ---
 
-## 5. Posts (General Social Feed)
+## 5. Tweets (YOIBI Social Content Domain)
 
-> **Domain Boundary Note:** `Posts` and `Tweets` are strictly independent domains (`Post != Tweet`). Posts represent media-rich, long-form or community wall posts with comments and reactions.
+> **Architectural Standard:** In YOIBI, `Tweet` is the primary social content entity. `POST` is strictly an HTTP request method (e.g. `POST /api/v1/tweets`), not a separate content domain. Feed is a presentation and discovery view of Tweets.
+> 
+> A Tweet supports short text updates (≤ 280 characters), optional media URLs, likes, retweets, threaded replies (via `replyToId`), interaction counts, and authenticated user interaction states.
 
-### `GET /api/v1/posts`
-- Auth: Optional (personalized if authenticated)
+### `GET /api/v1/tweets`
+- Auth: Optional (personalizes `liked` and `retweeted` state if authenticated)
 - Query Parameters:
   - `page` (default `1`)
   - `limit` (default `20`, max `50`)
+  - `authorId` (optional)
   - `filter`: `all` | `following`
-- Response (200): Paginated list of posts with author info, media attachments, like counts, and comments count.
-
-### `POST /api/v1/posts`
-- Auth: Required (`Bearer <token>`)
-- Request Body:
-  ```json
-  {
-      "content": "Check out this amazing architectural render!",
-      "media": [
-          {
-              "url": "https://res.cloudinary.com/.../render.jpg",
-              "type": "image",
-              "publicId": "yoibi/posts/img_12345"
-          }
-      ]
-  }
-  ```
-- Response (201): Created post object.
-- Error (422 `VALIDATION_ERROR`): Content and media cannot both be empty.
-
-### `GET /api/v1/posts/:id`
-- Auth: Optional
-- Response (200): Post details with complete comment thread.
-
-### `DELETE /api/v1/posts/:id`
-- Auth: Required (`Bearer <token>`)
-- Authorization: Must be post author or user with role `admin`.
-- Response (200):
-  ```json
-  {
-      "success": true,
-      "data": { "deletedId": "post_789" },
-      "message": "Post deleted successfully"
-  }
-  ```
-- Error (403 `FORBIDDEN`): Not authorized to delete this post.
-
-### `POST /api/v1/posts/:id/like`
-- Auth: Required (`Bearer <token>`)
-- Response (200): `{ "liked": true, "likesCount": 43 }`
-
-### `DELETE /api/v1/posts/:id/like`
-- Auth: Required (`Bearer <token>`)
-- Response (200): `{ "liked": false, "likesCount": 42 }`
-
-### `POST /api/v1/posts/:id/comments`
-- Auth: Required (`Bearer <token>`)
-- Request Body: `{ "content": "Brilliant work!" }`
-- Response (201): Created comment object.
-
-### `DELETE /api/v1/posts/:id/comments/:commentId`
-- Auth: Required (`Bearer <token>`)
-- Authorization: Must be comment author, post author, or `admin`.
-
----
-
-## 6. Tweets (Micro-posts Domain)
-
-> **Domain Boundary Note:** `Tweets` represent short status updates (<= 280 characters) supporting replies, retweets, and likes.
-
-### `GET /api/v1/tweets`
-- Auth: Optional
-- Query Parameters: `page`, `limit`, `authorId`
-- Response (200): Paginated list of tweets.
+- Response (200): Paginated list of tweets with author details, media URLs, like count, retweet count, and reply count.
 
 ### `POST /api/v1/tweets`
 - Auth: Required (`Bearer <token>`)
+- Description: Create a new tweet.
 - Request Body:
   ```json
   {
-      "content": "Launching YOIBI Phase 2 API specifications today. Clean, typed contracts! #dev #web",
+      "content": "Launching YOIBI Phase 4. Clean, typed micro-posts! #dev #web",
       "mediaUrls": []
   }
   ```
 - Response (201): Created tweet object.
 - Error (422 `VALIDATION_ERROR`): Content exceeds 280 characters or is empty.
 
+### `GET /api/v1/tweets/:id`
+- Auth: Optional (marks `liked` and `retweeted` if authenticated)
+- Description: Get tweet details including direct replies thread.
+- Response (200): Tweet object with author info and replies list.
+- Error (404 `NOT_FOUND`): Tweet not found.
+
 ### `DELETE /api/v1/tweets/:id`
 - Auth: Required (`Bearer <token>`)
-- Authorization: Must be tweet author or `admin`.
+- Authorization: Must be tweet author (`req.user.id === tweet.authorId`) or user with role `admin`.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": { "deletedId": "tweet_123" },
+      "message": "Tweet deleted successfully"
+  }
+  ```
+- Error (403 `FORBIDDEN`): Not authorized to delete this tweet.
+- Error (404 `NOT_FOUND`): Tweet not found.
 
 ### `POST /api/v1/tweets/:id/like`
 - Auth: Required (`Bearer <token>`)
 - Response (200): `{ "liked": true, "likesCount": 12 }`
 
+### `DELETE /api/v1/tweets/:id/like`
+- Auth: Required (`Bearer <token>`)
+- Response (200): `{ "liked": false, "likesCount": 11 }`
+
 ### `POST /api/v1/tweets/:id/retweet`
 - Auth: Required (`Bearer <token>`)
 - Response (200): `{ "retweeted": true, "retweetsCount": 5 }`
 
+### `DELETE /api/v1/tweets/:id/retweet`
+- Auth: Required (`Bearer <token>`)
+- Response (200): `{ "retweeted": false, "retweetsCount": 4 }`
+
+### `GET /api/v1/tweets/:id/replies`
+- Auth: Optional
+- Response (200): List of reply tweets linked via `replyToId`.
+
 ### `POST /api/v1/tweets/:id/replies`
 - Auth: Required (`Bearer <token>`)
-- Request Body: `{ "content": "Exciting update!" }`
+- Request Body:
+  ```json
+  {
+      "content": "Exciting update!",
+      "mediaUrls": []
+  }
+  ```
 - Response (201): Created reply tweet object linked via `replyToId`.
 
 ---
 
-## 7. Media & Uploads (Cloudinary Integration)
+## 6. Media & Uploads (Cloudinary Integration)
 
 > **Security Rule:** Private Cloudinary API secret is never exposed to the browser. Uploads use server-side signed streams or authenticated endpoint dispatch.
 

@@ -7,14 +7,14 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-11
-- Active task: Phase 4 — Milestone 2: Feed & Posts Slice Integration (Completed & Verified)
-- Overall phase: Phase 4 — Milestone 2 Complete -> Next: Phase 4 — Milestone 3
+- Active task: Phase 4 — Milestone 3: Tweet / Feed Slice Integration (Unified Social Content Domain)
+- Overall phase: Phase 4 — Milestone 3 COMPLETED & VERIFIED
 - Git repository status: Initialized at `yoibi/` root
 - Current branch: `main`
 - Latest commit: `feat: integrate feed and posts`
-- Working tree state: Clean
-- Last completed step: Implemented backend Post domain and Comment domain (`post.model.js`, `posts.repository.js`, create/read/update/delete services, controllers, Zod validation schemas, `posts.routes.js`, `tests/posts.test.js`, and test runner `tests/index.js`), frontend `postsApi.js` centralized client, React Hook Form post creator (`CreatePostCard.js`), optimistic like/share/delete post card (`PostCard.js`), threaded comment section (`CommentSection.js`), paginated feed stream (`PostList.js`), and integrated `FeedView.js` connected to real backend APIs. Verified with backend tests (100%), backend ESLint (0 errors, 0 warnings), frontend ESLint (0 errors, 0 warnings), and Next.js production build (14 static pages generated cleanly).
-- Next exact step: Phase 4 — Milestone 3.
+- Working tree state: Ready for checkpoint commit
+- Last completed step: Completed Phase 4 — Milestone 3: Tweet / Feed Slice Integration. Built canonical backend Tweet domain (model, repository, Zod validators, CRUD services, controllers, routes, in-process automated tests), frontend Tweet feature (`tweetsApi`, `CreateTweetCard` with RHF + Zod + 280-char live countdown, `TweetCard` with optimistic like & retweet toggle and delete modal, `TweetReplySection` with threaded replies and thread line connectors, `TweetList` with loading skeleton/error retry/empty state/pagination), connected `FeedView` and `TweetsView` to canonical `/api/v1/tweets`, safely cleaned up duplicate Post domain files. All tests, linters, and production builds pass.
+- Next exact step: Commit Phase 4 Milestone 3 changes, then proceed to Phase 4 — Milestone 4 (Videos Slice Integration).
 
 ## What Is Working
 - Better Auth server & client integration in Next.js (`frontend/src/lib/auth.js`, `frontend/src/lib/auth-client.js`, `/api/auth/[...all]`).
@@ -25,64 +25,62 @@ At the end of every meaningful session/task, the active model must update this f
 - Auth UI forms (`LoginForm`, `SignupForm`, `VerifyEmailView`, `ForgotPasswordForm`, `ResetPasswordForm`) connected to Better Auth flows.
 - Source of truth for `/api/v1/auth/me`: Better Auth JWT (identity: id, email, role, isEmailVerified, isBlocked) merged with live MongoDB `User` collection (profile: name, handle, avatarUrl, bio).
 - Profile endpoints (`GET /api/v1/users/:handle`, `PATCH /api/v1/users/me`) and frontend `WallView` + `EditProfileModal`.
-- **Post & Feed Backend:**
-  - Mongoose schema `Post` (`backend/src/models/post.model.js`) with indexes on `createdAt` and `authorId`.
-  - Repository layer (`backend/src/repositories/posts.repository.js`) supporting CRUD, pagination, author enrichment, and disconnected DB safety.
-  - Zod validators (`backend/src/validators/posts.validator.js`) for `createPost`, `listPostsQuery`, `postIdParam`, `createComment`, `commentParams`.
-  - CRUD Services: create (`createPost`), read (`listPosts`, `getPostById`), update (`likePost`, `unlikePost`), delete (`deletePost` with author/admin verification), and comment services (`createComment`, `getComments`, `deleteComment`).
-  - Controllers and route definitions (`backend/src/routes/posts.routes.js`) mounted on `/api/v1`.
-  - Automated test runner (`backend/tests/index.js`) executing foundation + posts test suites.
-- **Post & Feed Frontend:**
-  - Centralized posts API helper (`frontend/src/features/posts/api/postsApi.js`).
-  - `CreatePostCard.js`: React Hook Form + Zod validation, character counter, media URL input, loading states, and unauthenticated redirect.
-  - `PostCard.js`: Author metadata, relative timestamp, media rendering, optimistic like toggling with rollback on failure, comment toggling, link sharing with clipboard feedback, and delete confirmation modal.
-  - `CommentSection.js`: Threaded comments list, React Hook Form + Zod comment composer, live comment counter sync, and author/admin delete capabilities.
-  - `PostList.js`: Feed rendering with `LoadingFallback`, `ErrorState` retry, `EmptyState`, and "Load more" pagination.
-  - `FeedView.js`: Main feed page connected to live posts API with All/Following filter tabs and instant post creation prepending.
-- Backend test suite (`npm test`) passing 100%.
+- **Tweet & Feed Backend (Unified Domain):**
+  - Mongoose schema `Tweet` (`backend/src/models/tweet.model.js`) with indexes on `createdAt`, `authorId`, `replyToId`.
+  - Repository layer (`backend/src/repositories/tweets.repository.js`) supporting CRUD, atomic like/retweet increments, pagination, author enrichment, reply lookup, and disconnected DB safety.
+  - Zod validators (`backend/src/validators/tweets.validator.js`) for `createTweet` (1-280 chars), `listTweetsQuery`, `tweetIdParam`, `createReply`.
+  - CRUD Services: create (`createTweet`), read (`listTweets`, `getTweetById`, `getReplies`), update (`likeTweet`, `unlikeTweet`, `retweetTweet`, `undoRetweet`), delete (`deleteTweet` with author/admin verification).
+  - Controllers and route definitions (`backend/src/routes/tweets.routes.js`) mounted on `/api/v1/tweets`.
+  - In-process automated test runner (`backend/tests/index.js`, `backend/tests/tweets.test.js`) verifying HTTP endpoints, validation limits, service boundaries, and security rules.
+- **Tweet & Feed Frontend:**
+  - Centralized tweets API client helper (`frontend/src/features/tweets/api/tweetsApi.js`).
+  - `CreateTweetCard.js`: React Hook Form + Zod validation, 280-char live countdown counter, media URL input, loading states, and unauthenticated login redirect.
+  - `TweetCard.js`: Author metadata, relative timestamp, media rendering, optimistic like toggling with rollback, optimistic retweet toggling with rollback, replies disclosure, link sharing with clipboard feedback, delete confirmation modal, and thread line visualization.
+  - `TweetReplySection.js`: Threaded replies list, React Hook Form + Zod reply composer, live countdown counter, live reply count sync, and author/admin delete capabilities.
+  - `TweetList.js`: Reusable stream rendering with `TweetSkeleton`, error retry fallback, empty state, and "Load more" pagination.
+  - `FeedView.js`: Main feed page connected to live tweets API with All/Following filter tabs and instant tweet creation prepending.
+  - `TweetsView.js`: Dedicated Tweets page connected to live tweets API and composer.
+- Backend test suite (`npm test`) passing 100% (Foundation + Tweets suites).
 - Backend ESLint (`npm run lint`) passing with 0 errors, 0 warnings.
 - Frontend ESLint (`npm run lint`) passing with 0 errors, 0 warnings.
 - Frontend Next.js production build (`npm run build`) passing with 14 static pages generated cleanly.
 
 ## What Is Not Working / Remaining Scope
-- Tweets (Micro-posts domain), Videos, Streams, Meetup, Messages slices are next for subsequent Phase 4 milestones.
+- Videos (Shorts/Longform), Streams (LiveKit integration), Meetup, Messages slices are next for subsequent Phase 4 milestones.
 
 ## Files Changed in Latest Session
-- `backend/package.json`
-- `backend/src/middleware/validate.js`
-- `backend/src/models/post.model.js`
-- `backend/src/repositories/posts.repository.js`
-- `backend/src/validators/posts.validator.js`
-- `backend/src/services/create/posts.service.js`
-- `backend/src/services/read/posts.service.js`
-- `backend/src/services/update/posts.service.js`
-- `backend/src/services/delete/posts.service.js`
-- `backend/src/services/create/comments.service.js`
-- `backend/src/services/read/comments.service.js`
-- `backend/src/services/delete/comments.service.js`
-- `backend/src/controllers/create/posts.controller.js`
-- `backend/src/controllers/read/posts.controller.js`
-- `backend/src/controllers/update/posts.controller.js`
-- `backend/src/controllers/delete/posts.controller.js`
-- `backend/src/controllers/create/comments.controller.js`
-- `backend/src/controllers/read/comments.controller.js`
-- `backend/src/controllers/delete/comments.controller.js`
-- `backend/src/routes/posts.routes.js`
+- `contracts/API-CONTRACT.md`
+- `contracts/openapi.yaml`
+- `backend/README.md`
+- `frontend/README.md`
+- `backend/src/models/tweet.model.js`
+- `backend/src/repositories/tweets.repository.js`
+- `backend/src/validators/tweets.validator.js`
+- `backend/src/services/create/tweets.service.js`
+- `backend/src/services/read/tweets.service.js`
+- `backend/src/services/update/tweets.service.js`
+- `backend/src/services/delete/tweets.service.js`
+- `backend/src/controllers/create/tweets.controller.js`
+- `backend/src/controllers/read/tweets.controller.js`
+- `backend/src/controllers/update/tweets.controller.js`
+- `backend/src/controllers/delete/tweets.controller.js`
+- `backend/src/routes/tweets.routes.js`
 - `backend/src/routes/index.js`
-- `backend/tests/foundation.test.js`
-- `backend/tests/posts.test.js`
+- `backend/tests/tweets.test.js`
 - `backend/tests/index.js`
-- `frontend/src/features/posts/api/postsApi.js`
-- `frontend/src/features/posts/ui/CreatePostCard.js`
-- `frontend/src/features/posts/ui/PostCard.js`
-- `frontend/src/features/posts/ui/CommentSection.js`
-- `frontend/src/features/posts/ui/PostList.js`
+- `frontend/src/features/tweets/api/tweetsApi.js`
+- `frontend/src/features/tweets/ui/CreateTweetCard.js`
+- `frontend/src/features/tweets/ui/TweetCard.js`
+- `frontend/src/features/tweets/ui/TweetReplySection.js`
+- `frontend/src/features/tweets/ui/TweetList.js`
+- `frontend/src/features/tweets/ui/TweetsView.js`
 - `frontend/src/features/feed/ui/FeedView.js`
 - `docs/WORKBASE.md`
 - `docs/MODEL-HANDOFF.md`
+- Cleaned up obsolete duplicate post files across backend and frontend.
 
 ## Tests/Checks Run
-- Backend tests (`npm test`): Passed 100% (Foundation test suite + Posts & Comments test suite)
+- Backend tests (`npm test`): Passed 100% (Foundation test suite + Tweets test suite)
 - Backend ESLint (`npm run lint`): 0 errors, 0 warnings
 - Frontend ESLint (`npm run lint`): 0 errors, 0 warnings
 - Frontend build (`npm run build`): Compiled and prerendered 14 static pages cleanly
@@ -90,5 +88,4 @@ At the end of every meaningful session/task, the active model must update this f
 - Tab check: Zero tab characters across `frontend/src` and `backend/src`
 
 ## Exact Resume Instruction
-> Continue with Phase 4 — Milestone 3.
-
+> Commit Phase 4 Milestone 3 changes, then proceed to Phase 4 — Milestone 4 (Videos Slice Integration).

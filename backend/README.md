@@ -53,6 +53,8 @@ cp .env.example .env
 | `LIVEKIT_API_SECRET` | LiveKit API secret | Server-side only (never browser) | Future |
 
 > **Security Rule:** Never commit real `.env` files. Keep `.env.example` as the canonical documentation.
+> 
+> **Social Domain Rule:** In YOIBI, Tweet is the primary social content entity. `POST` is strictly an HTTP request method (e.g. `POST /api/v1/tweets`), not a separate content domain. All user micro-posts, likes, retweets, and replies are managed under `/api/v1/tweets`.
 
 ---
 

@@ -18,6 +18,8 @@ Standalone Next.js frontend.
 
 ## Rules
 - JavaScript only
+- In YOIBI, Tweet is the social content entity. POST is an HTTP method, not a separate content domain.
+- `src/features/tweets` owns social content UI and client behavior; `src/features/feed` is a presentation view of Tweets.
 - React Hook Form for forms
 - Tailwind CSS v4
 - 4-space indentation

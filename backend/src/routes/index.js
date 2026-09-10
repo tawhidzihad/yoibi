@@ -2,7 +2,7 @@ const { Router } = require("express");
 const healthRoutes = require("./health.routes");
 const authRoutes = require("./auth.routes");
 const usersRoutes = require("./users.routes");
-const postsRoutes = require("./posts.routes");
+const tweetsRoutes = require("./tweets.routes");
 
 const apiRouter = Router();
 
@@ -15,8 +15,8 @@ apiRouter.use(authRoutes);
 // Mount user profile routes
 apiRouter.use(usersRoutes);
 
-// Mount posts and feed routes
-apiRouter.use(postsRoutes);
+// Mount tweets and feed routes (Tweet = YOIBI social content; POST = HTTP method)
+apiRouter.use(tweetsRoutes);
 
 module.exports = apiRouter;
 

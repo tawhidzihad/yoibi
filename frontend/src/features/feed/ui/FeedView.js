@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CreatePostCard } from "@/features/posts/ui/CreatePostCard";
-import { PostList } from "@/features/posts/ui/PostList";
-import { postsApi } from "@/features/posts/api/postsApi";
+import { CreateTweetCard } from "@/features/tweets/ui/CreateTweetCard";
+import { TweetList } from "@/features/tweets/ui/TweetList";
+import { tweetsApi } from "@/features/tweets/api/tweetsApi";
 import { cn } from "@/shared/utils/cn";
 
 export function FeedView() {
-    const [posts, setPosts] = useState([]);
+    const [tweets, setTweets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [filter, setFilter] = useState("all");
@@ -15,27 +15,27 @@ export function FeedView() {
     const [hasNextPage, setHasNextPage] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
 
-    const fetchPosts = useCallback(async (pageNum = 1, activeFilter = "all", append = false) => {
+    const fetchTweets = useCallback(async (pageNum = 1, activeFilter = "all", append = false) => {
         if (append) {
             setLoadingMore(true);
         }
 
         try {
-            const res = await postsApi.getPosts({
+            const res = await tweetsApi.getTweets({
                 page: pageNum,
                 limit: 20,
                 filter: activeFilter,
             });
 
             if (!res.success) {
-                setError(res.error?.message || "Failed to load feed posts.");
+                setError(res.error?.message || "Failed to load feed tweets.");
             } else {
                 const items = res.data?.items || [];
                 const pagination = res.data?.pagination;
                 if (append) {
-                    setPosts((prev) => [...prev, ...items]);
+                    setTweets((prev) => [...prev, ...items]);
                 } else {
-                    setPosts(items);
+                    setTweets(items);
                 }
                 setHasNextPage(Boolean(pagination?.hasNextPage));
                 setPage(pageNum);
@@ -54,16 +54,16 @@ export function FeedView() {
             setLoading(true);
             setError("");
             try {
-                const res = await postsApi.getPosts({
+                const res = await tweetsApi.getTweets({
                     page: 1,
                     limit: 20,
                     filter,
                 });
                 if (!isCancelled) {
                     if (!res.success) {
-                        setError(res.error?.message || "Failed to load feed posts.");
+                        setError(res.error?.message || "Failed to load feed tweets.");
                     } else {
-                        setPosts(res.data?.items || []);
+                        setTweets(res.data?.items || []);
                         setHasNextPage(Boolean(res.data?.pagination?.hasNextPage));
                         setPage(1);
                     }
@@ -82,17 +82,17 @@ export function FeedView() {
         };
     }, [filter]);
 
-    const handlePostCreated = (newPost) => {
-        setPosts((prev) => [newPost, ...prev]);
+    const handleTweetCreated = (newTweet) => {
+        setTweets((prev) => [newTweet, ...prev]);
     };
 
-    const handlePostDeleted = (deletedId) => {
-        setPosts((prev) => prev.filter((p) => p.id !== deletedId));
+    const handleTweetDeleted = (deletedId) => {
+        setTweets((prev) => prev.filter((t) => t.id !== deletedId));
     };
 
     const handleLoadMore = () => {
         if (!loadingMore && hasNextPage) {
-            fetchPosts(page + 1, filter, true);
+            fetchTweets(page + 1, filter, true);
         }
     };
 
@@ -135,16 +135,19 @@ export function FeedView() {
                 </div>
             </div>
 
-            {/* Create Post Composer */}
-            <CreatePostCard onPostCreated={handlePostCreated} />
+            {/* Create Tweet Composer */}
+            <CreateTweetCard
+                onTweetCreated={handleTweetCreated}
+                placeholder="What's on your mind? Share a post..."
+            />
 
-            {/* Posts Stream */}
-            <PostList
-                posts={posts}
+            {/* Tweets Stream */}
+            <TweetList
+                tweets={tweets}
                 loading={loading}
                 error={error}
-                onRetry={() => fetchPosts(1, filter, false)}
-                onPostDeleted={handlePostDeleted}
+                onRetry={() => fetchTweets(1, filter, false)}
+                onTweetDeleted={handleTweetDeleted}
                 hasNextPage={hasNextPage}
                 onLoadMore={handleLoadMore}
                 loadingMore={loadingMore}

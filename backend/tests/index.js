@@ -1,5 +1,5 @@
 const { runFoundationTests } = require("./foundation.test");
-const { runPostsTests } = require("./posts.test");
+const { runTweetsTests } = require("./tweets.test");
 
 async function main() {
     console.log("==================================================");
@@ -8,7 +8,7 @@ async function main() {
 
     await runFoundationTests();
     console.log("\n--------------------------------------------------\n");
-    await runPostsTests();
+    await runTweetsTests();
 
     console.log("\n==================================================");
     console.log("    ALL BACKEND TEST SUITES PASSED (100%)         ");
@@ -19,3 +19,4 @@ main().catch((err) => {
     console.error("\n[TEST RUNNER FATAL ERROR]:", err);
     process.exit(1);
 });
+

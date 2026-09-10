@@ -7,19 +7,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Image as ImageIcon, Send, X, AlertCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
-import { postsApi } from "../api/postsApi";
+import { tweetsApi } from "../api/tweetsApi";
 import { Button } from "@/shared/ui/Button";
+import { cn } from "@/shared/utils/cn";
 
-const createPostSchema = z.object({
-    content: z.string().max(5000, "Content cannot exceed 5000 characters"),
+const createTweetSchema = z.object({
+    content: z
+        .string()
+        .min(1, "Tweet content cannot be empty")
+        .max(280, "Tweet cannot exceed 280 characters"),
     mediaUrl: z.string().url("Must be a valid URL").or(z.literal("")).optional(),
-}).refine(
-    (data) => (data.content && data.content.trim().length > 0) || (data.mediaUrl && data.mediaUrl.trim().length > 0),
-    {
-        message: "Please write some text or provide a media URL.",
-        path: ["content"],
-    }
-);
+});
 
 function UserAvatar({ name, avatarUrl }) {
     if (avatarUrl) {
@@ -46,7 +44,7 @@ function UserAvatar({ name, avatarUrl }) {
     );
 }
 
-export function CreatePostCard({ onPostCreated }) {
+export function CreateTweetCard({ onTweetCreated, placeholder = "What's happening?" }) {
     const router = useRouter();
     const { user, status } = useAuth();
     const [showMediaInput, setShowMediaInput] = useState(false);
@@ -60,7 +58,7 @@ export function CreatePostCard({ onPostCreated }) {
         setValue,
         formState: { errors, isSubmitting },
     } = useForm({
-        resolver: zodResolver(createPostSchema),
+        resolver: zodResolver(createTweetSchema),
         defaultValues: {
             content: "",
             mediaUrl: "",
@@ -69,6 +67,9 @@ export function CreatePostCard({ onPostCreated }) {
 
     const contentValue = useWatch({ control, name: "content", defaultValue: "" }) || "";
     const mediaUrlValue = useWatch({ control, name: "mediaUrl", defaultValue: "" }) || "";
+    const remainingChars = 280 - contentValue.length;
+    const isOverLimit = remainingChars < 0;
+    const isNearLimit = remainingChars <= 20 && remainingChars >= 0;
 
     const onSubmit = async (data) => {
         setServerError("");
@@ -78,30 +79,26 @@ export function CreatePostCard({ onPostCreated }) {
             return;
         }
 
-        const media = [];
+        const mediaUrls = [];
         if (data.mediaUrl && data.mediaUrl.trim().length > 0) {
-            media.push({
-                url: data.mediaUrl.trim(),
-                type: data.mediaUrl.match(/\.(mp4|webm|mov)$/i) ? "video" : "image",
-                publicId: "",
-            });
+            mediaUrls.push(data.mediaUrl.trim());
         }
 
         try {
-            const res = await postsApi.createPost({
-                content: data.content,
-                media,
+            const res = await tweetsApi.createTweet({
+                content: data.content.trim(),
+                mediaUrls,
             });
 
             if (!res.success) {
-                setServerError(res.error?.message || "Failed to publish post.");
+                setServerError(res.error?.message || "Failed to publish tweet.");
                 return;
             }
 
             reset();
             setShowMediaInput(false);
-            if (onPostCreated && res.data) {
-                onPostCreated(res.data);
+            if (onTweetCreated && res.data) {
+                onTweetCreated(res.data);
             }
         } catch (err) {
             setServerError(err.message || "An unexpected error occurred.");
@@ -116,12 +113,12 @@ export function CreatePostCard({ onPostCreated }) {
                     <div className="flex-1">
                         <textarea
                             {...register("content")}
-                            id="create-post-content"
+                            id="create-tweet-content"
                             rows={3}
                             placeholder={
                                 status === "authenticated"
-                                    ? "What's on your mind? Share a post..."
-                                    : "Log in to share a post with the community..."
+                                    ? placeholder
+                                    : "Log in to share a tweet with the community..."
                             }
                             className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                         />
@@ -136,8 +133,8 @@ export function CreatePostCard({ onPostCreated }) {
                                 <input
                                     {...register("mediaUrl")}
                                     type="url"
-                                    id="create-post-media-url"
-                                    placeholder="Enter image or video URL (e.g. https://...)"
+                                    id="create-tweet-media-url"
+                                    placeholder="Enter image or media URL (e.g. https://...)"
                                     className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
                                 />
                                 {mediaUrlValue && (
@@ -175,8 +172,19 @@ export function CreatePostCard({ onPostCreated }) {
                                     <ImageIcon size={16} aria-hidden="true" />
                                     <span>{showMediaInput ? "Hide media" : "Add media"}</span>
                                 </button>
-                                <span className="text-xs text-muted-foreground">
-                                    {contentValue.length}/5000
+                                <span
+                                    className={cn(
+                                        "text-xs transition-colors font-mono",
+                                        isOverLimit
+                                            ? "font-bold text-destructive"
+                                            : isNearLimit
+                                                ? "text-amber-500 font-semibold"
+                                                : "text-muted-foreground"
+                                    )}
+                                    aria-live="polite"
+                                    id="create-tweet-countdown"
+                                >
+                                    {remainingChars}
                                 </span>
                             </div>
 
@@ -184,12 +192,12 @@ export function CreatePostCard({ onPostCreated }) {
                                 type="submit"
                                 size="sm"
                                 loading={isSubmitting}
-                                disabled={isSubmitting || (!contentValue.trim() && !mediaUrlValue.trim())}
-                                id="create-post-submit-btn"
+                                disabled={isSubmitting || !contentValue.trim() || isOverLimit}
+                                id="create-tweet-submit-btn"
                                 className="gap-1.5"
                             >
                                 <Send size={14} aria-hidden="true" />
-                                <span>Post</span>
+                                <span>Tweet</span>
                             </Button>
                         </div>
                     </div>

@@ -1,18 +1,21 @@
-const { getComments } = require("../../services/read/comments.service");
+const { deleteTweet } = require("../../services/delete/tweets.service");
 
 /**
- * Controller: Get comments for a post
- * Auth: Optional
+ * Controller: Delete a tweet
+ * Auth: Required — only author or admin
  */
-async function handleGetComments(req, res, next) {
+async function handleDeleteTweet(req, res, next) {
     try {
         const { id } = req.params;
-        const result = await getComments({ postId: id });
+        const result = await deleteTweet({
+            tweetId: id,
+            user: req.user
+        });
 
         return res.status(200).json({
             success: true,
             data: result,
-            message: ""
+            message: "Tweet deleted"
         });
     } catch (err) {
         if (err.statusCode) {
@@ -25,4 +28,4 @@ async function handleGetComments(req, res, next) {
     }
 }
 
-module.exports = { handleGetComments };
+module.exports = { handleDeleteTweet };
