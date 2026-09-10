@@ -720,15 +720,74 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ## 10. Meet-Up Rooms (LiveKit Integration)
 
-> **Architecture:** Multi-participant interactive rooms supporting audio, video, and screen sharing.
+> **Architecture:** Multi-participant collaborative rooms supporting bidirectional interactive audio, video, and screen sharing powered by LiveKit SFU.
+> 
+> **Key Architecture & Security Rules:**
+> 1. **Authentication & Owner Identity Model:** All room operations and token issuance require authenticated YOIBI users (`Bearer <token>`). Unauthenticated guests are strictly rejected (`401 UNAUTHORIZED`). The room owner identity (`ownerId: String`) is derived strictly from the verified Better Auth user ID (`req.user.id`), maintaining unified ownership architecture across domains (`Tweet.authorId`, `Video.authorId`, `Stream.authorId`, `MeetUp.ownerId`). Client-supplied owner IDs are never trusted. User profiles (`name`, `handle`, `avatarUrl`) are enriched server-side via the application's user profile repository.
+> 2. **Opaque Participant Identity & Minimized Metadata (Zero-PII):** LiveKit participant identities are opaque non-PII strings formatted as `participant_<uuid>`. LiveKit identity strings NEVER contain email, handle, name, phone, or raw MongoDB user IDs. LiveKit participant metadata payload is a presentation snapshot minimized strictly to public presentation fields: `JSON.stringify({ name: user.name, handle: user.handle, avatarUrl: user.avatarUrl })`. Internal MongoDB `_id` is excluded from LiveKit metadata. LiveKit metadata is a display snapshot and not the authoritative user profile source.
+> 3. **Server-Side Capacity Enforcement & Race Condition Handling:** `maxParticipants` is bounded between 2 and 50 (default: 12). To prevent race conditions during concurrent joins without heavyweight infrastructure, the backend maintains short-lived server-side join reservations (20s TTL). Total effective load is computed as `connectedLiveKitPeers + activePendingReservations`. When capacity is reached, concurrent join attempts are rejected with `403 ROOM_FULL` (`{ "code": "ROOM_FULL", "message": "Room is at maximum capacity" }`). Stale reservations automatically expire if a user obtains a token but never connects.
+> 4. **Standardized Error Status Codes:**
+>    - `404 ROOM_NOT_FOUND` → Target room does not exist.
+>    - `403 ROOM_ENDED` → Target room exists but joining is rejected because the session has ended.
+>    - `403 ROOM_FULL` → Target room exists but cannot accept another participant.
+>    - `403 ROOM_ACTIVE` → Target room cannot be deleted because it is still active.
+>    - `401 UNAUTHORIZED` → Authentication required or invalid.
+>    - `403 FORBIDDEN` → Authenticated user lacks owner permission.
+> 5. **Screen Share Concurrency:** Single active primary screen share at a time. When another participant shares their screen, it becomes the active primary screen share track while other tracks remain in the secondary grid.
+> 6. **Owner Disconnect & Room Cleanup:** If the room creator/owner disconnects, the room remains `active` and other participants can continue collaborating. Automatic empty-room cleanup after inactivity is documented as a server policy/enhancement; the room ends when the owner explicitly ends it or when empty-room timeout expires.
+> 7. **END vs. DELETE Semantics:**
+>    - **END (`POST /api/v1/meetup/rooms/:roomId/end`):** Closes the realtime SFU session via LiveKit RoomService (`deleteRoom`), disconnects all participants, sets status to `ended`, and preserves MongoDB room metadata and history. Only the room owner can end the room.
+>    - **DELETE (`DELETE /api/v1/meetup/rooms/:roomId`):** Permanently removes the MongoDB room document. Permitted ONLY when room status is `ended`. Deleting an active room is rejected with `403 ROOM_ACTIVE` (`{ "code": "ROOM_ACTIVE", "message": "Cannot delete an active room. End the room first." }`).
+> 8. **Token Grants & Least-Privilege:** All participants receive non-admin interactive tokens:
+>    - `roomJoin: true`
+>    - `canPublish: true` (mic/cam/screen)
+>    - `canSubscribe: true`
+>    - `canPublishData: true`
+>    - `roomAdmin: false` (LiveKit room admin is NEVER granted in participant tokens; room lifecycle is strictly enforced at the Express API layer).
 
 ### `GET /api/v1/meetup/rooms`
-- Auth: Optional / Authenticated
-- Description: Lists active collaborative rooms.
+- **Auth:** Optional / Authenticated
+- **Query Parameters:**
+  - `status` (string, optional: `active` | `ended` | `all`, default: `active`)
+  - `page` (integer, optional, default: 1)
+  - `limit` (integer, optional, default: 20)
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "rooms": [
+              {
+                  "id": "66d1a2b3c4d5e6f7a8b9c0d1",
+                  "name": "Frontend Architecture Discussion",
+                  "topic": "Next.js App Router & Tailwind v4",
+                  "roomName": "meetup_d9f8e7c6-b5a4-3210-9876-fedcba098765",
+                  "owner": {
+                      "id": "66d1a2b3c4d5e6f7a8b9c000",
+                      "name": "Alex Rivers",
+                      "handle": "alexrivers",
+                      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb"
+                  },
+                  "maxParticipants": 12,
+                  "participantCount": 4,
+                  "status": "active",
+                  "createdAt": "2026-09-11T03:00:00.000Z"
+              }
+          ],
+          "pagination": {
+              "total": 1,
+              "page": 1,
+              "limit": 20,
+              "totalPages": 1
+          }
+      },
+      "message": "Meet-Up rooms retrieved successfully"
+  }
+  ```
 
 ### `POST /api/v1/meetup/rooms`
-- Auth: Required (`Bearer <token>`)
-- Request Body:
+- **Auth:** Required (`Bearer <token>`)
+- **Request Body:**
   ```json
   {
       "name": "Frontend Architecture Discussion",
@@ -736,23 +795,96 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
       "maxParticipants": 12
   }
   ```
-- Response (201): Room details and host LiveKit token.
-
-### `POST /api/v1/meetup/rooms/:roomId/token`
-- Auth: Required (`Bearer <token>`)
-- Description: Generates interactive participant token (`canPublish: true`, `canSubscribe: true`).
-- Response (200):
+  *(Note: `name` is required (3–100 chars); `topic` is optional (max 100 chars); `maxParticipants` is optional (2–50, default 12)).*
+- **Response (201):**
   ```json
   {
       "success": true,
       "data": {
+          "room": {
+              "id": "66d1a2b3c4d5e6f7a8b9c0d1",
+              "name": "Frontend Architecture Discussion",
+              "topic": "Next.js App Router & Tailwind v4",
+              "roomName": "meetup_d9f8e7c6-b5a4-3210-9876-fedcba098765",
+              "ownerId": "66d1a2b3c4d5e6f7a8b9c000",
+              "maxParticipants": 12,
+              "status": "active",
+              "createdAt": "2026-09-11T03:00:00.000Z"
+          },
           "livekitUrl": "wss://livekit.yoibi.com",
           "token": "eyJhbGciOi...",
-          "roomId": "room_500"
+          "participantIdentity": "participant_550e8400-e29b-41d4-a716-446655440000"
       },
-      "message": "Room token generated"
+      "message": "Meet-Up room created successfully"
   }
   ```
+
+### `GET /api/v1/meetup/rooms/:roomId`
+- **Auth:** Optional / Authenticated
+- **Response (200):** Room details, active participant count, owner profile.
+- **Errors:** `404 ROOM_NOT_FOUND`
+
+### `POST /api/v1/meetup/rooms/:roomId/join`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Verifies room status is `active`, atomicity-reserves a slot against `maxParticipants`, and generates interactive LiveKit participant token.
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "room": {
+              "id": "66d1a2b3c4d5e6f7a8b9c0d1",
+              "name": "Frontend Architecture Discussion",
+              "roomName": "meetup_d9f8e7c6-b5a4-3210-9876-fedcba098765",
+              "status": "active"
+          },
+          "livekitUrl": "wss://livekit.yoibi.com",
+          "token": "eyJhbGciOi...",
+          "participantIdentity": "participant_770e8400-e29b-41d4-a716-446655440111"
+      },
+      "message": "Meet-Up room join token generated"
+  }
+  ```
+- **Errors:**
+  - `401 UNAUTHORIZED`: Authentication required
+  - `403 ROOM_FULL`: Current participant count (active + reserved) has reached `maxParticipants`
+  - `403 ROOM_ENDED`: Cannot join an ended room
+  - `404 ROOM_NOT_FOUND`: Room does not exist
+
+### `POST /api/v1/meetup/rooms/:roomId/end`
+- **Auth:** Required (`Bearer <token>`) — Owner only
+- **Description:** Terminates the realtime LiveKit SFU session, disconnects all participants, and updates status to `ended`. Room metadata is preserved.
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "66d1a2b3c4d5e6f7a8b9c0d1",
+          "status": "ended",
+          "endedAt": "2026-09-11T03:45:00.000Z"
+      },
+      "message": "Meet-Up room ended successfully"
+  }
+  ```
+- **Errors:**
+  - `403 FORBIDDEN`: Only the room owner can end the room
+  - `404 ROOM_NOT_FOUND`: Room not found
+
+### `DELETE /api/v1/meetup/rooms/:roomId`
+- **Auth:** Required (`Bearer <token>`) — Owner only
+- **Description:** Permanently deletes the MongoDB room record. Allowed only after room is `ended`.
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": { "id": "66d1a2b3c4d5e6f7a8b9c0d1" },
+      "message": "Meet-Up room deleted permanently"
+  }
+  ```
+- **Errors:**
+  - `403 ROOM_ACTIVE`: Cannot delete an active room. End the room first.
+  - `403 FORBIDDEN`: Only the room owner can delete the room
+  - `404 ROOM_NOT_FOUND`: Room not found
 
 ---
 

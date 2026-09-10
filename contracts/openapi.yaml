@@ -750,9 +750,29 @@ paths:
   /meetup/rooms:
     get:
       summary: List collaborative meetup rooms
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, ended, all]
+            default: active
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
       responses:
         '200':
-          description: Active rooms list
+          description: Meet-Up rooms list
     post:
       summary: Create collaborative meetup room
       security:
@@ -767,18 +787,46 @@ paths:
               properties:
                 name:
                   type: string
+                  minLength: 3
+                  maxLength: 100
+                  example: Frontend Architecture Discussion
                 topic:
                   type: string
+                  maxLength: 100
+                  example: Next.js App Router & Tailwind v4
                 maxParticipants:
                   type: integer
+                  minimum: 2
+                  maximum: 50
                   default: 12
       responses:
         '201':
-          description: Room created with host token
+          description: Room created with host participant token
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 
-  /meetup/rooms/{roomId}/token:
-    post:
-      summary: Generate participant token for LiveKit audio/video/screen
+  /meetup/rooms/{roomId}:
+    get:
+      summary: Get meetup room details by ID
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Room details and active participant status
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Permanently delete meetup room (ended state only)
       security:
         - bearerAuth: []
       parameters:
@@ -789,7 +837,63 @@ paths:
             type: string
       responses:
         '200':
-          description: Room token generated
+          description: Meet-Up room deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Forbidden or room is currently active (ROOM_ACTIVE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /meetup/rooms/{roomId}/join:
+    post:
+      summary: Join collaborative meetup room and obtain LiveKit participant token
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Interactive participant token generated (canPublish true, canSubscribe true, roomAdmin false)
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Room is full (ROOM_FULL), ended (ROOM_ENDED), or access is forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /meetup/rooms/{roomId}/end:
+    post:
+      summary: End collaborative meetup room and terminate LiveKit session (room owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: roomId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Meet-Up room ended and LiveKit SFU session terminated
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
 
   /reports:
     post:

@@ -7,45 +7,46 @@ This file is a live task scratchpad. The active AI must update it before and dur
 > **In YOIBI, `Video` is the video content entity (Shorts & Longform), hosted via Cloudinary with server-issued upload intents and MongoDB metadata.**
 
 ## Current Task
-- Task ID: TASK-006
-- Title: Phase 4 — Milestone 5: Streams / LiveKit Integration
-- Status: COMPLETED ✓
-- Goal: Implement the YOIBI live broadcast system with LiveKit token issuance, server-authoritative stream lifecycle (ready -> live -> ended), opaque non-PII room naming (`stream_<uuid>`), host/viewer least-privilege token grants, official LiveKit React components, and LiveKit room session termination upon broadcast conclusion.
+- Task ID: TASK-007
+- Title: Phase 4 — Milestone 6: Meet-Up Rooms / Collaborative Multi-Peer LiveKit Integration
+- Status: READY FOR IMPLEMENTATION (PLANNING & CONTRACTS FINALIZED)
+- Goal: Implement collaborative multi-peer interactive rooms supporting audio, video, and screen sharing with server-authoritative capacity enforcement (2–50 participants) utilizing atomic short-lived join reservations (20s TTL) to prevent race conditions (`403 ROOM_FULL`), opaque zero-PII participant identity mapping (`participant_<uuid>`), minimized LiveKit metadata (`{ name, handle, avatarUrl }` without raw Mongo user ID), standardized error codes (`403 ROOM_ENDED`, `403 ROOM_FULL`, `403 ROOM_ACTIVE`, `404 NOT_FOUND`), single active primary screen share policy, non-admin interactive token issuance, distinct END vs DELETE semantics, and full quality verification.
 - Scope:
   - Contract:
-    - `contracts/API-CONTRACT.md`: Section 9 Streams synchronized with opaque room naming, join lifecycle rules, least-privilege grants, and session termination semantics.
-    - `contracts/openapi.yaml`: `/streams` endpoints (`GET /streams`, `POST /streams`, `GET /streams/{id}`, `POST /streams/{id}/start`, `POST /streams/{id}/join`, `POST /streams/{id}/end`, `DELETE /streams/{id}`), schemas, and parameters synchronized.
+    - `contracts/API-CONTRACT.md`: Section 10 Meet-Up Rooms synchronized with server-side atomic capacity reservation checks (`403 ROOM_FULL`), minimized zero-PII metadata, standardized `403 ROOM_ENDED` codes, END vs DELETE lifecycle rules, single primary screen share rule, and token permissions.
+    - `contracts/openapi.yaml`: `/meetup/rooms` endpoints (`GET /meetup/rooms`, `POST /meetup/rooms`, `GET /meetup/rooms/{roomId}`, `POST /meetup/rooms/{roomId}/join`, `POST /meetup/rooms/{roomId}/end`, `DELETE /meetup/rooms/{roomId}`), schemas, error responses (`403 ROOM_FULL`, `403 ROOM_ACTIVE`, `403 ROOM_ENDED`, `404 NOT_FOUND`), and parameters synchronized.
   - Backend:
-    - Integration: `backend/src/integrations/livekit/livekit.js` (Opaque host/viewer token generation with `crypto.randomUUID()`, LiveKit room deletion via `RoomServiceClient.deleteRoom`, mock-safe fallback).
-    - Model: `backend/src/models/stream.model.js` (Schema with `_id`, `authorId`, `title`, `description`, `category`, `thumbnailUrl`, `roomName`, `status`, `viewerCount`, `startedAt`, `endedAt`, compound indexes).
-    - Repository: `backend/src/repositories/streams.repository.js` (CRUD queries, status filters, category filters, author enrichment, disconnected DB fallback).
-    - Validation: `backend/src/validators/streams.validator.js` (Zod schemas for `createStream`, `listStreamsQuery`, `streamIdParam`).
-    - Services: `create/streams.service.js`, `read/streams.service.js`, `update/streams.service.js`, `delete/streams.service.js`.
-    - Controllers: `create/streams.controller.js`, `read/streams.controller.js`, `update/streams.controller.js`, `delete/streams.controller.js`.
-    - Routes: `backend/src/routes/streams.routes.js` mounted in `backend/src/routes/index.js`.
-    - Tests: `backend/tests/streams.test.js` integrated into `backend/tests/index.js`.
+    - Integration: `backend/src/integrations/livekit/livekit.js` (`generateMeetupParticipantToken` with opaque `participant_<uuid>`, minimized public presentation metadata `{ name, handle, avatarUrl }` omitting internal MongoDB `_id`, non-admin least-privilege grants `roomJoin: true, canPublish: true, canSubscribe: true, canPublishData: true, roomAdmin: false`, `getActiveParticipantCount`, and `terminateLiveKitRoom`).
+    - Model: `backend/src/models/meetup.model.js` (Schema with `_id`, `ownerId: { type: String, required: true, index: true }` matching verified Better Auth user ID from `req.user.id`, `name`, `topic`, `roomName`, `maxParticipants` [2–50, default 12], `status` [`active` | `ended`], `startedAt`, `endedAt`, compound indexes). Collection name: `meetup_rooms`.
+    - Repository: `backend/src/repositories/meetup.repository.js` (CRUD queries, status filters, owner enrichment via application user repository by Better Auth user ID, capacity queries, disconnected DB fallback).
+    - Concurrency/Reservation: In-memory atomic join reservation manager with 20s TTL preventing race conditions during concurrent joins.
+    - Validation: `backend/src/validators/meetup.validator.js` (Zod schemas for `createMeetupRoom`, `listMeetupRoomsQuery`, `meetupRoomIdParam`).
+    - Services: `backend/src/services/meetup/` (create room with owner token, list rooms, get room by ID, join room with atomic reservation and `403 ROOM_FULL` rejection, `403 ROOM_ENDED` check, end room with SFU session termination, delete room with `403 ROOM_ACTIVE` guard).
+    - Controllers: `backend/src/controllers/meetup/` (CRUD & lifecycle endpoints).
+    - Routes: `backend/src/routes/meetup.routes.js` mounted at `/api/v1/meetup/rooms` in `backend/src/routes/index.js`.
+    - Tests: `backend/tests/meetup.test.js` integrated into `backend/tests/index.js` covering concurrency, atomic reservations, capacity limits, zero-PII/minimized metadata, lifecycle transitions, and permissions.
   - Frontend:
-    - Packages: `@livekit/components-react`, `livekit-client`.
-    - Client: `frontend/src/features/streams/api/streamsApi.js` wrapping `apiClient` for `/api/v1/streams`.
+    - Package integration: `@livekit/components-react`, `livekit-client`.
+    - Feature path: `frontend/src/features/meet-up/`.
+    - Client: `frontend/src/features/meet-up/api/meetupApi.js` wrapping `apiClient` for `/api/v1/meetup/rooms`.
     - UI:
-      - `StreamCard.js` (Live/preparing/ended badges, thumbnail/placeholder, author metadata, viewer counter).
-      - `StreamList.js` (Responsive grid, loading skeletons, empty state, error retry, pagination).
-      - `CreateStreamModal.js` (React Hook Form + Zod, category selector, preparation instructions).
-      - `HostControls.js` (LiveKit `TrackToggle` for mic/camera/screen, Go Live trigger, End Stream confirmation).
-      - `ViewerControls.js` (Fullscreen toggle, live indicator, viewer count, leave action).
-      - `StreamTrackView.js` (LiveKit `useTracks`, `VideoTrack`, screen share with camera PiP, audio-only waveform mode).
-      - `StreamRoom.js` (LiveKitRoom wrapper, `RoomAudioRenderer`, `StartAudio`, disconnect handler).
-      - `StreamDetailView.js` (Single stream studio & viewer playback coordinator).
-      - `StreamsView.js` (Live API integration, status tabs, category pills toolbar, create modal trigger).
+      - `MeetupCard.js` (Active/ended badges, topic, owner metadata, live participant count / maxParticipants gauge).
+      - `MeetupList.js` (Grid, skeleton loading states, empty/error retry states, pagination).
+      - `CreateMeetupModal.js` (React Hook Form + Zod, name, optional topic, maxParticipants slider/input 2–50).
+      - `MeetupControls.js` (LiveKit track toggles for mic, camera, screen share, Leave Room, End Room for owner).
+      - `MeetupTrackView.js` (Dynamic multi-peer grid, dominant 1-active primary screen share viewport + participant video/audio grid).
+      - `MeetupRoom.js` (LiveKitRoom wrapper, RoomAudioRenderer, StartAudio, disconnect/cleanup listeners).
+      - `MeetupDetailView.js` (Live room coordinator, participant roster, screen share management).
+      - `MeetupView.js` (Connected to live API, status tabs, create room modal trigger).
     - Routes:
-      - `frontend/src/app/(protected)/streams/page.js`
-      - `frontend/src/app/(protected)/streams/[id]/page.js`
+      - `frontend/src/app/(protected)/meetup/page.js`
+      - `frontend/src/app/(protected)/meetup/[id]/page.js`
   - Verification Gates:
-    - Backend test suite (`npm test`) -> 100% passing across Foundation, Tweets, Videos, Streams suites ✓
-    - Backend ESLint (`npm run lint`) -> 0 errors, 0 warnings ✓
-    - Frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings ✓
-    - Frontend Next.js production build (`npm run build`) -> Clean build with dynamic `/streams/[id]` route ✓
-    - 4-space indentation and zero tabs ✓
+    - Backend test suite (`npm test`) -> 100% passing across Foundation, Tweets, Videos, Streams, and Meet-Up suites.
+    - Backend ESLint (`npm run lint`) -> 0 errors, 0 warnings.
+    - Frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings.
+    - Frontend Next.js production build (`npm run build`) -> Clean build with dynamic `/meetup/[id]` route.
+    - 4-space indentation and zero tabs across all modified files.
 
 ## Required References
 - [x] AI-AGENT.md
@@ -58,35 +59,32 @@ This file is a live task scratchpad. The active AI must update it before and dur
 
 ## Implementation Checklist
 - [x] Synchronize API contracts (`API-CONTRACT.md`, `openapi.yaml`)
-- [x] Backend: Install `livekit-server-sdk`
-- [x] Backend: LiveKit integration (`livekit.js`, `env.js`)
-- [x] Backend: Stream model schema & compound indexes (`stream.model.js`)
-- [x] Backend: Streams repository layer (`streams.repository.js`)
-- [x] Backend: Streams Zod validators (`streams.validator.js`)
-- [x] Backend: Streams CRUD services (create, read, update, delete)
-- [x] Backend: Streams CRUD controllers (create, read, update, delete)
-- [x] Backend: Streams routes & index mount (`streams.routes.js`, `index.js`)
-- [x] Backend: Automated in-process test suite (`streams.test.js`, `index.js`)
-- [x] Frontend: Install `@livekit/components-react` & `livekit-client`
-- [x] Frontend: `streamsApi.js` API client integration
-- [x] Frontend: `StreamCard.js` (Live/preparing/ended badges, author, viewers)
-- [x] Frontend: `StreamList.js` (Grid, skeletons, empty/error states)
-- [x] Frontend: `CreateStreamModal.js` (React Hook Form + Zod, category selector)
-- [x] Frontend: `HostControls.js` (LiveKit TrackToggle mic/cam/screen, Go Live, End Stream)
-- [x] Frontend: `ViewerControls.js` (Fullscreen, viewers, leave)
-- [x] Frontend: `StreamTrackView.js` (Video, screen share + PiP, audio-only waveform)
-- [x] Frontend: `StreamRoom.js` (LiveKitRoom, RoomAudioRenderer, StartAudio, disconnect listener)
-- [x] Frontend: `StreamDetailView.js` (Lifecycle coordinator, studio & viewer view)
-- [x] Frontend: `StreamsView.js` (Connected to live API, category chips, status tabs)
-- [x] Frontend: Route pages (`/streams/page.js`, `/streams/[id]/page.js`)
-- [x] Run backend tests (`npm test`) -> 100% passing
-- [x] Run backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
-- [x] Run frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
-- [x] Run frontend production build (`npm run build`) -> Clean compile
-- [x] Update documentation (`README.md`, `WORKBASE.md`, `MODEL-HANDOFF.md`)
+- [ ] Backend: Update LiveKit integration for meetup tokens & participant counting (`livekit.js`)
+- [ ] Backend: Meet-Up model schema & compound indexes (`meetup.model.js`, collection: `meetup_rooms`)
+- [ ] Backend: Meet-Up repository layer (`meetup.repository.js`)
+- [ ] Backend: Meet-Up Zod validators (`meetup.validator.js`)
+- [ ] Backend: Meet-Up services with server capacity validation, END vs DELETE guards
+- [ ] Backend: Meet-Up controllers
+- [ ] Backend: Meet-Up routes mounted at `/api/v1/meetup/rooms` (`meetup.routes.js`, `index.js`)
+- [ ] Backend: Automated test suite for capacity, zero-PII, lifecycle, END vs DELETE, screen-sharing (`meetup.test.js`)
+- [ ] Frontend: `meetupApi.js` API client integration
+- [ ] Frontend: `MeetupCard.js` (Active/ended badges, topic, owner, participant count)
+- [ ] Frontend: `MeetupList.js` (Grid, skeletons, empty/error states)
+- [ ] Frontend: `CreateMeetupModal.js` (React Hook Form + Zod, name, optional topic, maxParticipants)
+- [ ] Frontend: `MeetupControls.js` (LiveKit TrackToggle mic/cam/screen, Leave, End Room)
+- [ ] Frontend: `MeetupTrackView.js` (Dynamic multi-peer grid, 1 primary screen share layout)
+- [ ] Frontend: `MeetupRoom.js` (LiveKitRoom, RoomAudioRenderer, StartAudio, disconnect listener)
+- [ ] Frontend: `MeetupDetailView.js` (Room coordinator & stage)
+- [ ] Frontend: `MeetupView.js` (Live API integration, status tabs, create modal)
+- [ ] Frontend: Route pages (`/meetup/page.js`, `/meetup/[id]/page.js`)
+- [ ] Run backend tests (`npm test`) -> 100% passing
+- [ ] Run backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
+- [ ] Run frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
+- [ ] Run frontend production build (`npm run build`) -> Clean compile
+- [ ] Update documentation (`README.md`, `WORKBASE.md`, `MODEL-HANDOFF.md`)
 
 ## Next Task
-- Task ID: TASK-007
-- Title: Phase 4 — Milestone 6: Meet-Up Rooms / Collaborative Multi-Peer LiveKit Integration
+- Task ID: TASK-008
+- Title: Phase 4 — Milestone 7: Messages & Socket.IO Direct Messaging Integration
 - Status: PENDING
-- Goal: Implement collaborative multi-peer rooms for interactive audio, video, and screen sharing meetups.
+- Goal: Implement real-time 1-on-1 direct messaging, conversation threads, typing indicators, and message history.

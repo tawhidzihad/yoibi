@@ -1,102 +1,196 @@
 "use client";
 
-import { Users, Plus } from "lucide-react";
-import { mockRooms } from "../api/mock-meetup";
-import { Button } from "../../../shared/ui/Button";
-
-function Avatar({ name }) {
-    const initials = name
-        .split(" ")
-        .slice(0, 2)
-        .map((w) => w[0])
-        .join("")
-        .toUpperCase();
-    return (
-        <div
-            title={name}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-background bg-cyan-500/20 text-xs font-semibold text-cyan-600"
-        >
-            {initials}
-        </div>
-    );
-}
-
-function RoomCard({ room }) {
-    const spotsLeft = room.maxParticipants - room.participants.length;
-    const isFull = spotsLeft <= 0;
-
-    return (
-        <div className="rounded-xl border border-border/50 bg-card p-4 transition-colors hover:border-cyan-500/30">
-            <div className="mb-3 flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <h3 className="font-semibold text-foreground text-sm leading-snug">{room.name}</h3>
-                    <p className="mt-0.5 text-xs text-muted-foreground capitalize">
-                        {room.topic}
-                    </p>
-                </div>
-                {room.isLive && (
-                    <span className="shrink-0 flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-500">
-                        <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" aria-hidden="true" />
-                        Live
-                    </span>
-                )}
-            </div>
-
-            {/* Participant avatars */}
-            <div className="mb-3 flex items-center gap-1">
-                <div className="flex -space-x-2">
-                    {room.participants.slice(0, 4).map((p) => (
-                        <Avatar key={p.id} name={p.name} />
-                    ))}
-                </div>
-                <span className="ml-2 text-xs text-muted-foreground">
-                    {room.participants.length}/{room.maxParticipants}{" "}
-                    <Users size={10} className="inline" aria-hidden="true" />
-                </span>
-            </div>
-
-            <Button
-                id={`join-room-${room.id}`}
-                size="sm"
-                variant={isFull ? "outline" : "primary"}
-                disabled={isFull}
-                className="w-full"
-                onClick={() => {
-                    // TODO Phase 4: LiveKit token fetch + room join
-                    alert(`Join room "${room.name}" — LiveKit integration coming in Phase 4.`);
-                }}
-            >
-                {isFull ? "Room Full" : "Join Room"}
-            </Button>
-        </div>
-    );
-}
+import { useEffect, useState, useCallback } from "react";
+import { Plus, Video, Radio, RefreshCw, Sparkles } from "lucide-react";
+import { meetupApi } from "../api/meetupApi";
+import { MeetupList } from "./MeetupList";
+import { CreateMeetupModal } from "./CreateMeetupModal";
+import { Button } from "@/shared/ui/Button";
 
 export function MeetupView() {
+    const [statusFilter, setStatusFilter] = useState("active");
+    const [rooms, setRooms] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
+    const [error, setError] = useState(null);
+    const [page, setPage] = useState(1);
+    const [hasNextPage, setHasNextPage] = useState(false);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        async function load() {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const res = await meetupApi.getMeetupRooms({
+                    status: statusFilter,
+                    page: 1,
+                    limit: 12
+                });
+                if (isCancelled) return;
+                const items = res.data?.rooms || res.data?.items || [];
+                const pagination = res.data?.pagination || {};
+                setRooms(items);
+                setPage(1);
+                setHasNextPage(Boolean(pagination.page < pagination.totalPages));
+            } catch (err) {
+                if (isCancelled) return;
+                setError(err?.response?.data?.error?.message || err?.message || "Failed to load Meet-Up rooms.");
+            } finally {
+                if (!isCancelled) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        load();
+        return () => {
+            isCancelled = true;
+        };
+    }, [statusFilter]);
+
+    const handleRefresh = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const res = await meetupApi.getMeetupRooms({
+                status: statusFilter,
+                page: 1,
+                limit: 12
+            });
+            const items = res.data?.rooms || res.data?.items || [];
+            const pagination = res.data?.pagination || {};
+            setRooms(items);
+            setPage(1);
+            setHasNextPage(Boolean(pagination.page < pagination.totalPages));
+        } catch (err) {
+            setError(err?.response?.data?.error?.message || err?.message || "Failed to refresh Meet-Up rooms.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleLoadMore = async () => {
+        if (isLoadingMore || !hasNextPage) return;
+        setIsLoadingMore(true);
+        const nextPage = page + 1;
+        try {
+            const res = await meetupApi.getMeetupRooms({
+                status: statusFilter,
+                page: nextPage,
+                limit: 12
+            });
+            const items = res.data?.rooms || res.data?.items || [];
+            const pagination = res.data?.pagination || {};
+            setRooms((prev) => [...prev, ...items]);
+            setPage(nextPage);
+            setHasNextPage(Boolean(pagination.page < pagination.totalPages));
+        } catch (err) {
+            setError(err?.response?.data?.error?.message || err?.message || "Failed to load more rooms.");
+        } finally {
+            setIsLoadingMore(false);
+        }
+    };
+
+    const handleRoomCreated = (newRoom) => {
+        // Prepend newly created room if on active tab
+        if (statusFilter === "active" || statusFilter === "all") {
+            setRooms((prev) => [newRoom, ...prev]);
+        }
+    };
+
     return (
-        <div>
-            <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
+        <div className="space-y-6 max-w-7xl mx-auto px-4 py-4 sm:px-6 sm:py-6">
+            {/* Header Toolbar */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-5">
                 <div>
-                    <h1 className="text-lg font-bold text-foreground">Meet Up</h1>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                        Video rooms for real conversations
+                    <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/20">
+                            <Video size={18} aria-hidden="true" />
+                        </div>
+                        <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                            Meet-Up Rooms
+                        </h1>
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                        Collaborative multi-peer rooms for realtime audio, video, and screen sharing
                     </p>
                 </div>
-                <Button
-                    id="create-room-btn"
-                    size="sm"
-                    variant="primary"
-                    onClick={() => alert("Create Room — LiveKit integration coming in Phase 4.")}
-                >
-                    <Plus size={14} aria-hidden="true" /> New Room
-                </Button>
+
+                <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                    <Button
+                        id="refresh-meetups-btn"
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleRefresh}
+                        className="text-muted-foreground hover:text-foreground"
+                        title="Refresh rooms"
+                    >
+                        <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} aria-hidden="true" />
+                    </Button>
+
+                    <Button
+                        id="create-meetup-btn"
+                        size="sm"
+                        variant="primary"
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="shadow-lg shadow-cyan-500/20 gap-1.5"
+                    >
+                        <Plus size={15} aria-hidden="true" />
+                        <span>Start Meet-Up</span>
+                    </Button>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
-                {mockRooms.map((room) => (
-                    <RoomCard key={room.id} room={room} />
-                ))}
+            {/* Status Tabs Toolbar */}
+            <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                <button
+                    type="button"
+                    onClick={() => setStatusFilter("active")}
+                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+                        statusFilter === "active"
+                            ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-sm"
+                            : "text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent"
+                    }`}
+                >
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                    Active Rooms
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => setStatusFilter("ended")}
+                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+                        statusFilter === "ended"
+                            ? "bg-zinc-500/10 text-zinc-300 border border-zinc-500/30 shadow-sm"
+                            : "text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent"
+                    }`}
+                >
+                    <Radio size={13} aria-hidden="true" />
+                    Past Rooms
+                </button>
             </div>
+
+            {/* Room List */}
+            <MeetupList
+                rooms={rooms}
+                isLoading={isLoading}
+                error={error}
+                onRetry={() => fetchRooms(1, false)}
+                onCreateClick={() => setIsCreateModalOpen(true)}
+                hasNextPage={hasNextPage}
+                onLoadMore={handleLoadMore}
+                isLoadingMore={isLoadingMore}
+            />
+
+            {/* Create Modal */}
+            <CreateMeetupModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onCreated={handleRoomCreated}
+            />
         </div>
     );
 }

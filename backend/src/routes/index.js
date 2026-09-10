@@ -5,6 +5,7 @@ const usersRoutes = require("./users.routes");
 const tweetsRoutes = require("./tweets.routes");
 const videosRoutes = require("./videos.routes");
 const streamsRoutes = require("./streams.routes");
+const meetupRoutes = require("./meetup.routes");
 
 const apiRouter = Router();
 
@@ -25,6 +26,9 @@ apiRouter.use(videosRoutes);
 
 // Mount streams routes (LiveKit live realtime broadcasts)
 apiRouter.use(streamsRoutes);
+
+// Mount meetup routes (LiveKit collaborative multi-peer rooms)
+apiRouter.use(meetupRoutes);
 
 module.exports = apiRouter;
 
