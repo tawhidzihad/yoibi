@@ -310,6 +310,210 @@ paths:
         '415':
           description: Unsupported media type
 
+  /videos/upload-signature:
+    post:
+      summary: Request signed Cloudinary upload parameters and server upload intent
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Signed upload parameters generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      uploadIntentId:
+                        type: string
+                        example: "intent_vid_1726000000_a1b2c3d4"
+                      publicId:
+                        type: string
+                        example: "yoibi/videos/usr_65e1a2b3/intent_vid_1726000000_a1b2c3d4"
+                      folder:
+                        type: string
+                        example: "yoibi/videos/usr_65e1a2b3"
+                      timestamp:
+                        type: integer
+                        example: 1726000000
+                      signature:
+                        type: string
+                        example: "3f8b8..."
+                      apiKey:
+                        type: string
+                        example: "123456789"
+                      cloudName:
+                        type: string
+                        example: "yoibi"
+
+  /videos:
+    get:
+      summary: List community videos
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [politics, current-events, learning, governmental, fun, conversations, commentary, news]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: authorId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated videos list
+    post:
+      summary: Register uploaded video metadata
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uploadIntentId, title, videoUrl]
+              properties:
+                uploadIntentId:
+                  type: string
+                title:
+                  type: string
+                  minLength: 3
+                  maxLength: 120
+                description:
+                  type: string
+                  maxLength: 2000
+                category:
+                  type: string
+                  enum: [politics, current-events, learning, governmental, fun, conversations, commentary, news]
+                videoUrl:
+                  type: string
+                thumbnailUrl:
+                  type: string
+                duration:
+                  type: number
+                bytes:
+                  type: integer
+                  maximum: 104857600
+                width:
+                  type: integer
+                height:
+                  type: integer
+                format:
+                  type: string
+                  enum: [mp4, webm, mov, quicktime]
+      responses:
+        '201':
+          description: Video registered successfully
+        '403':
+          description: Upload intent does not belong to user or is invalid
+        '422':
+          description: Validation error
+
+  /videos/{id}:
+    get:
+      summary: Get single video metadata (read-only, does NOT increment viewsCount)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video metadata details
+        '404':
+          description: Video not found
+    delete:
+      summary: Delete a video and remove external Cloudinary media
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video deleted successfully
+        '403':
+          description: Forbidden
+
+  /videos/{id}/view:
+    post:
+      summary: Record video playback initiation event (increments viewsCount)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Playback event recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      viewsCount:
+                        type: integer
+                        example: 12401
+
+  /videos/{id}/like:
+    post:
+      summary: Like a video
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video liked
+    delete:
+      summary: Unlike a video
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video unliked
+
   /messages/conversations:
     get:
       summary: List user DM conversations

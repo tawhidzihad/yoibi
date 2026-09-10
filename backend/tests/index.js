@@ -1,5 +1,6 @@
 const { runFoundationTests } = require("./foundation.test");
 const { runTweetsTests } = require("./tweets.test");
+const { runVideosTests } = require("./videos.test");
 
 async function main() {
     console.log("==================================================");
@@ -9,6 +10,8 @@ async function main() {
     await runFoundationTests();
     console.log("\n--------------------------------------------------\n");
     await runTweetsTests();
+    console.log("\n--------------------------------------------------\n");
+    await runVideosTests();
 
     console.log("\n==================================================");
     console.log("    ALL BACKEND TEST SUITES PASSED (100%)         ");

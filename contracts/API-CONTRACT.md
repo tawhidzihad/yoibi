@@ -316,6 +316,121 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ---
 
+## 7. Videos (Shorts & Longform Videos)
+
+> **Architectural & Security Standard:**
+> - Video files are hosted and delivered via Cloudinary. The private `CLOUDINARY_API_SECRET` is strictly backend-only.
+> - **Asset Provenance:** Direct uploads use server-signed parameters generated via `POST /api/v1/videos/upload-signature`. The backend controls the folder (`yoibi/videos/{userId}`) and assigns a unique `uploadIntentId` and exact `publicId`. Metadata submission via `POST /api/v1/videos` validates the server-issued intent, ensuring users can only register assets they were authorized to upload.
+> - **Upload Limits:**
+>   - *Cloudinary Provider Limit*: 100 MB maximum for direct single-file uploads on Cloudinary Free tier.
+>   - *YOIBI Application Limit*: 100 MB (`104,857,600` bytes) maximum for MVP video community uploads.
+>   - *Supported Formats*: `video/mp4`, `video/webm`, `video/quicktime` (`.mov`).
+> - **Categories (Option A):** Exactly 8 canonical categories (`politics`, `current-events`, `learning`, `governmental`, `fun`, `conversations`, `commentary`, `news`). Category is optional; omitted or `null` denotes uncategorized.
+> - **View Count Semantics:** `viewsCount` measures **playback initiation events** recorded via `POST /api/v1/videos/:id/view`. It does NOT represent unique viewers. Pure detail retrieval (`GET /api/v1/videos/:id`) does NOT increment view counts.
+
+### `POST /api/v1/videos/upload-signature`
+- Auth: Required (`Bearer <token>`)
+- Description: Generates signed upload parameters and an `uploadIntentId` bound to the authenticated user and a server-controlled folder/public ID.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "uploadIntentId": "intent_vid_1726000000_a1b2c3d4",
+          "publicId": "yoibi/videos/usr_65e1a2b3/intent_vid_1726000000_a1b2c3d4",
+          "folder": "yoibi/videos/usr_65e1a2b3",
+          "timestamp": 1726000000,
+          "signature": "3f8b8...",
+          "apiKey": "123456789",
+          "cloudName": "yoibi"
+      },
+      "message": "Upload signature generated successfully"
+  }
+  ```
+
+### `POST /api/v1/videos`
+- Auth: Required (`Bearer <token>`)
+- Description: Registers video metadata after successful Cloudinary upload. Verifies asset provenance against the issued `uploadIntentId`.
+- Request Body:
+  ```json
+  {
+      "uploadIntentId": "intent_vid_1726000000_a1b2c3d4",
+      "title": "State of Free Speech Online",
+      "description": "Deep dive into platform censorship and open networks.",
+      "category": "politics",
+      "videoUrl": "https://res.cloudinary.com/yoibi/video/upload/v12345/yoibi/videos/usr_65e1a2b3/intent_vid_1726000000_a1b2c3d4.mp4",
+      "thumbnailUrl": "https://res.cloudinary.com/yoibi/video/upload/v12345/yoibi/videos/usr_65e1a2b3/intent_vid_1726000000_a1b2c3d4.jpg",
+      "publicId": "yoibi/videos/usr_65e1a2b3/intent_vid_1726000000_a1b2c3d4",
+      "duration": 420,
+      "bytes": 52428800,
+      "width": 1920,
+      "height": 1080,
+      "format": "mp4"
+  }
+  ```
+- Constraints:
+  - `title`: 3–120 characters, required.
+  - `description`: max 2000 characters, optional.
+  - `category`: one of the 8 canonical categories, optional.
+  - `bytes`: max 104,857,600 (100 MB).
+- Response (201): Created Video object with populated author details.
+- Error (403 `FORBIDDEN`): Upload intent does not belong to authenticated user or is invalid.
+- Error (422 `VALIDATION_ERROR`): Malformed metadata or unconsumed intent mismatch.
+
+### `GET /api/v1/videos`
+- Auth: Optional (personalizes `liked` state if authenticated)
+- Description: Returns paginated list of videos with author details, viewsCount, and likesCount.
+- Query Parameters:
+  - `page` (default `1`)
+  - `limit` (default `20`, max `50`)
+  - `category` (optional, filter by canonical category)
+  - `authorId` (optional)
+  - `search` (optional)
+- Response (200): Paginated success envelope with video items.
+
+### `GET /api/v1/videos/:id`
+- Auth: Optional
+- Description: Retrieves single video metadata and author details. Pure read-only operation; does NOT increment `viewsCount`.
+- Response (200): Video detail object.
+- Error (404 `NOT_FOUND`): Video not found.
+
+### `POST /api/v1/videos/:id/view`
+- Auth: Optional
+- Description: Records a playback initiation event and increments `viewsCount`.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": { "viewsCount": 12401 },
+      "message": "Playback recorded"
+  }
+  ```
+
+### `DELETE /api/v1/videos/:id`
+- Auth: Required (`Bearer <token>`)
+- Authorization: Must be video author (`req.user.id === video.authorId`) or user with role `admin`.
+- Description: Deletes Cloudinary media asset and removes MongoDB metadata document.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": { "deletedId": "vid_123" },
+      "message": "Video deleted successfully"
+  }
+  ```
+- Error (403 `FORBIDDEN`): Not authorized to delete this video.
+- Error (404 `NOT_FOUND`): Video not found.
+
+### `POST /api/v1/videos/:id/like`
+- Auth: Required (`Bearer <token>`)
+- Response (200): `{ "liked": true, "likesCount": 42 }`
+
+### `DELETE /api/v1/videos/:id/like`
+- Auth: Required (`Bearer <token>`)
+- Response (200): `{ "liked": false, "likesCount": 41 }`
+
+---
+
 ## 8. Messaging & Direct Messages (Socket.IO Realtime)
 
 > **Mandatory DM Follow-Rule:** User A can direct message User B **only if A follows B**. The backend enforces this verification prior to message creation or socket dispatch.
