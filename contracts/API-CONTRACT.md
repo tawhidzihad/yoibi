@@ -1144,3 +1144,141 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   }
   ```
 - Error (400 `CONFIRMATION_REQUIRED`): Must pass `"confirm": true`.
+
+---
+
+## 13. Notifications API
+
+### Overview & Architecture
+Notifications represent user activity alerts generated as secondary side effects from primary domain operations (like tweet, retweet, reply to tweet, follow user, like video). Direct messages are excluded as they provide their own realtime channel and unread counters.
+
+#### Key Principles:
+1. **Secondary Side Effect:** Primary operations succeed independently. If notification persistence or realtime delivery fails, primary action results are not affected or rolled back.
+2. **Identity Model:** `recipientId` and `actorId` are Better Auth verified String user IDs (consistent with `Tweet.authorId`, `Video.authorId`, etc.).
+3. **Actor Resolution:** Notifications store `actorId` and resolve current public profile info (`id`, `name`, `handle`, `avatarUrl`) at read/emission time. If actor no longer exists, returns fallback `name: "Unknown user"`, `handle: null`, `avatarUrl: null`.
+4. **Target Resolution & Deleted Targets:** Notifications persist even when referenced content is deleted. Frontend displays "This content is no longer available" without crashing. Route mapping:
+   - `like_tweet`, `retweet`, `reply` -> `/tweets/:targetId`
+   - `like_video` -> `/videos/:targetId`
+   - `follow` -> `/wall/:actor.handle` (actor profile)
+5. **Duplicate Prevention:** Notifications are generated only on `inactive -> active` state transitions. Undo operations (unlike, unfollow, undo retweet) delete the active notification, allowing clean re-creation. Unique compound index `{ actorId: 1, type: 1, targetId: 1 }` provides database-level deduplication.
+6. **Self-Notification:** Notifications are never generated when `actorId === recipientId`.
+
+---
+
+### `GET /api/v1/notifications`
+- **Auth:** Required (`Bearer <token>`)
+- **Query Parameters:**
+  - `page` (integer, default: 1, min: 1)
+  - `limit` (integer, default: 20, min: 1, max: 50)
+  - `read` (boolean, optional — filter by read state)
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "items": [
+              {
+                  "id": "notif_65e1a2b3",
+                  "type": "like_tweet",
+                  "actor": {
+                      "id": "ba_usr_abc123",
+                      "name": "Jane Doe",
+                      "handle": "@janedoe",
+                      "avatarUrl": "https://res.cloudinary.com/demo/image/upload/avatar.jpg"
+                  },
+                  "targetId": "tweet_456",
+                  "targetType": "tweet",
+                  "read": false,
+                  "createdAt": "2026-09-11T05:00:00.000Z"
+              }
+          ],
+          "pagination": {
+              "page": 1,
+              "limit": 20,
+              "totalItems": 42,
+              "totalPages": 3,
+              "hasNextPage": true
+          }
+      },
+      "message": ""
+  }
+  ```
+- **Error (401 `UNAUTHORIZED`):** Missing or invalid auth token.
+
+---
+
+### `GET /api/v1/notifications/unread-count`
+- **Auth:** Required (`Bearer <token>`)
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "unreadCount": 7
+      },
+      "message": ""
+  }
+  ```
+- **Error (401 `UNAUTHORIZED`):** Missing or invalid auth token.
+
+---
+
+### `PATCH /api/v1/notifications/:id/read`
+- **Auth:** Required (`Bearer <token>`)
+- **Authorization:** `notification.recipientId === req.user.id`
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "notif_65e1a2b3",
+          "read": true
+      },
+      "message": "Notification marked as read"
+  }
+  ```
+- **Error (401 `UNAUTHORIZED`):** Missing or invalid auth token.
+- **Error (403 `FORBIDDEN`):** Cannot modify notifications belonging to another user.
+- **Error (404 `NOT_FOUND`):** Notification not found.
+
+---
+
+### `PATCH /api/v1/notifications/read-all`
+- **Auth:** Required (`Bearer <token>`)
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "updatedCount": 7
+      },
+      "message": "All notifications marked as read"
+  }
+  ```
+- **Error (401 `UNAUTHORIZED`):** Missing or invalid auth token.
+
+---
+
+### Socket.IO Event: `notification:new`
+- **Direction:** Server -> Client only
+- **Room:** `user:<recipientId>` (reusing existing authenticated personal room)
+- **Payload:**
+  ```json
+  {
+      "notification": {
+          "id": "notif_65e1a2b3",
+          "type": "like_tweet",
+          "actor": {
+              "id": "ba_usr_abc123",
+              "name": "Jane Doe",
+              "handle": "@janedoe",
+              "avatarUrl": "https://res.cloudinary.com/demo/image/upload/avatar.jpg"
+          },
+          "targetId": "tweet_456",
+          "targetType": "tweet",
+          "read": false,
+          "createdAt": "2026-09-11T05:00:00.000Z"
+      }
+  }
+  ```
+

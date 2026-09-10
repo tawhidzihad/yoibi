@@ -1,4 +1,5 @@
 const tweetsRepository = require("../../repositories/tweets.repository");
+const notificationsService = require("../notifications.service");
 
 /**
  * Service: Create a new Tweet
@@ -13,9 +14,10 @@ async function createTweet({ user, content, mediaUrls = [], replyToId = null }) 
         throw { statusCode: 400, code: "VALIDATION_ERROR", message: "Tweet content is required" };
     }
 
+    let parent = null;
     // If this is a reply, ensure the parent tweet exists
     if (replyToId) {
-        const parent = await tweetsRepository.findById(replyToId);
+        parent = await tweetsRepository.findById(replyToId);
         if (!parent) {
             throw { statusCode: 404, code: "NOT_FOUND", message: "Parent tweet not found" };
         }
@@ -45,6 +47,19 @@ async function createTweet({ user, content, mediaUrls = [], replyToId = null }) 
     // If this is a reply, increment the parent's repliesCount
     if (replyToId) {
         await tweetsRepository.incrementRepliesCount(replyToId);
+
+        // Secondary side effect: Trigger notification for parent tweet author
+        if (parent && parent.authorId) {
+            notificationsService.createNotification({
+                actorId: user.id,
+                recipientId: parent.authorId,
+                type: "reply",
+                targetId: replyToId,
+                targetType: "tweet"
+            }).catch((err) => {
+                console.error("[Notification Trigger] reply error:", err.message);
+            });
+        }
     }
 
     const enriched = await tweetsRepository.attachAuthors(created);

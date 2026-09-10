@@ -11,6 +11,7 @@ import {
     Radio,
     Users,
     MessageSquare,
+    Bell,
     User,
     Plus,
     LogOut,
@@ -20,27 +21,30 @@ import { Dock, DockIcon } from "../../shared/ui/Dock";
 import { LoadingFallback } from "../../shared/feedback/LoadingFallback";
 import { cn } from "../../shared/utils/cn";
 import { useAuth } from "../../features/auth/context/AuthContext";
+import { NotificationBadge, useNotifications } from "../../features/notifications";
 
 const navItems = [
-    { href: "/feed",     label: "Feed",       icon: Home },
-    { href: "/posts",    label: "Posts",      icon: FileText },
-    { href: "/tweets",   label: "Tweets",     icon: AtSign },
-    { href: "/videos",   label: "Videos",     icon: Play },
-    { href: "/streams",  label: "Streams",    icon: Radio },
-    { href: "/meetup",   label: "Meet Up",    icon: Users },
-    { href: "/messages", label: "Messages",   icon: MessageSquare },
-    { href: "/wall",     label: "My Wall",    icon: User },
+    { href: "/feed",          label: "Feed",          icon: Home },
+    { href: "/posts",         label: "Posts",         icon: FileText },
+    { href: "/tweets",        label: "Tweets",        icon: AtSign },
+    { href: "/videos",        label: "Videos",        icon: Play },
+    { href: "/streams",       label: "Streams",       icon: Radio },
+    { href: "/meetup",        label: "Meet Up",       icon: Users },
+    { href: "/messages",      label: "Messages",      icon: MessageSquare },
+    { href: "/notifications", label: "Notifications", icon: Bell, hasBadge: true },
+    { href: "/wall",          label: "My Wall",       icon: User },
 ];
 
 const dockItems = [
-    { icon: Home,         label: "Feed",     href: "/feed" },
-    { icon: FileText,     label: "Posts",    href: "/posts" },
-    { icon: AtSign,       label: "Tweets",   href: "/tweets" },
-    { icon: Play,         label: "Videos",   href: "/videos" },
-    { icon: Radio,        label: "Streams",  href: "/streams" },
-    { icon: Users,        label: "Meet Up",  href: "/meetup" },
-    { icon: MessageSquare, label: "Messages", href: "/messages" },
-    { icon: User,         label: "Wall",     href: "/wall" },
+    { icon: Home,          label: "Feed",          href: "/feed" },
+    { icon: FileText,      label: "Posts",         href: "/posts" },
+    { icon: AtSign,        label: "Tweets",        href: "/tweets" },
+    { icon: Play,          label: "Videos",        href: "/videos" },
+    { icon: Radio,         label: "Streams",       href: "/streams" },
+    { icon: Users,         label: "Meet Up",       href: "/meetup" },
+    { icon: MessageSquare, label: "Messages",      href: "/messages" },
+    { icon: Bell,          label: "Notifications", href: "/notifications", hasBadge: true },
+    { icon: User,          label: "Wall",          href: "/wall" },
 ];
 
 /**
@@ -53,7 +57,7 @@ function getSafeReturnUrl(pathname) {
     return pathname;
 }
 
-function LeftNav({ onLogout }) {
+function LeftNav({ onLogout, unreadCount = 0 }) {
     const pathname = usePathname();
 
     return (
@@ -70,7 +74,7 @@ function LeftNav({ onLogout }) {
 
             {/* Navigation */}
             <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-1">
-                {navItems.map(({ href, label, icon: Icon }) => {
+                {navItems.map(({ href, label, icon: Icon, hasBadge }) => {
                     const active = pathname === href || pathname.startsWith(href + "/");
                     return (
                         <Link
@@ -85,7 +89,10 @@ function LeftNav({ onLogout }) {
                             aria-current={active ? "page" : undefined}
                         >
                             <Icon size={18} aria-hidden="true" />
-                            {label}
+                            <span className="flex-1">{label}</span>
+                            {hasBadge && unreadCount > 0 && (
+                                <NotificationBadge count={unreadCount} />
+                            )}
                         </Link>
                     );
                 })}
@@ -178,6 +185,7 @@ export default function ProtectedLayout({ children }) {
     const { status, user, logout } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
+    const { unreadCount } = useNotifications({ autoFetch: false });
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -207,7 +215,7 @@ export default function ProtectedLayout({ children }) {
         <div className="relative min-h-screen bg-background">
             {/* ── DESKTOP: 3-column grid ── */}
             <div className="hidden lg:flex lg:max-w-[1152px] lg:mx-auto">
-                <LeftNav onLogout={handleLogout} />
+                <LeftNav onLogout={handleLogout} unreadCount={unreadCount} />
 
                 <main
                     id="main-content"
@@ -232,14 +240,28 @@ export default function ProtectedLayout({ children }) {
                         <YoibiLogo className="h-7 w-7 text-cyan-500" />
                         <span className="text-base font-bold tracking-tight text-foreground">Yoibi</span>
                     </Link>
-                    <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded"
-                    >
-                        <LogOut size={16} aria-hidden="true" />
-                        Sign Out
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <Link
+                            href="/notifications"
+                            className="relative flex items-center justify-center p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
+                            aria-label="Notifications"
+                        >
+                            <Bell size={20} aria-hidden="true" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                                    {unreadCount > 99 ? "99+" : unreadCount}
+                                </span>
+                            )}
+                        </Link>
+                        <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded cursor-pointer"
+                        >
+                            <LogOut size={16} aria-hidden="true" />
+                            Sign Out
+                        </button>
+                    </div>
                 </header>
 
                 <main id="main-content" className="flex-1 pb-24" tabIndex={-1}>
@@ -249,7 +271,7 @@ export default function ProtectedLayout({ children }) {
                 {/* Mobile bottom dock */}
                 <div className="fixed bottom-4 left-0 right-0 z-40 flex justify-center px-4">
                     <Dock>
-                        {dockItems.map(({ icon: Icon, label, href }) => {
+                        {dockItems.map(({ icon: Icon, label, href, hasBadge }) => {
                             const active = pathname === href || pathname.startsWith(href + "/");
                             return (
                                 <DockIcon
@@ -258,7 +280,14 @@ export default function ProtectedLayout({ children }) {
                                     onClick={() => router.push(href)}
                                     label={label}
                                 >
-                                    <Icon size={20} aria-hidden="true" />
+                                    <div className="relative">
+                                        <Icon size={20} aria-hidden="true" />
+                                        {hasBadge && unreadCount > 0 && (
+                                            <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-cyan-500 px-0.5 text-[9px] font-bold text-white shadow-xs">
+                                                {unreadCount > 9 ? "9+" : unreadCount}
+                                            </span>
+                                        )}
+                                    </div>
                                 </DockIcon>
                             );
                         })}

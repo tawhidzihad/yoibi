@@ -7,6 +7,7 @@ const videosRoutes = require("./videos.routes");
 const streamsRoutes = require("./streams.routes");
 const meetupRoutes = require("./meetup.routes");
 const messagesRoutes = require("./messages.routes");
+const notificationsRoutes = require("./notifications.routes");
 
 const apiRouter = Router();
 
@@ -33,6 +34,9 @@ apiRouter.use(meetupRoutes);
 
 // Mount messaging routes (One-to-one direct messages & conversations)
 apiRouter.use(messagesRoutes);
+
+// Mount notifications routes (Activity alerts & unread badges)
+apiRouter.use(notificationsRoutes);
 
 module.exports = apiRouter;
 

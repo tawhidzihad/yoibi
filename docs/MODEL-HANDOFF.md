@@ -7,46 +7,48 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-11
-- Active task: Phase 4 — Milestone 7: Messages & Socket.IO Direct Messaging Integration
-- Overall phase: Phase 4 — Milestone 7 FULLY IMPLEMENTED & VERIFIED (Quality Gates 100% Passed)
+- Active task: Phase 4 — Milestone 8: Notifications & Activity Feed Integration
+- Overall phase: Phase 4 — Milestone 8 FULLY IMPLEMENTED & VERIFIED (Quality Gates 100% Passed)
 - Git repository status: Initialized at `yoibi/` root
 - Current branch: `main`
-- Last completed milestone: **Phase 4 — Milestone 7: Messages & Socket.IO Direct Messaging Integration**
-  1. **Follow Prerequisite System**:
-     - `Follow` model (`backend/src/models/follow.model.js`) with unique compound index `{ followerId: 1, followingId: 1 }`.
-     - `User` model updated with denormalized counters `followersCount` and `followingCount`.
-     - `FollowsRepository` (`backend/src/repositories/follows.repository.js`) with idempotent creation, deletion, `isFollowing` checks, and count queries.
-     - Services & Controllers: `followUser` (self-follow rejection, idempotent counter increments), `unfollowUser` (non-negative decrements).
-     - Endpoints: `POST /api/v1/users/:id/follow` and `DELETE /api/v1/users/:id/follow`.
-  2. **Direct Messaging Permission (Server-Authoritative Follow Rule)**:
-     - Canonical rule: `A follows B -> A may message B`.
-     - Backend enforces this relationship check on EVERY message send (both REST and Socket.IO).
-     - Unfollowing preserves conversation history while blocking new messages (`403 DM_FOLLOW_REQUIRED`). Messaging resumes once A follows B again.
-  3. **One-to-One Canonical Conversations & Message Persistence**:
-     - `Conversation` model with canonical sorted participant IDs (`[min(A,B), max(A,B)]`) preventing duplicate conversation records.
-     - `Message` model (`backend/src/models/message.model.js`) with unique compound index `{ senderId: 1, clientMessageId: 1 }` for idempotency.
-     - Never stores unbounded message history inside Conversation document; separate `messages` collection.
-  4. **Message Idempotency**:
-     - Every message requires `clientMessageId` (RFC4122 UUID).
-     - Retry with identical `{ senderId, clientMessageId }` returns previously persisted message without duplicate DB insert.
-  5. **Standard Page-Based Pagination**:
-     - Standardized on `page`, `limit`, `totalItems`, `totalPages`, `hasNextPage` across all list/history endpoints.
+- Last completed milestone: **Phase 4 — Milestone 8: Notifications & Activity Feed Integration**
+  1. **Notification Identity Model**:
+     - `Notification` model (`backend/src/models/notification.model.js`) with Better Auth String IDs (`recipientId: String`, `actorId: String`).
+     - Consistent with `Tweet.authorId`, `Video.authorId`, `Stream.authorId`, `MeetUp.ownerId`, and `Message.senderId`.
+     - Unique compound index `{ actorId: 1, type: 1, targetId: 1 }` for database-level deduplication.
+  2. **Supported Notification Types & Trigger Integration**:
+     - Supported types: `like_tweet`, `retweet`, `reply`, `follow`, `like_video` (`new_message` excluded as messaging provides dedicated realtime events and unread state).
+     - Triggers integrated as guarded secondary side effects into primary business logic (`tweets.service.js`, `follows.service.js`, `videos.service.js`).
+     - Secondary side-effect failure semantics: primary operations succeed independently even if notification persistence or Socket.IO delivery fails.
+  3. **Duplicate Prevention & Undo Cleanup**:
+     - Notifications created only on genuine state transitions (`inactive -> active`).
+     - Undo operations (unlike tweet, undo retweet, unfollow, unlike video) safely delete active notifications (`deleteNotification`).
+     - Self-notification suppression: `actorId === recipientId` creates zero notifications.
+  4. **Actor & Target Resolution**:
+     - Stored `actorId` is dynamically resolved to current public profile info (`id`, `name`, `handle`, `avatarUrl`) at read/emission time.
+     - Deleted/missing actor accounts safely fall back to `name: "Unknown user"`, `handle: null`, `avatarUrl: null` without breaking the list.
+     - Target existence is resilient: notifications remain persisted even if referenced tweet/video/user is deleted; frontend handles missing targets gracefully.
+     - Deterministic route mapping:
+       - `like_tweet`, `retweet`, `reply` -> `/tweets/:targetId`
+       - `like_video` -> `/videos/:targetId`
+       - `follow` -> `/wall/:actor.handle`
+  5. **REST API & Pagination**:
+     - Endpoints: `GET /api/v1/notifications`, `GET /api/v1/notifications/unread-count`, `PATCH /api/v1/notifications/:id/read`, `PATCH /api/v1/notifications/read-all`.
+     - Standard page-based pagination (`page`, `limit`, `totalItems`, `totalPages`, `hasNextPage`) and optional `read=true/false` filter.
+     - Strict ownership checks (`recipientId === req.user.id`).
   6. **Socket.IO Realtime Gateway**:
-     - Attached directly to existing HTTP listener in `backend/src/server.js` with `transports: ["polling", "websocket"]`.
-     - Token authentication via `verifyJwtToken` / `jose` Better Auth JWKS. Rejects unauthenticated or blocked accounts (`isBlocked === true`).
-     - Rooms: personal `user:<userId>` and conversation `conv:<conversationId>`.
-     - Ephemeral typing indicators (`typing:start`, `typing:stop`, `typing:update`) with membership validation.
-     - Realtime read state updates (`conversation:read`, `conversation:read_update`).
-     - Reconnect recovery: client fetches REST history on reconnect and deduplicates via `clientMessageId` / `id`.
-  7. **Frontend Direct Messaging UI**:
-     - Full replacement in `frontend/src/features/messaging/`: `MessagingView`, `ConversationList`, `ConversationCard`, `MessageThread`, `MessageBubble`, `MessageComposer` (React Hook Form + Zod, debounced typing), `TypingIndicator`, `MessageStatus`, and `useMessagingSocket`.
-     - Page route `/messages` in `frontend/src/app/(protected)/messages/page.js`.
+     - Reuses existing Socket.IO server and `user:<recipientId>` personal room.
+     - Dispatches `notification:new` events safely without failing primary requests.
+  7. **Frontend Notifications UI**:
+     - Feature folder: `frontend/src/features/notifications/` with `useNotifications` hook, `NotificationBadge`, `NotificationItem`, `NotificationList`.
+     - Page route `/notifications` in `frontend/src/app/(protected)/notifications/page.js`.
+     - Navigation & dock integration with live unread badge counters.
   8. **Quality Gates Passed**:
-     - Backend tests (`npm test`): 100% passing across Foundation, Tweets, Videos, Streams, Meet-Up, and Messaging test suites.
+     - Backend tests (`npm test`): 100% passing across Foundation, Tweets, Videos, Streams, Meet-Up, Messaging, and Notifications test suites.
      - Backend ESLint (`npm run lint`): 0 errors, 0 warnings.
      - Frontend ESLint (`npm run lint`): 0 errors, 0 warnings.
      - Frontend Next.js production build (`npm run build`): Clean compilation with dynamic routes.
-- Exact next milestone: **Phase 4 — Milestone 8: Notifications & Activity Feed Integration**.
+- Exact next milestone: **Phase 5 — Milestone 9: Admin Dashboard & Moderation Tools**.
 
 ## What Is Working
 - Better Auth server & client integration in Next.js (`frontend/src/lib/auth.js`, `frontend/src/lib/auth-client.js`, `/api/auth/[...all]`).
@@ -57,17 +59,15 @@ At the end of every meaningful session/task, the active model must update this f
 - **Videos Domain:** Cloudinary upload intent integration, `Video` model, repository, services, controllers, routes, and frontend video player/feed.
 - **Streams Domain:** LiveKit SFU broadcast integration, `Stream` model, lifecycle state machine, and frontend live broadcast viewer/host suite.
 - **Meet-Up Domain:** LiveKit collaborative multi-peer rooms, atomic capacity reservations, and dynamic grid layouts.
-- **Messages & Direct Messaging Domain:**
-  - Follow-gated permissions, canonical conversation grouping, message idempotency (`clientMessageId`), page-based pagination.
-  - Socket.IO gateway with token auth, personal rooms, conversation rooms, typing indicators, read receipts, and reconnect recovery.
-  - Complete modern responsive frontend UI (`frontend/src/features/messaging/`).
+- **Messages & Direct Messaging Domain:** Follow-gated permissions, canonical conversation grouping, message idempotency (`clientMessageId`), page-based pagination, Socket.IO gateway with token auth, personal/conversation rooms, typing indicators, and read receipts.
+- **Notifications & Activity Feed Domain:** Real-time social alerts, Better Auth String ID identity, duplicate prevention & undo cleanup, actor resolution, resilience to deleted content, unread counters, and responsive UI feed.
 - All backend and frontend linting and production builds pass cleanly with 0 errors.
 
 ## What Is Not Working / Remaining Scope
-- Phase 4 Milestone 8 (Notifications) is next.
+- Phase 5 Milestone 9 (Admin Dashboard & Moderation Tools) is next.
 
 ## Tests/Checks Run
-- Backend tests (`npm test`): Passed 100% across all 6 test suites
+- Backend tests (`npm test`): Passed 100% across all 7 test suites
 - Backend ESLint (`npm run lint`): 0 errors, 0 warnings
 - Frontend ESLint (`npm run lint`): 0 errors, 0 warnings
 - Frontend build (`npm run build`): Compiled cleanly
@@ -75,4 +75,4 @@ At the end of every meaningful session/task, the active model must update this f
 - Tab check: Zero tab characters across `frontend/src` and `backend/src`
 
 ## Exact Resume Instruction
-> Proceed to plan and implement Phase 4 — Milestone 8 (Notifications & Activity Feed Integration).
+> Proceed to plan and implement Phase 5 — Milestone 9: Admin Dashboard & Moderation Tools.

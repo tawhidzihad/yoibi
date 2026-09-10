@@ -123,7 +123,18 @@ backend/src/
 
 ---
 
-## 7. Railway Deployment Readiness
+## 7. Notifications Architecture
+
+- **Secondary Side Effect:** Primary operations (tweet likes, retweets, replies, user follows, video likes) succeed independently. Notification creation and realtime delivery are fire-and-forget side effects that never fail or roll back primary requests.
+- **Identity Model:** Uses Better Auth verified String user IDs (`recipientId: String`, `actorId: String`) consistent with `Tweet.authorId` and `Message.senderId`.
+- **Duplicate Prevention & Undo Cleanup:** Created exclusively on `inactive -> active` state transitions with compound unique index `{ actorId: 1, type: 1, targetId: 1 }`. Undo operations (unlike, unfollow, undo retweet) delete the active notification, enabling clean re-creation.
+- **Actor Resolution:** Stored `actorId` is resolved dynamically at read/emission time against current user profile data, falling back safely to `name: "Unknown user"`, `handle: null`, `avatarUrl: null` if deleted.
+- **Deleted Target Handling:** Notifications persist when target content is removed; frontend shows unavailable content state without crashing.
+- **Socket.IO Realtime Event:** Dispatches `notification:new` to `user:<recipientId>` room on the existing Socket.IO instance.
+
+---
+
+## 8. Railway Deployment Readiness
 
 - Reads `PORT` dynamically from the environment.
 - Binds listener explicitly to `0.0.0.0`.

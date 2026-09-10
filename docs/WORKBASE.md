@@ -8,57 +8,49 @@ This file is a live task scratchpad. The active AI must update it before and dur
 > **In YOIBI, Direct Messaging follows the server-authoritative rule: User A can direct message User B only if A follows B (`followsRepository.isFollowing(senderId, recipientId) === true`).**
 
 ## Current Task
-- Task ID: TASK-008
-- Title: Phase 4 — Milestone 7: Messages & Socket.IO Direct Messaging Integration
+- Task ID: TASK-009
+- Title: Phase 4 — Milestone 8: Notifications & Activity Feed Integration
 - Status: COMPLETED & VERIFIED (100% QUALITY GATES PASSED)
-- Goal: Implement real-time 1-on-1 direct messaging, conversation threads, typing indicators, read receipts, follow-gated permission enforcement (`A follows B -> A can message B`), message idempotency with `{ senderId, clientMessageId }`, standard page-based pagination, Socket.IO gateway with token auth and personal/conversation rooms, reconnect recovery via REST history reconciliation, and complete frontend UI replacement.
+- Goal: Implement real-time notifications for social interactions (like tweet, retweet, reply, follow, like video), Better Auth verified String user IDs identity model, secondary side-effect failure semantics (primary actions succeed independently), state-transition duplicate prevention with undo cleanup, actor profile resolution at read time with graceful missing-user fallback, deleted-target resilience, standard page-based pagination, Socket.IO realtime `notification:new` delivery, and modern responsive frontend notifications UI.
 - Scope Accomplished:
   - Contract:
-    - `contracts/API-CONTRACT.md`: Section 8 updated with complete endpoint specs (`GET /messages/conversations`, `GET /messages/conversations/:id`, `POST /messages`, `PATCH /messages/conversations/:id/read`), follow endpoints (`POST/DELETE /users/:id/follow`), and Socket.IO events (`conversation:join`, `conversation:leave`, `message:send`, `typing:start`, `typing:stop`, `conversation:read`, `message:ack`, `message:new`, `message:error`, `typing:update`, `conversation:read_update`).
-    - `contracts/openapi.yaml`: Synchronized with `/messages` and `/messages/conversations` paths, request bodies, query params, and schemas (`MessageResponse`, `ConversationListResponse`, `ConversationHistoryResponse`, `MarkReadResponse`).
-  - Follow Prerequisite:
-    - Model: `backend/src/models/follow.model.js` (compound unique index `{ followerId: 1, followingId: 1 }`).
-    - User Model: `backend/src/models/user.model.js` (denormalized `followersCount`, `followingCount`).
-    - Repository: `backend/src/repositories/follows.repository.js` (idempotent create, delete, isFollowing, count helpers).
-    - Services: `backend/src/services/create/follows.service.js`, `backend/src/services/delete/follows.service.js` (self-follow rejection, non-negative counter increments/decrements).
-    - Controllers: `backend/src/controllers/create/follows.controller.js`, `backend/src/controllers/delete/follows.controller.js`.
-    - Routes: `POST /api/v1/users/:id/follow`, `DELETE /api/v1/users/:id/follow` in `backend/src/routes/users.routes.js`.
-  - Messaging Backend:
-    - Models: `backend/src/models/conversation.model.js` (canonical participant ordering), `backend/src/models/message.model.js` (idempotency compound unique index `{ senderId: 1, clientMessageId: 1 }`, query indexes).
-    - Repository: `backend/src/repositories/messages.repository.js` (findOrCreateConversation, listConversationsForUser, getMessagesByConversationId, findMessageByIdempotency, markConversationMessagesAsRead).
-    - Service: `backend/src/services/messages.service.js` (follow validation check on every send, idempotency handling returning 200 on retry without duplicate DB record, self-messaging rejection, standard page-based pagination envelopes).
-    - Validators: `backend/src/validators/messages.validator.js` (Zod schemas for body, query, params).
-    - Controllers: `backend/src/controllers/messages.controller.js`.
-    - Routes: `backend/src/routes/messages.routes.js` mounted at `/api/v1` in `backend/src/routes/index.js`.
-  - Socket.IO Gateway:
-    - Gateway: `backend/src/sockets/messaging.socket.js` attached to single HTTP server in `backend/src/server.js`.
-    - Transports: `["polling", "websocket"]`.
-    - Auth Middleware: token verification via `jose`/Better Auth JWKS; rejects unauthenticated / blocked accounts.
-    - Rooms: personal `user:<userId>`, conversation `conv:<conversationId>`.
-    - Events: `message:send` -> persist to DB -> `message:ack` to sender + `message:new` to recipient and multi-tabs; `typing:start`/`stop` -> `typing:update`; `conversation:read` -> `conversation:read_update`.
-  - Frontend Messaging:
-    - API client: `frontend/src/lib/api/messages.js`, `frontend/src/lib/api/follows.js`.
-    - Hook: `frontend/src/features/messaging/hooks/useMessagingSocket.js` (connection, room handling, auto-reconnect, and history recovery).
-    - Components: `frontend/src/features/messaging/ui/` (`MessagingView.js`, `ConversationList.js`, `ConversationCard.js`, `MessageThread.js`, `MessageBubble.js`, `MessageComposer.js` with RHF+Zod and debounced typing, `TypingIndicator.js`, `MessageStatus.js`).
-    - Page: `frontend/src/app/(protected)/messages/page.js`.
+    - `contracts/API-CONTRACT.md`: Section 13 added with comprehensive specifications for `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/:id/read`, `PATCH /notifications/read-all`, and Socket.IO `notification:new` event on `user:<recipientId>` personal room.
+    - `contracts/openapi.yaml`: Synchronized with all notification endpoints, parameters, and response schemas (`NotificationActor`, `NotificationItem`, `NotificationListResponse`, `NotificationUnreadCountResponse`, `NotificationReadResponse`, `NotificationReadAllResponse`).
+  - Notifications Backend:
+    - Model: `backend/src/models/notification.model.js` with Better Auth String IDs (`recipientId: String`, `actorId: String`), enum types (`like_tweet`, `retweet`, `reply`, `follow`, `like_video`), target types (`tweet`, `video`, `user`), compound unique index `{ actorId: 1, type: 1, targetId: 1 }` for deduplication, and query indexes.
+    - Repository: `backend/src/repositories/notifications.repository.js` (create, findById, findPaginated, countUnread, markAsRead, markAllAsRead, deleteNotification for undo cleanup, and attachActors for dynamic public profile resolution).
+    - Service: `backend/src/services/notifications.service.js` with guarded secondary side-effect creation/deletion, self-notification suppression (`actorId === recipientId`), and ownership-enforced mark-as-read methods.
+    - Sockets: `backend/src/sockets/notifications.socket.js` attached to shared Socket.IO instance; emits `notification:new` to `user:<recipientId>`.
+    - Triggers & Undo Cleanup: Integrated into Tweet likes/unlikes, Tweet retweets/undo retweets, Tweet replies, User follows/unfollows, and Video likes/unlikes.
+    - Validators: `backend/src/validators/notifications.validator.js` (Zod schemas for query pagination/filtering and params).
+    - Controllers: `backend/src/controllers/notifications.controller.js`.
+    - Routes: `backend/src/routes/notifications.routes.js` mounted under `/api/v1` in `backend/src/routes/index.js`.
+    - Automated Tests: `backend/tests/notifications.test.js` covering all 39 test scenarios across 9 categories (primary action independence, duplicate prevention, self-notification suppression, actor resolution, target handling, REST security & operations, Socket.IO delivery).
+  - Frontend Notifications:
+    - API Client: `frontend/src/lib/api/notifications.js` (`getNotifications`, `getUnreadCount`, `markNotificationRead`, `markAllNotificationsRead`).
+    - Hook: `frontend/src/features/notifications/hooks/useNotifications.js` with unread count management, real-time Socket.IO `notification:new` listener, pagination, and optimistic mark-read updates.
+    - UI Components: `frontend/src/features/notifications/ui/` (`NotificationBadge.js`, `NotificationItem.js`, `NotificationList.js`).
+    - Protected Page: `frontend/src/app/(protected)/notifications/page.js`.
+    - Protected Layout Integration: Desktop LeftNav, mobile header, and mobile bottom dock updated with notifications links and real-time unread count badges.
   - Quality Gates Passed:
-    - `backend`: `npm test` -> 100% passing across Foundation, Tweets, Videos, Streams, Meet-Up, and Messaging test suites.
+    - `backend`: `npm test` -> 100% passing across Foundation, Tweets, Videos, Streams, Meet-Up, Messaging, and Notifications test suites.
     - `backend`: `npm run lint` -> 0 errors, 0 warnings.
     - `frontend`: `npm run lint` -> 0 errors, 0 warnings.
     - `frontend`: `npm run build` -> Clean compile, all routes static/dynamic optimized.
 
 ## Implementation Checklist
 - [x] Synchronize API contracts (`API-CONTRACT.md`, `openapi.yaml`)
-- [x] Backend: Follow model, repository, services, controllers, routes (`follow.model.js`, `follows.repository.js`, `follows.service.js`)
-- [x] Backend: User model counter synchronization (`followersCount`, `followingCount`)
-- [x] Backend: Conversation & Message models (`conversation.model.js`, `message.model.js`)
-- [x] Backend: Messages repository & service with follow check and idempotency (`messages.repository.js`, `messages.service.js`)
-- [x] Backend: Messages validators, controllers, routes (`messages.validator.js`, `messages.controller.js`, `messages.routes.js`)
-- [x] Backend: Socket.IO gateway with JWT auth, rooms, persistence before broadcast (`messaging.socket.js`, `server.js`)
-- [x] Backend: Messaging automated test suite (`messaging.test.js`, `index.js`)
-- [x] Frontend: Messages API client (`messages.js`, `follows.js`)
-- [x] Frontend: `useMessagingSocket.js` hook with reconnect recovery
-- [x] Frontend: Messaging UI components (`MessagingView`, `ConversationList`, `ConversationCard`, `MessageThread`, `MessageBubble`, `MessageComposer`, `TypingIndicator`, `MessageStatus`)
+- [x] Backend: Notification model (`notification.model.js`) with Better Auth String IDs
+- [x] Backend: Notifications repository (`notifications.repository.js`) with actor enrichment and undo deletion
+- [x] Backend: Notifications service (`notifications.service.js`) with guarded side effects and self-notification check
+- [x] Backend: Socket.IO notification handler (`notifications.socket.js`, `server.js`)
+- [x] Backend: Triggers and undo cleanup integrated into Tweet likes, retweets, replies, User follows, and Video likes
+- [x] Backend: Notifications validators, controllers, and routes (`notifications.validator.js`, `notifications.controller.js`, `notifications.routes.js`)
+- [x] Backend: Notifications test suite (`notifications.test.js`, `index.js`) -> 100% passing
+- [x] Frontend: Notifications API client (`notifications.js`)
+- [x] Frontend: `useNotifications.js` hook with real-time Socket.IO listener
+- [x] Frontend: Notifications UI components (`NotificationBadge`, `NotificationItem`, `NotificationList`)
+- [x] Frontend: Notifications page (`notifications/page.js`) and ProtectedLayout nav/dock integration
 - [x] Run backend tests (`npm test`) -> 100% passing
 - [x] Run backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
 - [x] Run frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
@@ -66,7 +58,8 @@ This file is a live task scratchpad. The active AI must update it before and dur
 - [x] Update documentation (`README.md`, `WORKBASE.md`, `MODEL-HANDOFF.md`)
 
 ## Next Task
-- Task ID: TASK-009
-- Title: Phase 4 — Milestone 8: Notifications & Activity Feed Integration
+- Task ID: TASK-010
+- Title: Phase 5 — Milestone 9: Admin Dashboard & Moderation Tools
 - Status: PENDING
-- Goal: Implement realtime notifications for social interactions (likes, replies, follows, mentions, and message alerts).
+- Goal: Implement admin moderation dashboard, content and user reporting workflows, audit logs, and account moderation.
+
