@@ -112,7 +112,18 @@ backend/src/
 
 ---
 
-## 6. Railway Deployment Readiness
+## 6. Messaging & Socket.IO Realtime Architecture
+
+- **Server-Authoritative Follow Rule:** User A can direct message User B only if A follows B (`followsRepository.isFollowing(senderId, recipientId) === true`). Checked on EVERY message send.
+- **Message Idempotency:** Every message requires `clientMessageId` (UUID). The compound key `{ senderId, clientMessageId }` is uniquely indexed in MongoDB. Retries return previously persisted records with 200 OK without creating duplicate rows.
+- **Persistence-Before-Broadcast:** Messages are validated, idempotency-checked, follow-authorized, and written to MongoDB before any Socket.IO acknowledgment or recipient event is dispatched.
+- **Socket.IO Transport & Rooms:** Attached directly to the HTTP listener with `transports: ["polling", "websocket"]`. Uses `user:<userId>` for personal 1-to-1 delivery and `conv:<conversationId>` for ephemeral typing events.
+- **Standard Page-Based Pagination:** All conversation lists and message histories return `{ items, pagination: { page, limit, totalItems, totalPages, hasNextPage } }`.
+- **Scaling Policy:** Single Socket.IO instance for MVP; horizontal scaling path via `@socket.io/redis-adapter` documented for multi-instance deployments.
+
+---
+
+## 7. Railway Deployment Readiness
 
 - Reads `PORT` dynamically from the environment.
 - Binds listener explicitly to `0.0.0.0`.

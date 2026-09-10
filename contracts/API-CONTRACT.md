@@ -433,55 +433,193 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ## 8. Messaging & Direct Messages (Socket.IO Realtime)
 
-> **Mandatory DM Follow-Rule:** User A can direct message User B **only if A follows B**. The backend enforces this verification prior to message creation or socket dispatch.
+> **Mandatory DM Follow-Rule:** User A can direct message User B **only if A follows B** (`followsRepository.isFollowing(senderId, recipientId) === true`).
+> - The backend enforces this verification on EVERY message send (both REST and Socket.IO).
+> - Mutual follow is NOT required.
+> - If A unfollows B: conversations and history remain; new messages from A to B are blocked (`403 DM_FOLLOW_REQUIRED`); messaging resumes when A follows B again.
+> 
+> **Message Idempotency Rule:**
+> - Every message payload must provide a unique `clientMessageId` (UUID generated on the client).
+> - The compound key `{ senderId, clientMessageId }` is uniquely indexed.
+> - Retries with the same idempotency key return the previously persisted message without creating duplicates.
+> 
+> **Standard Page-Based Pagination:**
+> - Conversation list and message history use YOIBI standard page-based pagination: `page`, `limit`, `totalItems`, `totalPages`, `hasNextPage`.
+> 
+> **Scaling & Transport:**
+> - Socket.IO transports: `["polling", "websocket"]`.
+> - Single-instance Socket.IO server for MVP; horizontally scalable via `@socket.io/redis-adapter` when required.
 
 ### 8.1 HTTP Endpoints
 
 #### `GET /api/v1/messages/conversations`
 - Auth: Required (`Bearer <token>`)
-- Description: Lists conversations with participants, last message snippet, and unread count.
+- Description: Lists conversations with participants, last message snippet, and unread count for authenticated user.
+- Query Parameters:
+  - `page` (integer, optional, default: 1)
+  - `limit` (integer, optional, default: 20, max: 50)
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "items": [
+              {
+                  "id": "65e1a2b3c4d5e6f7a8b9c0d1",
+                  "participants": [
+                      {
+                          "id": "usr_sender_123",
+                          "name": "Jane Doe",
+                          "handle": "@janedoe",
+                          "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg"
+                      },
+                      {
+                          "id": "usr_recipient_456",
+                          "name": "Bob Smith",
+                          "handle": "@bobsmith",
+                          "avatarUrl": "https://res.cloudinary.com/.../avatar2.jpg"
+                      }
+                  ],
+                  "lastMessage": {
+                      "content": "Hey, let's collaborate on the project!",
+                      "senderId": "usr_sender_123",
+                      "clientMessageId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                      "createdAt": "2026-09-11T03:00:00.000Z"
+                  },
+                  "unreadCount": 0,
+                  "updatedAt": "2026-09-11T03:00:00.000Z"
+              }
+          ],
+          "pagination": {
+              "page": 1,
+              "limit": 20,
+              "totalItems": 1,
+              "totalPages": 1,
+              "hasNextPage": false
+          }
+      },
+      "message": ""
+  }
+  ```
 
 #### `GET /api/v1/messages/conversations/:conversationId`
 - Auth: Required (`Bearer <token>`)
-- Description: Paginated chat history for conversation.
-- Query: `page`, `limit` (default 30)
+- Authorization: User must be a participant in the conversation.
+- Description: Retrieves paginated message history for a conversation.
+- Query Parameters:
+  - `page` (integer, optional, default: 1)
+  - `limit` (integer, optional, default: 30, max: 100)
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "items": [
+              {
+                  "id": "65e1a2b3c4d5e6f7a8b9c0d2",
+                  "conversationId": "65e1a2b3c4d5e6f7a8b9c0d1",
+                  "senderId": "usr_sender_123",
+                  "recipientId": "usr_recipient_456",
+                  "content": "Hey, let's collaborate on the project!",
+                  "clientMessageId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+                  "readAt": null,
+                  "createdAt": "2026-09-11T03:00:00.000Z"
+              }
+          ],
+          "pagination": {
+              "page": 1,
+              "limit": 30,
+              "totalItems": 1,
+              "totalPages": 1,
+              "hasNextPage": false
+          }
+      },
+      "message": ""
+  }
+  ```
+- Error (403 `FORBIDDEN`): Authenticated user is not a participant in this conversation.
+- Error (404 `NOT_FOUND`): Conversation not found.
 
 #### `POST /api/v1/messages`
 - Auth: Required (`Bearer <token>`)
+- Description: Sends a direct message. Enforces follow relationship and idempotency via `clientMessageId`.
 - Request Body:
   ```json
   {
-      "recipientId": "usr_987654",
-      "content": "Hey, let's collaborate on the stream!"
+      "recipientId": "usr_recipient_456",
+      "content": "Hey, let's collaborate on the project!",
+      "clientMessageId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
   }
   ```
-- Business Rule Check: Backend verifies `followsRepository.isFollowing(senderId, recipientId) === true`.
-- Response (201): Created message object.
-- Error (403 `DM_FOLLOW_REQUIRED`): "You can only message users whom you follow."
+- Business Rule Checks:
+  - Sender must follow recipient (`followsRepository.isFollowing(senderId, recipientId) === true`).
+  - Cannot message self (`senderId === recipientId`).
+  - Idempotent: if message with `{ senderId, clientMessageId }` already exists, returns existing record with `200 OK`.
+- Response (201 Created / 200 OK for retry):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "65e1a2b3c4d5e6f7a8b9c0d2",
+          "conversationId": "65e1a2b3c4d5e6f7a8b9c0d1",
+          "senderId": "usr_sender_123",
+          "recipientId": "usr_recipient_456",
+          "content": "Hey, let's collaborate on the project!",
+          "clientMessageId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+          "readAt": null,
+          "createdAt": "2026-09-11T03:00:00.000Z"
+      },
+      "message": "Message sent successfully"
+  }
+  ```
+- Error (400 `CANNOT_MESSAGE_SELF`): Cannot message yourself.
+- Error (403 `DM_FOLLOW_REQUIRED`): You can only message users whom you follow.
+- Error (422 `VALIDATION_ERROR`): Content empty, exceeds 2000 characters, or invalid `clientMessageId`.
 
 #### `PATCH /api/v1/messages/conversations/:conversationId/read`
 - Auth: Required (`Bearer <token>`)
-- Description: Marks conversation messages as read for current user.
+- Authorization: Authenticated user must be a participant in the conversation.
+- Description: Marks unread messages received by the current user in the conversation as read (`readAt: Date`). Does not modify user's own outgoing messages.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "conversationId": "65e1a2b3c4d5e6f7a8b9c0d1",
+          "updatedCount": 3
+      },
+      "message": "Conversation marked as read"
+  }
+  ```
 
 ### 8.2 Socket.IO Realtime Events
 
-- Connection Handshake:
+- **Connection Handshake:**
   ```javascript
   io.connect({
+      transports: ["polling", "websocket"],
       auth: { token: "Bearer <jwt_token>" }
   });
   ```
+- **Socket Rooms:**
+  - Personal Room: `user:<userId>` (for personal direct message and notification delivery)
+  - Conversation Room: `conv:<conversationId>` (for ephemeral events like typing indicators)
+
 - **Client -> Server Events:**
-  - `join_conversation`: `{ conversationId: "conv_123" }`
-  - `leave_conversation`: `{ conversationId: "conv_123" }`
-  - `send_message`: `{ recipientId: "usr_987", content: "Hello!" }` (enforces follow-rule server-side)
-  - `typing_start`: `{ conversationId: "conv_123" }`
-  - `typing_stop`: `{ conversationId: "conv_123" }`
+  - `conversation:join`: `{ conversationId: "conv_123" }` (validates participant membership before joining room)
+  - `conversation:leave`: `{ conversationId: "conv_123" }`
+  - `message:send`: `{ recipientId: "usr_456", content: "Hello", clientMessageId: "uuid" }`
+  - `typing:start`: `{ conversationId: "conv_123" }`
+  - `typing:stop`: `{ conversationId: "conv_123" }`
+  - `conversation:read`: `{ conversationId: "conv_123" }`
+
 - **Server -> Client Events:**
   - `authenticated`: `{ userId: "usr_123" }`
-  - `new_message`: `{ id: "msg_456", conversationId: "conv_123", senderId: "usr_123", content: "...", createdAt: "..." }`
-  - `typing_status`: `{ conversationId: "conv_123", userId: "usr_123", isTyping: true }`
-  - `error`: `{ code: "DM_FOLLOW_REQUIRED", message: "..." }`
+  - `message:ack`: `{ clientMessageId: "uuid", message: { ... } }`
+  - `message:new`: `{ message: { ... } }` (delivered to `user:<recipientId>` and `user:<senderId>`)
+  - `message:error`: `{ clientMessageId: "uuid", code: "DM_FOLLOW_REQUIRED", message: "..." }`
+  - `typing:update`: `{ conversationId: "conv_123", userId: "usr_123", isTyping: true }`
+  - `conversation:read_update`: `{ conversationId: "conv_123", readerId: "usr_123" }`
 
 ---
 

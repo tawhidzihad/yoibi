@@ -12,7 +12,12 @@ const updateUserBodySchema = z.object({
     avatarUrl: z.string().url().optional()
 });
 
+const userIdParamSchema = z.object({
+    id: z.string().min(1, 'User ID is required')
+});
+
 module.exports = {
     userHandleParamSchema,
-    updateUserBodySchema
+    updateUserBodySchema,
+    userIdParamSchema
 };

@@ -1029,14 +1029,143 @@ paths:
             schema:
               type: object
               required: [confirm, reason]
+  /messages:
+    post:
+      summary: Send a direct message
+      description: Sends a 1-to-1 direct message. Enforces follow-gated rule (sender must follow recipient) and clientMessageId idempotency.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipientId, content, clientMessageId]
               properties:
-                confirm:
-                  type: boolean
-                reason:
+                recipientId:
                   type: string
+                  example: "usr_65e1a2b3"
+                content:
+                  type: string
+                  maxLength: 2000
+                  example: "Hey, let's collaborate on the stream!"
+                clientMessageId:
+                  type: string
+                  format: uuid
+                  example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+      responses:
+        '201':
+          description: Message sent successfully (or 200 on idempotent retry)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Cannot message oneself
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Follow required to message user (DM_FOLLOW_REQUIRED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Validation error
+
+  /messages/conversations:
+    get:
+      summary: List user conversations
+      description: Returns paginated list of one-to-one conversations for authenticated user with participant details, last message, and unread counts.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
       responses:
         '200':
-          description: User account and all cascading data permanently purged
+          description: Paginated conversation list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /messages/conversations/{conversationId}:
+    get:
+      summary: Get conversation message history
+      description: Returns paginated message history for a conversation. User must be a participant.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Paginated message history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConversationHistoryResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /messages/conversations/{conversationId}/read:
+    patch:
+      summary: Mark conversation messages as read
+      description: Marks all received unread messages in conversation as read for authenticated user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Marked as read successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MarkReadResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
 
 components:
   securitySchemes:
@@ -1138,6 +1267,158 @@ components:
             bytes:
               type: integer
               example: 245100
+    MessageItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "65e1a2b3c4d5e6f7a8b9c0d2"
+        conversationId:
+          type: string
+          example: "65e1a2b3c4d5e6f7a8b9c0d1"
+        senderId:
+          type: string
+          example: "usr_sender_123"
+        recipientId:
+          type: string
+          example: "usr_recipient_456"
+        content:
+          type: string
+          example: "Hey, let's collaborate on the project!"
+        clientMessageId:
+          type: string
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-11T03:00:00.000Z"
+
+    MessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/MessageItem'
+        message:
+          type: string
+          example: "Message sent successfully"
+
+    ConversationItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "65e1a2b3c4d5e6f7a8b9c0d1"
+        participants:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              handle:
+                type: string
+              avatarUrl:
+                type: string
+        lastMessage:
+          type: object
+          properties:
+            content:
+              type: string
+            senderId:
+              type: string
+            clientMessageId:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+        unreadCount:
+          type: integer
+          example: 0
+        updatedAt:
+          type: string
+          format: date-time
+
+    ConversationListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConversationItem'
+            pagination:
+              type: object
+              properties:
+                page:
+                  type: integer
+                limit:
+                  type: integer
+                totalItems:
+                  type: integer
+                totalPages:
+                  type: integer
+                hasNextPage:
+                  type: boolean
+        message:
+          type: string
+
+    ConversationHistoryResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageItem'
+            pagination:
+              type: object
+              properties:
+                page:
+                  type: integer
+                limit:
+                  type: integer
+                totalItems:
+                  type: integer
+                totalPages:
+                  type: integer
+                hasNextPage:
+                  type: boolean
+        message:
+          type: string
+
+    MarkReadResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            conversationId:
+              type: string
+            updatedCount:
+              type: integer
         message:
           type: string
 

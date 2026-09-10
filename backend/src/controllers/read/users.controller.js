@@ -1,4 +1,5 @@
 const User = require('../../models/user.model');
+const followsRepository = require('../../repositories/follows.repository');
 
 /**
  * Controller: Public user profile lookup by handle
@@ -19,13 +20,19 @@ async function getPublicProfile(req, res) {
         delete publicData._id;
         delete publicData.__v;
 
+        let isFollowing = false;
+        if (req.user && req.user.id && id) {
+            isFollowing = await followsRepository.isFollowing(req.user.id, id);
+        }
+
         const data = {
             id,
             ...publicData,
-            followersCount: 0,
-            followingCount: 0,
+            followersCount: user.followersCount || 0,
+            followingCount: user.followingCount || 0,
             postsCount: 0,
-            tweetsCount: 0
+            tweetsCount: 0,
+            isFollowing
         };
         return res.status(200).json({ success: true, data, message: '' });
     } catch (err) {

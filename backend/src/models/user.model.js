@@ -6,6 +6,8 @@ const userSchema = new mongoose.Schema({
     name: { type: String, default: '' },
     avatarUrl: { type: String, default: '' },
     bio: { type: String, default: '' },
+    followersCount: { type: Number, default: 0 },
+    followingCount: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 }, { collection: 'users', _id: false });

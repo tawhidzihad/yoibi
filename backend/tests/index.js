@@ -3,6 +3,7 @@ const { runTweetsTests } = require("./tweets.test");
 const { runVideosTests } = require("./videos.test");
 const { runStreamsTests } = require("./streams.test");
 const { runMeetupTests } = require("./meetup.test");
+const { runMessagingTests } = require("./messaging.test");
 
 async function main() {
     console.log("==================================================");
@@ -18,6 +19,8 @@ async function main() {
     await runStreamsTests();
     console.log("\n--------------------------------------------------\n");
     await runMeetupTests();
+    console.log("\n--------------------------------------------------\n");
+    await runMessagingTests();
 
     console.log("\n==================================================");
     console.log("    ALL BACKEND TEST SUITES PASSED (100%)         ");

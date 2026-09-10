@@ -16,11 +16,18 @@ Standalone Next.js frontend.
 - `src/shared`: generic reusable UI
 - `src/lib/api`: centralized backend API client
 
+## Features
+- `src/features/tweets` & `src/features/feed`: Micro-posts, replies, likes, retweets, and discovery feed.
+- `src/features/videos`: Community video library and upload workflows via Cloudinary.
+- `src/features/streams`: Live realtime broadcast experiences powered by LiveKit SFU.
+- `src/features/meet-up`: Multi-peer collaborative audio/video rooms with screen sharing.
+- `src/features/messaging`: Real-time 1-on-1 direct messaging (`MessagingView`, `ConversationList`, `MessageThread`, `MessageComposer`, `useMessagingSocket`) with follow-gated permissions, idempotency protection, typing indicators, and auto-reconnect recovery.
+
 ## Rules
 - JavaScript only
 - In YOIBI, Tweet is the social content entity. POST is an HTTP method, not a separate content domain.
-- `src/features/tweets` owns social content UI and client behavior; `src/features/feed` is a presentation view of Tweets.
-- React Hook Form for forms
+- Direct Messaging follows the server-authoritative follow rule: A user may send a direct message to another user only when they follow the recipient.
+- React Hook Form + Zod for forms
 - Tailwind CSS v4
 - 4-space indentation
 - ESLint required

@@ -110,12 +110,64 @@ async function verifyJwt(req, res, next) {
 }
 
 /**
+ * Verifies a JWT token directly and returns the sanitized user object.
+ * @param {string} token
+ * @returns {Promise<any>}
+ */
+async function verifyJwtToken(token) {
+    if (!token) {
+        const err = new Error('Bearer token is empty.');
+        err.code = 'UNAUTHORIZED';
+        err.status = 401;
+        throw err;
+    }
+
+    const cleanToken = token.startsWith('Bearer ') ? token.substring(7).trim() : token.trim();
+    if (!cleanToken) {
+        const err = new Error('Bearer token is empty.');
+        err.code = 'UNAUTHORIZED';
+        err.status = 401;
+        throw err;
+    }
+
+    const jwks = getJWKS();
+    if (!jwks) {
+        const err = new Error('Authentication verification service is not configured.');
+        err.code = 'AUTH_SERVICE_UNAVAILABLE';
+        err.status = 500;
+        throw err;
+    }
+
+    const { payload } = await jwtVerify(cleanToken, jwks, {
+        issuer: env.BETTER_AUTH_BASE_URL
+    });
+
+    if (payload.isBlocked === true) {
+        const err = new Error('Your account has been suspended by an administrator.');
+        err.code = 'ACCOUNT_BLOCKED';
+        err.status = 403;
+        throw err;
+    }
+
+    return {
+        id: payload.sub || payload.id,
+        email: payload.email,
+        name: payload.name || '',
+        handle: payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : ''),
+        username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
+        role: payload.role || 'user',
+        isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
+        isBlocked: Boolean(payload.isBlocked)
+    };
+}
+
+/**
  * Optional authentication middleware:
  * If Bearer token is provided, verify and attach req.user; if missing, proceed as guest.
  */
 async function optionalAuth(req, res, next) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
         req.user = null;
         return next();
     }
@@ -124,5 +176,7 @@ async function optionalAuth(req, res, next) {
 
 module.exports = {
     verifyJwt,
-    optionalAuth
+    verifyJwtToken,
+    optionalAuth,
+    getJWKS
 };

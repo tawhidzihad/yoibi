@@ -1,200 +1,392 @@
 "use client";
 
-import { useState } from "react";
-import { MessageSquare, Send, Lock } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { authClient } from "@/lib/auth-client";
+import {
+    getConversations,
+    getConversationHistory,
+    sendMessage as sendRestMessage,
+    markConversationRead,
+} from "@/lib/api/messages";
+import { useMessagingSocket } from "../hooks/useMessagingSocket";
+import { ConversationList } from "./ConversationList";
+import { MessageThread } from "./MessageThread";
 
-// Messaging uses a conversations list + chat window pattern.
-// Socket.IO real-time and DM follow-rule enforcement deferred to Phase 4.
-
-const mockConversations = [
-    {
-        id: "conv-1",
-        participant: { id: "user-3", name: "Jordan Lee", handle: "jordanlee" },
-        lastMessage: "Thanks for the stream recommendation!",
-        lastMessageAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-        unreadCount: 2,
-    },
-    {
-        id: "conv-2",
-        participant: { id: "user-2", name: "Priya Sharma", handle: "priyasharma" },
-        lastMessage: "Did you see that last post?",
-        lastMessageAt: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
-        unreadCount: 0,
-    },
-];
-
-const mockMessages = {
-    "conv-1": [
-        { id: "msg-1", senderId: "user-3", content: "Hey! Loved your post yesterday.", sentAt: new Date(Date.now() - 1000 * 60 * 20).toISOString() },
-        { id: "msg-2", senderId: "current-user", content: "Thanks! Glad you enjoyed it.", sentAt: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
-        { id: "msg-3", senderId: "user-3", content: "Thanks for the stream recommendation!", sentAt: new Date(Date.now() - 1000 * 60 * 5).toISOString() },
-    ],
-    "conv-2": [
-        { id: "msg-4", senderId: "user-2", content: "Did you see that last post?", sentAt: new Date(Date.now() - 1000 * 60 * 60).toISOString() },
-    ],
-};
-
-function formatRelative(isoString) {
-    const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
-    if (diff < 60) return `${diff}s`;
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-    return `${Math.floor(diff / 86400)}d`;
-}
-
-function Avatar({ name }) {
-    const initials = name
-        .split(" ")
-        .slice(0, 2)
-        .map((w) => w[0])
-        .join("")
-        .toUpperCase();
-    return (
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-xs font-semibold text-cyan-600">
-            {initials}
-        </div>
-    );
-}
-
-export function ConversationsList({ activeId, onSelect }) {
-    return (
-        <div className="flex flex-col divide-y divide-border/50">
-            {mockConversations.map((conv) => (
-                <button
-                    key={conv.id}
-                    type="button"
-                    id={`conversation-${conv.id}`}
-                    onClick={() => onSelect(conv.id)}
-                    className={`flex items-center gap-3 px-4 py-3 text-left transition-colors cursor-pointer w-full hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${activeId === conv.id ? "bg-secondary/40" : ""}`}
-                    aria-current={activeId === conv.id ? "page" : undefined}
-                >
-                    <Avatar name={conv.participant.name} />
-                    <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                            <span className="truncate text-sm font-medium text-foreground">
-                                {conv.participant.name}
-                            </span>
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                                {formatRelative(conv.lastMessageAt)}
-                            </span>
-                        </div>
-                        <p className="truncate text-xs text-muted-foreground">{conv.lastMessage}</p>
-                    </div>
-                    {conv.unreadCount > 0 && (
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cyan-500 text-xs font-bold text-white">
-                            {conv.unreadCount}
-                        </span>
-                    )}
-                </button>
-            ))}
-        </div>
-    );
-}
-
-export function ChatWindow({ conversationId }) {
-    const [input, setInput] = useState("");
-    const [messages, setMessages] = useState(mockMessages[conversationId] ?? []);
-    const conv = mockConversations.find((c) => c.id === conversationId);
-
-    function handleSend(e) {
-        e.preventDefault();
-        if (!input.trim()) return;
-        // TODO Phase 4: Socket.IO dm:send event with follow-rule validation
-        setMessages((prev) => [
-            ...prev,
-            {
-                id: `msg-new-${Date.now()}`,
-                senderId: "current-user",
-                content: input.trim(),
-                sentAt: new Date().toISOString(),
-            },
-        ]);
-        setInput("");
-    }
-
-    if (!conv) return null;
-
-    return (
-        <div className="flex h-full flex-col">
-            {/* Header */}
-            <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
-                <Avatar name={conv.participant.name} />
-                <div>
-                    <p className="text-sm font-semibold text-foreground">{conv.participant.name}</p>
-                    <p className="text-xs text-muted-foreground">@{conv.participant.handle}</p>
-                </div>
-            </div>
-
-            {/* DM follow-rule notice */}
-            <div className="border-b border-border/50 bg-secondary/30 px-4 py-2 text-xs text-muted-foreground flex items-center gap-1.5">
-                <Lock size={10} aria-hidden="true" />
-                You can only message users you follow (enforced server-side in Phase 4)
-            </div>
-
-            {/* Messages */}
-            <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
-                {messages.map((msg) => {
-                    const isOwn = msg.senderId === "current-user";
-                    return (
-                        <div key={msg.id} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                            <div
-                                className={`max-w-xs rounded-2xl px-3.5 py-2 text-sm ${
-                                    isOwn
-                                        ? "bg-cyan-600 text-white rounded-br-sm"
-                                        : "bg-secondary text-foreground rounded-bl-sm"
-                                }`}
-                            >
-                                {msg.content}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {/* Input */}
-            <form onSubmit={handleSend} className="border-t border-border/50 p-3 flex gap-2">
-                <input
-                    id="chat-input"
-                    type="text"
-                    value={input}
-                    onChange={(e) => setInput(e.target.value)}
-                    placeholder="Type a message…"
-                    autoComplete="off"
-                    className="flex-1 rounded-xl border border-border/60 bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                    aria-label="Message input"
-                />
-                <button
-                    type="submit"
-                    id="chat-send-btn"
-                    disabled={!input.trim()}
-                    className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl bg-cyan-600 text-white transition-colors hover:bg-cyan-700 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                    aria-label="Send message"
-                >
-                    <Send size={16} aria-hidden="true" />
-                </button>
-            </form>
-        </div>
-    );
-}
-
+/**
+ * Root MessagingView orchestrating REST data fetching, Socket.IO realtime events,
+ * reconnect recovery, follow validation feedback, and responsive layout.
+ */
 export function MessagingView() {
-    const [activeConv, setActiveConv] = useState("conv-1");
+    const { data: session } = authClient.useSession();
+    const currentUserId = session?.user?.id;
+
+    const [conversations, setConversations] = useState([]);
+    const [activeConversationId, setActiveConversationId] = useState(null);
+    const [messages, setMessages] = useState([]);
+    const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+    const [isTyping, setIsTyping] = useState(false);
+    const [typingUser, setTypingUser] = useState(null);
+    const [errorMessage, setErrorMessage] = useState(null);
+    const [pagination, setPagination] = useState({ page: 1, totalPages: 1, hasNextPage: false });
+    const [pendingClientMessageIds, setPendingClientMessageIds] = useState(new Set());
+
+    const activeConversation = conversations.find((c) => c.id === activeConversationId) || null;
+    const activeConversationIdRef = useRef(activeConversationId);
+
+    useEffect(() => {
+        activeConversationIdRef.current = activeConversationId;
+    }, [activeConversationId]);
+
+    // Load user conversations list
+    const loadConversations = useCallback(async (page = 1) => {
+        try {
+            const res = await getConversations({ page, limit: 20 });
+            if (res.success && res.data) {
+                const items = res.data.items || [];
+                setConversations(items);
+                if (res.data.pagination) {
+                    setPagination(res.data.pagination);
+                }
+                if (items.length > 0 && !activeConversationIdRef.current) {
+                    setActiveConversationId(items[0].id);
+                }
+            }
+        } catch (err) {
+            console.error("[MessagingView] Failed to load conversations:", err);
+        } finally {
+            setIsLoadingConversations(false);
+        }
+    }, []);
+
+    // Initial conversations load
+    useEffect(() => {
+        let isCancelled = false;
+
+        async function init() {
+            try {
+                const res = await getConversations({ page: 1, limit: 20 });
+                if (isCancelled) return;
+                if (res.success && res.data) {
+                    const items = res.data.items || [];
+                    setConversations(items);
+                    if (res.data.pagination) {
+                        setPagination(res.data.pagination);
+                    }
+                    if (items.length > 0 && !activeConversationIdRef.current) {
+                        setActiveConversationId(items[0].id);
+                    }
+                }
+            } catch (err) {
+                if (isCancelled) return;
+                console.error("[MessagingView] Failed to load conversations:", err);
+            } finally {
+                if (!isCancelled) {
+                    setIsLoadingConversations(false);
+                }
+            }
+        }
+
+        init();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, []);
+
+    // Load message history when active conversation changes
+    useEffect(() => {
+        let isCancelled = false;
+
+        async function fetchHistory() {
+            if (!activeConversationId) return;
+
+            try {
+                const res = await getConversationHistory(activeConversationId, { page: 1, limit: 50 });
+                if (isCancelled) return;
+                if (res.success && res.data) {
+                    setMessages(res.data.items || []);
+                    markConversationRead(activeConversationId).catch(() => {});
+                }
+            } catch (err) {
+                if (isCancelled) return;
+                console.error("[MessagingView] Failed to load messages:", err);
+            }
+        }
+
+        fetchHistory();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [activeConversationId]);
+
+    // Handle real-time incoming message
+    const handleNewMessage = useCallback((incomingMessage) => {
+        const activeId = activeConversationIdRef.current;
+
+        // If the message is for the currently viewed conversation, append it
+        if (incomingMessage.conversationId === activeId) {
+            setMessages((prev) => {
+                // Deduplicate by id or clientMessageId
+                const exists = prev.some(
+                    (m) =>
+                        (m.id && m.id === incomingMessage.id) ||
+                        (m.clientMessageId && m.clientMessageId === incomingMessage.clientMessageId)
+                );
+                if (exists) {
+                    return prev.map((m) =>
+                        m.clientMessageId === incomingMessage.clientMessageId ? incomingMessage : m
+                    );
+                }
+                return [...prev, incomingMessage];
+            });
+
+            // Mark as read immediately if current user is recipient
+            if (incomingMessage.recipientId === currentUserId) {
+                markConversationRead(activeId).catch(() => {});
+            }
+        }
+
+        // Update conversation in the sidebar list
+        setConversations((prev) => {
+            const index = prev.findIndex((c) => c.id === incomingMessage.conversationId);
+            if (index !== -1) {
+                const updated = [...prev];
+                const targetConv = { ...updated[index] };
+                targetConv.lastMessage = {
+                    content: incomingMessage.content,
+                    senderId: incomingMessage.senderId,
+                    clientMessageId: incomingMessage.clientMessageId,
+                    createdAt: incomingMessage.createdAt,
+                };
+                targetConv.updatedAt = incomingMessage.createdAt;
+
+                // If not active, increment unread count
+                if (
+                    incomingMessage.conversationId !== activeId &&
+                    incomingMessage.recipientId === currentUserId
+                ) {
+                    targetConv.unreadCount = (targetConv.unreadCount || 0) + 1;
+                }
+
+                // Move conversation to top
+                updated.splice(index, 1);
+                return [targetConv, ...updated];
+            } else {
+                // New conversation created elsewhere, refresh list
+                loadConversations();
+                return prev;
+            }
+        });
+    }, [currentUserId, loadConversations]);
+
+    // Handle message ACK from server
+    const handleMessageAck = useCallback((clientMessageId, confirmedMessage) => {
+        setPendingClientMessageIds((prev) => {
+            const next = new Set(prev);
+            next.delete(clientMessageId);
+            return next;
+        });
+
+        setMessages((prev) =>
+            prev.map((m) => (m.clientMessageId === clientMessageId ? confirmedMessage : m))
+        );
+    }, []);
+
+    // Handle message error (e.g. DM_FOLLOW_REQUIRED)
+    const handleMessageError = useCallback((clientMessageId, code, messageText) => {
+        setPendingClientMessageIds((prev) => {
+            const next = new Set(prev);
+            next.delete(clientMessageId);
+            return next;
+        });
+
+        // Remove optimistic pending message if failed
+        setMessages((prev) => prev.filter((m) => m.clientMessageId !== clientMessageId));
+
+        if (code === "DM_FOLLOW_REQUIRED") {
+            setErrorMessage("You can only message users whom you follow. Follow this account first.");
+        } else {
+            setErrorMessage(messageText || "Failed to send message.");
+        }
+    }, []);
+
+    // Handle typing update
+    const handleTypingUpdate = useCallback((data) => {
+        if (data.conversationId === activeConversationIdRef.current) {
+            setIsTyping(Boolean(data.isTyping));
+            setTypingUser(data.userId);
+        }
+    }, []);
+
+    // Handle conversation read update
+    const handleReadUpdate = useCallback((data) => {
+        if (data.conversationId === activeConversationIdRef.current) {
+            setMessages((prev) =>
+                prev.map((m) =>
+                    m.senderId === currentUserId && !m.readAt
+                        ? { ...m, readAt: new Date().toISOString() }
+                        : m
+                )
+            );
+        }
+    }, [currentUserId]);
+
+    // Reconnect recovery: fetch recent history via REST to sync missed messages
+    const handleReconnect = useCallback(() => {
+        const activeId = activeConversationIdRef.current;
+        if (activeId) {
+            getConversationHistory(activeId, { page: 1, limit: 50 })
+                .then((res) => {
+                    if (res.success && res.data) {
+                        setMessages(res.data.items || []);
+                    }
+                })
+                .catch(() => {});
+        }
+        loadConversations();
+    }, [loadConversations]);
+
+    // Initialize Socket.IO connection
+    const {
+        isConnected,
+        isReconnecting,
+        sendMessageSocket,
+        sendTypingStart,
+        sendTypingStop,
+    } = useMessagingSocket({
+        activeConversationId,
+        onNewMessage: handleNewMessage,
+        onMessageAck: handleMessageAck,
+        onMessageError: handleMessageError,
+        onTypingUpdate: handleTypingUpdate,
+        onReadUpdate: handleReadUpdate,
+        onReconnect: handleReconnect,
+    });
+
+    // Send message dispatcher (uses Socket.IO first, fallback to REST)
+    const handleSendMessage = async ({ recipientId, content, clientMessageId }) => {
+        setErrorMessage(null);
+
+        // Optimistic UI update
+        const optimisticMessage = {
+            id: `temp_${clientMessageId}`,
+            conversationId: activeConversationId || "",
+            senderId: currentUserId,
+            recipientId,
+            content,
+            clientMessageId,
+            readAt: null,
+            createdAt: new Date().toISOString(),
+        };
+
+        setPendingClientMessageIds((prev) => new Set(prev).add(clientMessageId));
+        setMessages((prev) => [...prev, optimisticMessage]);
+
+        // Try Socket.IO transport
+        const sentViaSocket = sendMessageSocket({ recipientId, content, clientMessageId });
+        if (sentViaSocket) {
+            return true;
+        }
+
+        // Fallback to REST API
+        try {
+            const res = await sendRestMessage({ recipientId, content, clientMessageId });
+            if (res.success && res.data) {
+                handleMessageAck(clientMessageId, res.data);
+                // If this was a new conversation, refresh conversation list
+                if (!activeConversationId) {
+                    loadConversations();
+                }
+                return true;
+            } else {
+                handleMessageError(
+                    clientMessageId,
+                    res.error?.code,
+                    res.error?.message
+                );
+                return false;
+            }
+        } catch (err) {
+            handleMessageError(clientMessageId, "NETWORK_ERROR", err.message);
+            return false;
+        }
+    };
+
+    // Start a new chat with a target recipient ID
+    const handleStartNewChat = async (recipientId) => {
+        // Send initial greeting to establish conversation
+        const clientMessageId =
+            typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+
+        const res = await sendRestMessage({
+            recipientId,
+            content: "Hello!",
+            clientMessageId,
+        });
+
+        if (res.success && res.data) {
+            await loadConversations();
+            setActiveConversationId(res.data.conversationId);
+        } else {
+            setErrorMessage(
+                res.error?.code === "DM_FOLLOW_REQUIRED"
+                    ? "You can only message users whom you follow. Follow this user first."
+                    : res.error?.message || "Could not start conversation."
+            );
+        }
+    };
+
+    const handleSelectConversation = (id) => {
+        setActiveConversationId(id);
+        setIsTyping(false);
+        setErrorMessage(null);
+    };
 
     return (
-        <div className="flex h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-0rem)]">
-            {/* Sidebar */}
-            <div className="w-full border-r border-border/50 sm:w-72 shrink-0">
-                <div className="border-b border-border/50 px-4 py-3">
-                    <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
-                        <MessageSquare size={18} aria-hidden="true" /> Messages
-                    </h1>
-                </div>
-                <ConversationsList activeId={activeConv} onSelect={setActiveConv} />
+        <div className="flex h-[calc(100vh-3.5rem)] lg:h-[calc(100vh-0rem)] w-full overflow-hidden bg-background">
+            {/* Sidebar / Conversation List */}
+            <div
+                className={`w-full sm:w-80 md:w-96 shrink-0 border-r border-border/50 ${
+                    activeConversationId ? "hidden sm:block" : "block"
+                }`}
+            >
+                <ConversationList
+                    conversations={conversations}
+                    activeId={activeConversationId}
+                    onSelectConversation={handleSelectConversation}
+                    onStartNewChat={handleStartNewChat}
+                    currentUserId={currentUserId}
+                    isLoading={isLoadingConversations}
+                    pagination={pagination}
+                    onPageChange={(p) => loadConversations(p)}
+                />
             </div>
 
-            {/* Chat pane */}
-            <div className="hidden sm:flex flex-1 flex-col">
-                <ChatWindow conversationId={activeConv} />
+            {/* Active Message Thread */}
+            <div
+                className={`flex-1 flex-col ${
+                    activeConversationId ? "flex" : "hidden sm:flex"
+                }`}
+            >
+                <MessageThread
+                    conversation={activeConversation}
+                    messages={messages}
+                    currentUserId={currentUserId}
+                    onSendMessage={handleSendMessage}
+                    onTypingStart={sendTypingStart}
+                    onTypingStop={sendTypingStop}
+                    isTyping={isTyping}
+                    typingUser={typingUser}
+                    isConnected={isConnected}
+                    isReconnecting={isReconnecting}
+                    onBack={() => setActiveConversationId(null)}
+                    errorMessage={errorMessage}
+                    onClearError={() => setErrorMessage(null)}
+                    pendingClientMessageIds={pendingClientMessageIds}
+                />
             </div>
         </div>
     );
