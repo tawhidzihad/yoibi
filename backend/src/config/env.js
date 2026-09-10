@@ -28,9 +28,12 @@ const env = {
 function validateEnv() {
     const missing = [];
 
-    // In production, MONGODB_URI is mandatory
-    if (env.NODE_ENV === "production" && !env.MONGODB_URI) {
-        missing.push("MONGODB_URI");
+    // In production, MONGODB_URI and LiveKit credentials are mandatory
+    if (env.NODE_ENV === "production") {
+        if (!env.MONGODB_URI) missing.push("MONGODB_URI");
+        if (!env.LIVEKIT_URL) missing.push("LIVEKIT_URL");
+        if (!env.LIVEKIT_API_KEY) missing.push("LIVEKIT_API_KEY");
+        if (!env.LIVEKIT_API_SECRET) missing.push("LIVEKIT_API_SECRET");
     }
 
     return {

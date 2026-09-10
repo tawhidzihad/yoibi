@@ -485,60 +485,236 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ---
 
-## 9. Streams (LiveKit Integration)
+## 9. Streams (LiveKit Realtime Broadcasts)
 
-> **Architecture:** Streamer creates a broadcast session; LiveKit credentials are kept exclusively server-side. Access tokens are generated with granular participant permissions.
+> **Architectural Standard:** A Stream is a live realtime broadcast experience. It is strictly separate from `Tweet`, uploaded `Video` (Cloudinary), and collaborative multi-peer `Meet-Up` rooms.
+> 
+> **Server-Authoritative Lifecycle:** MongoDB stream status (`ready` → `live` → `ended`) is the authoritative application lifecycle state. LiveKit connection state is transport-level only.
+> 
+> **Privacy & Opaque Naming Rule:** LiveKit room names and participant identities MUST NEVER contain PII (no user IDs, emails, handles, or names). Room names use cryptographically opaque server-generated UUIDs: `stream_<randomUUID>`. Ownership relations are stored exclusively in MongoDB (`Stream.authorId`).
+> 
+> **Media Transport:** All realtime media (video, audio, screen share) flows via LiveKit SFU. Media is never stored in MongoDB, and Socket.IO is not used for media transport.
+> 
+> **Session Termination:** Ending a live stream explicitly closes/deletes the LiveKit room via the LiveKit server API (`RoomServiceClient.deleteRoom`), instantly disconnecting connected participants, preventing new joins, and transitioning MongoDB state to `ended`.
+
+### Lifecycle & Join Rules
+
+| Status | Meaning | Host Action | Viewer Action |
+|---|---|---|---|
+| `ready` | Stream record created; room reserved | Host prepares & tests devices | Viewer join **NOT allowed** (`400 STREAM_NOT_LIVE`) |
+| `live` | Host is actively broadcasting | Host publishes mic / cam / screen | Viewer join **allowed** (receives subscribe-only token) |
+| `ended` | Broadcast ended; LiveKit room terminated | Session closed | Viewer join **rejected** (`403 STREAM_ENDED`) |
+
+### Token Permissions (Least Privilege)
+
+| Role | `roomJoin` | `canPublish` | `canSubscribe` | `canPublishData` | `roomAdmin` | Identity Format |
+|---|---|---|---|---|---|---|
+| **Host** | `true` | `true` (mic/cam/screen) | `true` | `true` | `false` | `host_<uuid>` (opaque) |
+| **Viewer** | `true` | `false` | `true` | `false` | `false` | `viewer_<uuid>` (opaque) |
+
+---
 
 ### `GET /api/v1/streams`
 - Auth: Optional
-- Description: Lists live broadcasts (`status = "live"`).
-
-### `POST /api/v1/streams`
-- Auth: Required (`Bearer <token>`)
-- Description: Initiates a new broadcast session.
-- Request Body:
-  ```json
-  {
-      "title": "Live Coding: Building YOIBI with Next.js & Express",
-      "description": "Full architectural walk-through.",
-      "category": "Technology"
-  }
-  ```
-- Response (201):
-  ```json
-  {
-      "success": true,
-      "data": {
-          "streamId": "strm_1001",
-          "title": "Live Coding: Building YOIBI with Next.js & Express",
-          "livekitUrl": "wss://livekit.yoibi.com",
-          "token": "eyJhbGciOi...",
-          "isStreamer": true
-      },
-      "message": "Stream created successfully"
-  }
-  ```
-
-### `POST /api/v1/streams/:streamId/join`
-- Auth: Optional / Authenticated
-- Description: Generates viewer token (canSubscribe: true, canPublish: false).
+- Description: Lists broadcast streams by lifecycle status (default `live`).
+- Query Parameters:
+  - `status` (optional, enum: `live` | `ready` | `ended`, default `live`)
+  - `category` (optional, canonical category filter)
+  - `authorId` (optional, filter by broadcaster)
+  - `page` (default `1`)
+  - `limit` (default `20`, max `50`)
 - Response (200):
   ```json
   {
       "success": true,
       "data": {
-          "livekitUrl": "wss://livekit.yoibi.com",
-          "token": "eyJhbGciOi...",
-          "isStreamer": false
+          "items": [
+              {
+                  "id": "strm_65e1a2b3",
+                  "title": "Live Coding: Building YOIBI with Next.js & Express",
+                  "description": "Full architectural walk-through.",
+                  "category": "learning",
+                  "thumbnailUrl": null,
+                  "status": "live",
+                  "viewerCount": 42,
+                  "startedAt": "2026-09-11T00:05:00.000Z",
+                  "endedAt": null,
+                  "createdAt": "2026-09-11T00:00:00.000Z",
+                  "author": {
+                      "id": "usr_65e1a2b3",
+                      "name": "Alex Rivera",
+                      "handle": "@arivera",
+                      "avatar": "https://res.cloudinary.com/.../avatar.jpg"
+                  }
+              }
+          ],
+          "pagination": {
+              "page": 1,
+              "limit": 20,
+              "totalItems": 1,
+              "totalPages": 1,
+              "hasNextPage": false
+          }
+      },
+      "message": ""
+  }
+  ```
+
+### `POST /api/v1/streams`
+- Auth: Required (`Bearer <token>`)
+- Description: Creates a new stream in `ready` state, generates an opaque room name, and issues a preparation host token.
+- Request Body:
+  ```json
+  {
+      "title": "Live Coding: Building YOIBI with Next.js & Express",
+      "description": "Full architectural walk-through.",
+      "category": "learning",
+      "thumbnailUrl": null
+  }
+  ```
+- Constraints:
+  - `title`: 3–120 characters, required.
+  - `description`: max 2000 characters, optional.
+  - `category`: one of the 8 canonical categories, optional.
+  - `thumbnailUrl`: valid URL or null, optional.
+- Response (201):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "stream": {
+              "id": "strm_65e1a2b3",
+              "title": "Live Coding: Building YOIBI with Next.js & Express",
+              "description": "Full architectural walk-through.",
+              "category": "learning",
+              "thumbnailUrl": null,
+              "status": "ready",
+              "roomName": "stream_9f8b7a6c-5d4e-3f2a-1b0c-9e8d7c6b5a4f",
+              "viewerCount": 0,
+              "startedAt": null,
+              "endedAt": null,
+              "createdAt": "2026-09-11T00:00:00.000Z",
+              "author": {
+                  "id": "usr_65e1a2b3",
+                  "name": "Alex Rivera",
+                  "handle": "@arivera"
+              }
+          },
+          "livekit": {
+              "url": "wss://livekit.yoibi.com",
+              "token": "eyJhbGciOi..."
+          },
+          "isHost": true
+      },
+      "message": "Stream created successfully in ready state"
+  }
+  ```
+- Error (401 `UNAUTHORIZED`): Missing or invalid auth token.
+- Error (403 `ACCOUNT_BLOCKED`): User account is suspended.
+- Error (422 `VALIDATION_ERROR`): Validation failed for title, category, or description.
+
+### `GET /api/v1/streams/:id`
+- Auth: Optional
+- Description: Retrieves detailed stream metadata and author profile.
+- Response (200): Stream detail object with populated author.
+- Error (404 `NOT_FOUND`): Stream does not exist.
+
+### `POST /api/v1/streams/:id/start`
+- Auth: Required (`Bearer <token>`)
+- Authorization: Stream owner only (`req.user.id === stream.authorId`).
+- Description: Transitions stream from `ready` → `live`, records `startedAt`, and returns a fresh host broadcasting token.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "stream": {
+              "id": "strm_65e1a2b3",
+              "status": "live",
+              "startedAt": "2026-09-11T00:05:00.000Z"
+          },
+          "livekit": {
+              "url": "wss://livekit.yoibi.com",
+              "token": "eyJhbGciOi..."
+          },
+          "isHost": true
+      },
+      "message": "Stream is now live"
+  }
+  ```
+- Error (403 `FORBIDDEN`): Not authorized (not stream owner).
+- Error (403 `STREAM_ENDED`): Cannot start a stream that has already ended.
+- Error (404 `NOT_FOUND`): Stream does not exist.
+
+### `POST /api/v1/streams/:id/join`
+- Auth: Optional (authenticated or anonymous viewer)
+- Description: Issues a viewer token (`canPublish: false`, `canSubscribe: true`) for an active live stream. Viewers are NOT permitted to join `ready` streams.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "livekit": {
+              "url": "wss://livekit.yoibi.com",
+              "token": "eyJhbGciOi..."
+          },
+          "isHost": false,
+          "stream": {
+              "id": "strm_65e1a2b3",
+              "title": "Live Coding: Building YOIBI with Next.js & Express",
+              "status": "live",
+              "author": {
+                  "id": "usr_65e1a2b3",
+                  "name": "Alex Rivera",
+                  "handle": "@arivera"
+              }
+          }
       },
       "message": "Joined stream successfully"
   }
   ```
+- Error (400 `STREAM_NOT_LIVE`): Stream is in `ready` state; viewer joins are not allowed until host starts broadcasting.
+- Error (403 `STREAM_ENDED`): Broadcast has ended; no new viewer joins permitted.
+- Error (403 `ACCOUNT_BLOCKED`): Authenticated user account is suspended.
+- Error (404 `NOT_FOUND`): Stream does not exist.
 
-### `POST /api/v1/streams/:streamId/end`
+### `POST /api/v1/streams/:id/end`
 - Auth: Required (`Bearer <token>`)
-- Authorization: Stream creator only.
-- Response (200): `{ "ended": true, "streamId": "strm_1001" }`
+- Authorization: Stream owner only (`req.user.id === stream.authorId`).
+- Description: Terminates the live broadcast. Deletes the LiveKit room session via `RoomServiceClient.deleteRoom()`, disconnects all connected participants immediately, marks MongoDB state as `ended`, and sets `endedAt`.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "strm_65e1a2b3",
+          "status": "ended",
+          "endedAt": "2026-09-11T01:30:00.000Z"
+      },
+      "message": "Stream broadcast ended and LiveKit room closed"
+  }
+  ```
+- Error (403 `FORBIDDEN`): Not authorized (not stream owner).
+- Error (403 `STREAM_ALREADY_ENDED`): Stream is already ended.
+- Error (404 `NOT_FOUND`): Stream does not exist.
+
+### `DELETE /api/v1/streams/:id`
+- Auth: Required (`Bearer <token>`)
+- Authorization: Stream owner or admin.
+- Description: Deletes stream record from MongoDB. Permitted ONLY when stream status is `ready` or `ended`. Active `live` streams must be ended before deletion.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "deletedId": "strm_65e1a2b3"
+      },
+      "message": "Stream deleted successfully"
+  }
+  ```
+- Error (403 `FORBIDDEN`): Not authorized to delete this stream.
+- Error (403 `STREAM_LIVE`): Cannot delete an active live stream. End the stream first.
+- Error (404 `NOT_FOUND`): Stream does not exist.
 
 ---
 

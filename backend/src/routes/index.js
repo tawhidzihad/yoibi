@@ -4,6 +4,7 @@ const authRoutes = require("./auth.routes");
 const usersRoutes = require("./users.routes");
 const tweetsRoutes = require("./tweets.routes");
 const videosRoutes = require("./videos.routes");
+const streamsRoutes = require("./streams.routes");
 
 const apiRouter = Router();
 
@@ -21,6 +22,9 @@ apiRouter.use(tweetsRoutes);
 
 // Mount videos routes (Shorts & Longform community videos)
 apiRouter.use(videosRoutes);
+
+// Mount streams routes (LiveKit live realtime broadcasts)
+apiRouter.use(streamsRoutes);
 
 module.exports = apiRouter;
 

@@ -584,12 +584,37 @@ paths:
 
   /streams:
     get:
-      summary: List active live streams
+      summary: List broadcast streams
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [live, ready, ended]
+            default: live
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: authorId
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
       responses:
         '200':
-          description: Active streams list
+          description: Paginated streams list
     post:
-      summary: Create a live stream and generate host LiveKit token
+      summary: Create a stream record in ready state and generate preparation host token
       security:
         - bearerAuth: []
       requestBody:
@@ -602,41 +627,125 @@ paths:
               properties:
                 title:
                   type: string
+                  minLength: 3
+                  maxLength: 120
                 description:
                   type: string
+                  maxLength: 2000
                 category:
                   type: string
+                thumbnailUrl:
+                  type: string
+                  nullable: true
       responses:
         '201':
-          description: Stream created with host credentials
+          description: Stream created in ready state with host LiveKit token
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
-  /streams/{streamId}/join:
-    post:
-      summary: Join live stream as a viewer
+  /streams/{id}:
+    get:
+      summary: Get stream details by ID
       parameters:
-        - name: streamId
+        - name: id
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: Viewer LiveKit token generated
-
-  /streams/{streamId}/end:
-    post:
-      summary: End live stream (streamer only)
+          description: Stream detail with author profile
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete stream record (ready or ended state only)
       security:
         - bearerAuth: []
       parameters:
-        - name: streamId
+        - name: id
           in: path
           required: true
           schema:
             type: string
       responses:
         '200':
-          description: Stream ended
+          description: Stream deleted
+        '403':
+          description: Forbidden or stream is currently live
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /streams/{id}/start:
+    post:
+      summary: Start broadcast (stream owner only) - transitions ready to live
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stream marked live with fresh host LiveKit token
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /streams/{id}/join:
+    post:
+      summary: Join live stream as a viewer (live state only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Viewer LiveKit token generated (canSubscribe true, canPublish false)
+        '400':
+          description: Stream is in ready state (not live yet)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '403':
+          description: Stream has ended (STREAM_ENDED)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /streams/{id}/end:
+    post:
+      summary: End live broadcast and terminate LiveKit room (stream owner only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stream marked ended and LiveKit room session closed
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
 
   /meetup/rooms:
     get:
