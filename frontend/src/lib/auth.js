@@ -23,5 +23,32 @@ export const auth = betterAuth({
         }),
         admin(),
     ],
+    rateLimit: {
+        enabled: true,
+        window: 60,
+        max: 100,
+        customRules: {
+            "/sign-in/email": {
+                window: 60,
+                max: 10,
+            },
+            "/sign-up/email": {
+                window: 60,
+                max: 5,
+            },
+            "/forget-password": {
+                window: 300,
+                max: 5,
+            },
+            "/reset-password": {
+                window: 300,
+                max: 5,
+            },
+            "/send-verification-email": {
+                window: 300,
+                max: 5,
+            },
+        },
+    },
 });
 

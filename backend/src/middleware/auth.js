@@ -118,6 +118,9 @@ async function verifyJwt(req, res, next) {
             });
         }
 
+        // Verify token signature against JWKS and validate issuer.
+        // Better Auth v1.7.4 jwt() plugin includes iss, sub, exp, iat claims without a default aud claim.
+        // If a custom audience is configured in the future, add `audience: '<aud>'` here.
         const { payload } = await jwtVerify(token, jwks, {
             issuer: env.BETTER_AUTH_BASE_URL
         });
@@ -218,6 +221,7 @@ async function verifyJwtToken(token) {
         throw err;
     }
 
+    // Verify token signature against JWKS and validate issuer.
     const { payload } = await jwtVerify(cleanToken, jwks, {
         issuer: env.BETTER_AUTH_BASE_URL
     });

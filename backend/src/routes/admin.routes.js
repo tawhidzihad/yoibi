@@ -21,10 +21,12 @@ const {
     handleListAuditLogs
 } = require('../controllers/admin.controller');
 
+const { adminLimiter } = require('../middleware/rate-limiter');
+
 const router = Router();
 
-// Base Admin Guards: verifyJwt -> requireAuth -> requireAdmin
-router.use('/admin', verifyJwt, requireAuth, requireAdmin);
+// Base Admin Guards: adminLimiter -> verifyJwt -> requireAuth -> requireAdmin
+router.use('/admin', adminLimiter, verifyJwt, requireAuth, requireAdmin);
 
 // Dashboard Statistics
 router.get('/admin/stats', handleGetStats);

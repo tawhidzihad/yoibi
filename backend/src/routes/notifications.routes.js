@@ -12,6 +12,7 @@ const {
     listNotificationsQuerySchema,
     notificationIdParamSchema
 } = require('../validators/notifications.validator');
+const { writeLimiter } = require('../middleware/rate-limiter');
 
 const router = Router();
 
@@ -32,6 +33,7 @@ router.get(
 
 router.patch(
     '/notifications/read-all',
+    writeLimiter,
     verifyJwt,
     requireAuth,
     handleMarkAllAsRead
@@ -39,6 +41,7 @@ router.patch(
 
 router.patch(
     '/notifications/:id/read',
+    writeLimiter,
     verifyJwt,
     requireAuth,
     validate(notificationIdParamSchema, 'params'),

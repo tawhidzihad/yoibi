@@ -42,17 +42,18 @@ cp .env.example .env
 | `HOST` | Bind host address | `0.0.0.0` (required for containers/Railway) | Yes |
 | `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/yoibi` | Yes in Prod |
 | `BETTER_AUTH_BASE_URL` | Better Auth server origin | `http://localhost:3000` | Yes |
-| `BETTER_AUTH_JWKS_URL` | Public JWKS endpoint URL | `http://localhost:3000/api/auth/jwks` | Optional |
+| `BETTER_AUTH_SECRET` | Shared secret with Better Auth | `replace_with_secure_random_secret` | Yes |
+| `BETTER_AUTH_JWKS_URL` | Public JWKS endpoint URL | Auto-derived from `BETTER_AUTH_BASE_URL` | Optional |
 | `FRONTEND_URL` | Trusted Next.js frontend origin | `http://localhost:3000` | Yes |
 | `CORS_ORIGIN` | Allowed CORS origin | `http://localhost:3000` | Yes |
-| `CLOUDINARY_CLOUD_NAME` | Cloudinary account name | Server-side only | Future |
-| `CLOUDINARY_API_KEY` | Cloudinary API Key | Server-side only | Future |
-| `CLOUDINARY_API_SECRET` | Cloudinary API Secret | Server-side only (never browser) | Future |
-| `LIVEKIT_URL` | LiveKit server websocket URL | `wss://livekit.yoibi.com` | Future |
-| `LIVEKIT_API_KEY` | LiveKit API key | Server-side only | Future |
-| `LIVEKIT_API_SECRET` | LiveKit API secret | Server-side only (never browser) | Future |
+| `CLOUDINARY_CLOUD_NAME` | Cloudinary account name | `your_cloudinary_cloud_name` | Yes for Videos |
+| `CLOUDINARY_API_KEY` | Cloudinary API Key | `your_cloudinary_api_key` | Yes for Videos |
+| `CLOUDINARY_API_SECRET` | Cloudinary API Secret | `your_cloudinary_api_secret` (never browser) | Yes for Videos |
+| `LIVEKIT_URL` | LiveKit SFU WebSocket URL | `wss://your-project.livekit.cloud` | Yes for Streams/MeetUp |
+| `LIVEKIT_API_KEY` | LiveKit API key | `your_livekit_api_key` | Yes for Streams/MeetUp |
+| `LIVEKIT_API_SECRET` | LiveKit API secret | `your_livekit_api_secret` (never browser) | Yes for Streams/MeetUp |
 
-> **Security Rule:** Never commit real `.env` files. Keep `.env.example` as the canonical documentation.
+> **Security Rule:** Never commit real `.env` files. Keep `.env.example` as the canonical documentation. Full cross-application reference is documented in [docs/ENVIRONMENT.md](file:///c:/projects/yoibi/docs/ENVIRONMENT.md).
 > 
 > **Social Domain Rule:** In YOIBI, Tweet is the primary social content entity. `POST` is strictly an HTTP request method (e.g. `POST /api/v1/tweets`), not a separate content domain. All user micro-posts, likes, retweets, and replies are managed under `/api/v1/tweets`.
 

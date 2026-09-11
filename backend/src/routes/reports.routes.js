@@ -12,12 +12,14 @@ const {
     handleListReports,
     handleUpdateReport
 } = require('../controllers/reports.controller');
+const { reportLimiter, adminLimiter } = require('../middleware/rate-limiter');
 
 const router = Router();
 
 // User Report Submission
 router.post(
     '/reports',
+    reportLimiter,
     verifyJwt,
     requireAuth,
     validate(createReportBodySchema, 'body'),
@@ -27,6 +29,7 @@ router.post(
 // Admin Reports Moderation
 router.get(
     '/admin/reports',
+    adminLimiter,
     verifyJwt,
     requireAuth,
     requireAdmin,
@@ -36,6 +39,7 @@ router.get(
 
 router.patch(
     '/admin/reports/:id',
+    adminLimiter,
     verifyJwt,
     requireAuth,
     requireAdmin,

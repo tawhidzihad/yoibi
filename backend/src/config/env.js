@@ -13,6 +13,7 @@ const env = {
     BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "yoibi-dev-secret-key-32-chars-minimum-length",
     BETTER_AUTH_JWKS_URL: process.env.BETTER_AUTH_JWKS_URL || "",
     FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
+    CLIENT_URL: process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:3000",
     CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:3000",
     CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME || "",
     CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY || "",
@@ -29,9 +30,12 @@ const env = {
 function validateEnv() {
     const missing = [];
 
-    // In production, MONGODB_URI and LiveKit credentials are mandatory
+    // In production, MONGODB_URI, Cloudinary, and LiveKit credentials are mandatory
     if (env.NODE_ENV === "production") {
         if (!env.MONGODB_URI) missing.push("MONGODB_URI");
+        if (!env.CLOUDINARY_CLOUD_NAME) missing.push("CLOUDINARY_CLOUD_NAME");
+        if (!env.CLOUDINARY_API_KEY) missing.push("CLOUDINARY_API_KEY");
+        if (!env.CLOUDINARY_API_SECRET) missing.push("CLOUDINARY_API_SECRET");
         if (!env.LIVEKIT_URL) missing.push("LIVEKIT_URL");
         if (!env.LIVEKIT_API_KEY) missing.push("LIVEKIT_API_KEY");
         if (!env.LIVEKIT_API_SECRET) missing.push("LIVEKIT_API_SECRET");

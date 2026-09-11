@@ -7,9 +7,9 @@ const userHandleParamSchema = z.object({
 
 // Validate the request body for updating own profile
 const updateUserBodySchema = z.object({
-    name: z.string().optional(),
-    bio: z.string().optional(),
-    avatarUrl: z.string().url().optional()
+    name: z.string().min(1).max(50).optional(),
+    bio: z.string().max(280).optional(),
+    avatarUrl: z.string().url().max(1000).optional()
 });
 
 const userIdParamSchema = z.object({

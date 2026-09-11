@@ -14,11 +14,13 @@ const {
     conversationHistoryQuerySchema,
     conversationIdParamSchema
 } = require('../validators/messages.validator');
+const { writeLimiter } = require('../middleware/rate-limiter');
 
 const router = Router();
 
 router.post(
     '/messages',
+    writeLimiter,
     verifyJwt,
     requireAuth,
     validate(sendMessageBodySchema, 'body'),
@@ -44,6 +46,7 @@ router.get(
 
 router.patch(
     '/messages/conversations/:conversationId/read',
+    writeLimiter,
     verifyJwt,
     requireAuth,
     validate(conversationIdParamSchema, 'params'),

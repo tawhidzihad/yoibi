@@ -51,8 +51,9 @@ async function runTests() {
         const healthRes = await request("/api/v1/health");
         assert.strictEqual(healthRes.status, 200, "Health check must return 200");
         assert.strictEqual(healthRes.body.success, true);
-        assert.strictEqual(healthRes.body.data.status, "healthy");
+        assert.strictEqual(healthRes.body.data.status, "ok");
         assert.strictEqual(healthRes.body.data.version, "1.0.0");
+        assert.strictEqual(typeof healthRes.body.data.uptime, "number");
         console.log("✓ GET /api/v1/health returned valid 200 OK envelope.");
 
         // Test B: 404 Fallback

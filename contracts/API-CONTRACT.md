@@ -634,6 +634,12 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 > **Media Transport:** All realtime media (video, audio, screen share) flows via LiveKit SFU. Media is never stored in MongoDB, and Socket.IO is not used for media transport.
 > 
 > **Session Termination:** Ending a live stream explicitly closes/deletes the LiveKit room via the LiveKit server API (`RoomServiceClient.deleteRoom`), instantly disconnecting connected participants, preventing new joins, and transitioning MongoDB state to `ended`.
+> 
+> **Stream Access Policy (MVP):**
+> - **Public Discovery**: Stream listing (`GET /streams`) and stream detail (`GET /streams/:id`) are public endpoints.
+> - **Anonymous Viewer Access**: `POST /streams/:id/join` uses `optionalAuth`. Anonymous (unauthenticated) viewers receive viewer-only LiveKit tokens (`canPublish: false`, `canSubscribe: true`) with an opaque identity `viewer_<uuid>`.
+> - **Broadcasting Restrictions**: Only authenticated stream creators/owners can publish audio, video, or screen share (`POST /streams/:id/start` requires `verifyJwt`).
+> - **Social Actions Restricted**: Anonymous viewers cannot perform authenticated-only social actions (such as liking, messaging, following, or tipping).
 
 ### Lifecycle & Join Rules
 

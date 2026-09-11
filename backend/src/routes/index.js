@@ -11,7 +11,12 @@ const notificationsRoutes = require("./notifications.routes");
 const reportsRoutes = require("./reports.routes");
 const adminRoutes = require("./admin.routes");
 
+const { globalLimiter } = require("../middleware/rate-limiter");
+
 const apiRouter = Router();
+
+// Apply global rate limiting across all API endpoints (300 req/min/IP)
+apiRouter.use(globalLimiter);
 
 // Mount system routes
 apiRouter.use(healthRoutes);

@@ -23,15 +23,16 @@ const {
 const {
     handleDeleteVideo
 } = require("../controllers/delete/videos.controller");
+const { expensiveLimiter, writeLimiter } = require("../middleware/rate-limiter");
 
 const router = Router();
 
 // Upload Authorization
-router.post("/videos/upload-signature", verifyJwt, handleGetUploadSignature);
+router.post("/videos/upload-signature", expensiveLimiter, verifyJwt, handleGetUploadSignature);
 
 // Video Listing & Registration
 router.get("/videos", optionalAuth, validate(listVideosQuerySchema, "query"), handleListVideos);
-router.post("/videos", verifyJwt, validate(createVideoSchema, "body"), handleCreateVideo);
+router.post("/videos", writeLimiter, verifyJwt, validate(createVideoSchema, "body"), handleCreateVideo);
 
 // Video Details (Read-only; does NOT increment view count)
 router.get("/videos/:id", optionalAuth, validate(videoIdParamSchema, "params"), handleGetVideoById);
@@ -40,10 +41,10 @@ router.get("/videos/:id", optionalAuth, validate(videoIdParamSchema, "params"), 
 router.post("/videos/:id/view", optionalAuth, validate(videoIdParamSchema, "params"), handleRecordVideoView);
 
 // Deletion
-router.delete("/videos/:id", verifyJwt, validate(videoIdParamSchema, "params"), handleDeleteVideo);
+router.delete("/videos/:id", writeLimiter, verifyJwt, validate(videoIdParamSchema, "params"), handleDeleteVideo);
 
 // Likes / Reactions
-router.post("/videos/:id/like", verifyJwt, validate(videoIdParamSchema, "params"), handleLikeVideo);
-router.delete("/videos/:id/like", verifyJwt, validate(videoIdParamSchema, "params"), handleUnlikeVideo);
+router.post("/videos/:id/like", writeLimiter, verifyJwt, validate(videoIdParamSchema, "params"), handleLikeVideo);
+router.delete("/videos/:id/like", writeLimiter, verifyJwt, validate(videoIdParamSchema, "params"), handleUnlikeVideo);
 
 module.exports = router;

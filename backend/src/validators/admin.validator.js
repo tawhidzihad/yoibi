@@ -10,7 +10,7 @@ const banUserBodySchema = z.object({
 });
 
 const listUsersQuerySchema = z.object({
-    search: z.string().optional(),
+    search: z.string().max(100).optional(),
     isBlocked: z.enum(['true', 'false']).optional(),
     limit: z.coerce.number().min(1).max(100).default(50).optional(),
     page: z.coerce.number().min(1).default(1).optional()
@@ -18,7 +18,7 @@ const listUsersQuerySchema = z.object({
 
 const listContentQuerySchema = z.object({
     type: z.enum(['tweets', 'videos', 'streams', 'meetups']).default('tweets'),
-    search: z.string().optional(),
+    search: z.string().max(100).optional(),
     limit: z.coerce.number().min(1).max(100).default(20).optional(),
     page: z.coerce.number().min(1).default(1).optional()
 });

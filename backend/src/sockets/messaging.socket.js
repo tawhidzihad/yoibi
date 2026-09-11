@@ -13,9 +13,27 @@ const { env } = require('../config/env');
  * @returns {Server}
  */
 function initMessagingSocket(httpServer) {
+    const allowedOrigins = [
+        env.FRONTEND_URL,
+        env.CORS_ORIGIN,
+        env.CLIENT_URL
+    ].filter(Boolean);
+
     const io = new Server(httpServer, {
         cors: {
-            origin: env.CLIENT_URL || '*',
+            origin: (origin, callback) => {
+                // Allow requests with no origin (e.g. server-to-server or mobile tools)
+                if (!origin) return callback(null, true);
+                if (env.NODE_ENV === 'development') {
+                    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+                        return callback(null, true);
+                    }
+                }
+                if (allowedOrigins.includes(origin)) {
+                    return callback(null, true);
+                }
+                return callback(new Error(`Socket.IO CORS policy blocked access from origin: ${origin}`));
+            },
             credentials: true
         },
         transports: ['polling', 'websocket']
