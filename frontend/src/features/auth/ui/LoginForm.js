@@ -117,17 +117,9 @@ export function LoginForm() {
 
                 {/* Password */}
                 <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center justify-between">
-                        <label htmlFor="login-password" className="text-sm font-medium text-foreground">
-                            Password
-                        </label>
-                        <Link
-                            href="/forgot-password"
-                            className="text-xs font-medium text-cyan-600 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
-                        >
-                            Forgot password?
-                        </Link>
-                    </div>
+                    <label htmlFor="login-password" className="text-sm font-medium text-foreground">
+                        Password
+                    </label>
                     <div className="relative">
                         <Lock
                             size={16}

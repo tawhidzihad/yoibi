@@ -49,7 +49,6 @@ export function AuthProvider({ children }) {
                             name: sessionData.user.name || "",
                             handle: sessionData.user.handle || (sessionData.user.email ? `@${sessionData.user.email.split("@")[0]}` : ""),
                             avatarUrl: sessionData.user.image || "",
-                            isEmailVerified: Boolean(sessionData.user.emailVerified),
                             role: sessionData.user.role || "user",
                         };
                         setUser(fallbackUser);
@@ -99,11 +98,10 @@ export function AuthProvider({ children }) {
             password,
             name,
             handle,
-            // Signup must NOT automatically log the user in (approved rule).
+            // Signup must NOT automatically log the user in (approved rule):
+            // account is created immediately, then the user signs in manually
+            // (no follow-up account-confirmation step).
             autoSignIn: false,
-            // After the user clicks the verification link, Better Auth marks
-            // the email verified and redirects here -> the login flow.
-            callbackURL: "/login",
         });
 
         if (result.error) {

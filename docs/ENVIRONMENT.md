@@ -18,8 +18,6 @@ YOIBI is architected as two decoupled, independently deployable applications:
 | `BETTER_AUTH_SECRET` | Frontend & Backend | Server-Only Secret | **NO** | **Yes** | `replace_with_secure_random_32_character_secret` | Random 32+ char cryptographic secret | Signs Better Auth sessions/JWTs on frontend and verifies them / signs admin API calls on backend. |
 | `GOOGLE_CLIENT_ID` | Frontend | Server-Only Config | **NO** | No (Optional) | `your_google_oauth_client_id` | Valid Google OAuth Client ID | Google Social Login OAuth Client ID. Production redirect URI: `https://yoibi-frontend.vercel.app/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update it if a custom domain is adopted). |
 | `GOOGLE_CLIENT_SECRET` | Frontend | Server-Only Secret | **NO** | No (Optional) | `your_google_oauth_client_secret` | Valid Google OAuth Client Secret | Google Social Login OAuth Client Secret. |
-| `RESEND_API_KEY` | Frontend | Server-Only Secret | **NO** | **Yes** (email verification) | `your_resend_api_key` | Valid Resend API key | Transactional email delivery (verification + password reset) via Resend. If unset, email delivery is disabled with a console warning (local dev behavior). |
-| `EMAIL_FROM` | Frontend | Server-Only Config | **NO** | **Yes** (email verification) | `YOIBI <onboarding@resend.dev>` | `YOIBI <noreply@notifications.yourdomain.com>` | Verified sender address. The sending domain must be verified in the Resend dashboard before production delivery works. |
 | `NODE_ENV` | Backend | Server-Only Config | **NO** | **Yes** | `development` | `production` | Node execution environment mode (`development`, `production`, `test`). |
 | `PORT` | Backend | Server-Only Config | **NO** | **Yes** | `5000` | Auto-assigned (e.g. `$PORT` on Railway) | TCP listening port for Express HTTP and WebSocket server. |
 | `HOST` | Backend | Server-Only Config | **NO** | **Yes** | `0.0.0.0` | `0.0.0.0` | Bind host address (0.0.0.0 required for containers and Railway). |
@@ -47,12 +45,10 @@ YOIBI is architected as two decoupled, independently deployable applications:
 - **Production JWKS**: `https://yoibi-frontend.vercel.app/api/auth/jwks` (verified live: EdDSA/Ed25519 key with `kid`). Railway's `BETTER_AUTH_BASE_URL` must be `https://yoibi-frontend.vercel.app` (never `http://localhost:3000`), because it determines both the JWKS URL and the strictly validated `iss`/`aud` claims.
 - **Rule**: `BETTER_AUTH_SECRET` must be identical on both Frontend and Backend environments.
 
-## 2.1.1 Transactional Email (Resend)
-- **Provider**: Resend REST API (`POST https://api.resend.com/emails`) invoked with `fetch` from the Next.js server runtime — no SDK dependency.
-- **Usage**: Better Auth `emailVerification.sendVerificationEmail` (verification) and `emailAndPassword.sendResetPassword` (password reset) in `frontend/src/lib/auth.js` deliver the real Better Auth-generated URLs. Tokens are never logged and never exposed to the browser outside the email link.
-- **Behavior**: `sendOnSignUp: true`; `autoSignInAfterVerification: false` — signup does not auto sign in; verification redirects to `/login`.
-- **Local development**: If `RESEND_API_KEY`/`EMAIL_FROM` are unset, Better Auth still generates the verification URL but delivery is skipped with a console warning.
-- **Deployment prerequisite (external)**: The sending domain in `EMAIL_FROM` must be verified in the Resend dashboard (DNS records) before production emails deliver. Until that step is completed in the Resend console, status is: **Email delivery integration implemented — provider verification pending**.
+## 2.1.1 Transactional Email (Removed)
+- **Removed**: YOIBI no longer sends any transactional email. Account-confirmation emails and password reset were removed from the authentication system.
+- **Behavior**: `frontend/src/lib/auth.js` configures Better Auth with `emailAndPassword.enabled` only — no extra account gate is set (Better Auth default), there is no account-email sender block, and there is no password-reset hook. Signup creates an immediately usable account; the user signs in right away.
+- **Environment variables**: `RESEND_API_KEY` and `EMAIL_FROM` are no longer used by any code and are removed from `.env.example` files and from Vercel/Railway environment requirements.
 
 ## 2.2 MongoDB
 - **Backend Only**: MongoDB is connected exclusively by the Express backend (`backend/src/config/database.js`) using `MONGODB_URI`.
@@ -116,8 +112,8 @@ Configure in Vercel Dashboard -> Project Settings -> Environment Variables:
 - `BETTER_AUTH_SECRET` = `<production-random-32-char-secret>`
 - `GOOGLE_CLIENT_ID` = `<production-google-client-id>` (Optional)
 - `GOOGLE_CLIENT_SECRET` = `<production-google-client-secret>` (Optional)
-- `RESEND_API_KEY` = `<production-resend-api-key>` (Required for email verification delivery)
-- `EMAIL_FROM` = `YOIBI <noreply@<verified-resend-domain>>` (domain must be verified in Resend first)
+
+NOTE: `RESEND_API_KEY` and `EMAIL_FROM` are no longer required (account-confirmation emails and password reset are removed).
 
 ### Railway (Backend)
 Configure in Railway Dashboard -> Variables:

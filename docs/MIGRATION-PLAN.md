@@ -10,7 +10,7 @@
 2. Migrate design tokens/assets.
 3. Remove obsolete Vite/TypeScript assumptions.
 4. Implement layout, loading/error boundaries, shared UI.
-5. Implement signup/login/forgot-password/verify-email/privacy.
+5. Implement signup/login/privacy (email verification and password reset are out of scope — removed).
 6. Implement redirect/return-state flows.
 7. Finish responsive design foundation.
 

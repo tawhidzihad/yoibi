@@ -82,7 +82,7 @@ backend/src/
 
 ## 4. Authentication & Authorization Architecture
 
-- **Single Auth Authority:** Better Auth handles user registration, email verification, passwords, and sessions.
+- **Single Auth Authority:** Better Auth handles user registration, passwords, and sessions. (Email verification and password reset are removed: signup creates an immediately usable account; users sign in right away.)
 - **JWT Plugin:** Issues verifiable JWTs containing user claims (`sub`, `email`, `role`, `isBlocked`).
 - **Backend Verification:** `verifyJwt` middleware uses `jose` to verify incoming `Authorization: Bearer <jwt>` against the Better Auth JWKS endpoint (`createRemoteJWKSet`).
 - **Issuer/Audience/Expiry:** Strictly enforced — `iss` and the default `aud` both equal Better Auth's baseURL (Better Auth v1.7.4 behavior, verified in the installed package), so both are validated against `BETTER_AUTH_BASE_URL`; expired tokens return `401 TOKEN_EXPIRED`. In production `BETTER_AUTH_BASE_URL` must be the deployed frontend origin (`https://yoibi-frontend.vercel.app`), never `http://localhost:3000`.

@@ -94,7 +94,7 @@ export function SignupForm() {
                 name: data.fullName,
                 handle: derivedHandle,
             });
-            router.push(`/verify-email?email=${encodeURIComponent(data.email)}`);
+            router.push("/login");
         } catch (err) {
             setSignupError(err?.message || "Signup failed. Please try again.");
         }

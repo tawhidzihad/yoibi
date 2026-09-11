@@ -39,12 +39,11 @@ cp .env.example .env.local
 | `BETTER_AUTH_SECRET` | Server-Only (Secret) | Yes | 32+ character signing secret (must match backend) |
 | `GOOGLE_CLIENT_ID` | Server-Only (Config) | Optional | Google OAuth 2.0 Client ID for social login |
 | `GOOGLE_CLIENT_SECRET` | Server-Only (Secret) | Optional | Google OAuth 2.0 Client Secret for social login |
-| `RESEND_API_KEY` | Server-Only (Secret) | Yes (email delivery) | Resend API key for verification/password-reset emails (never `NEXT_PUBLIC_`) |
-| `EMAIL_FROM` | Server-Only (Config) | Yes (email delivery) | Verified sender address; sending domain must be verified in Resend first |
 
 ## Authentication Flow Notes
 - **JWT acquisition**: The frontend obtains the external-service JWT exclusively via the official Better Auth client API `authClient.token()` (`GET /api/auth/token`), centralized in `src/lib/api/client.js` (`getJwtToken()`). REST calls and Socket.IO hooks all reuse it. Do NOT call `authClient.getJwtToken()` (non-existent route in Better Auth 1.7.x) and never use the session cookie as a Bearer token.
-- **Email verification**: Signup requires verification (`sendOnSignUp: true`, `autoSignInAfterVerification: false`). Signup does NOT auto sign in; verification redirects to `/login`.
+- **Authentication model**: YOIBI uses ONLY email + password (no login gate after signup — signup creates an immediately usable account) and Google OAuth. Password reset is removed (`/forgot-password` and `/reset-password` are 404).
+- **Signup flow**: Signup does NOT auto sign in (approved rule); the user is redirected to `/login` and signs in immediately after creating the account.
 - **Session vs JWT**: The Better Auth session cookie stays with Better Auth; the JWKS-verifiable JWT (1d TTL, `iss` = `aud` = Better Auth baseURL) authenticates Railway Express API calls only.
 - **Production Google redirect URI**: `https://yoibi-frontend.vercel.app/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update when adopting a custom domain).
 

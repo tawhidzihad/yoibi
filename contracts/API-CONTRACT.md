@@ -71,7 +71,6 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 ### 1.4 Standard Error Codes
 - `UNAUTHORIZED`: Token missing, expired, or signature invalid (HTTP 401).
 - `ACCOUNT_BLOCKED`: User account is blocked; client redirected to blocked status page (HTTP 403).
-- `EMAIL_NOT_VERIFIED`: Email verification required before access (HTTP 403).
 - `FORBIDDEN`: Insufficient role or not resource owner (HTTP 403).
 - `NOT_FOUND`: Target resource does not exist (HTTP 404).
 - `VALIDATION_ERROR`: Malformed input payload failing schema rules (HTTP 422).

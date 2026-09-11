@@ -14,8 +14,6 @@ export const {
     signOut,
     useSession,
     getSession,
-    forgetPassword,
-    resetPassword,
-    sendVerificationEmail,
-    verifyEmail,
+    // NOTE: no extra client actions are exported - account confirmation
+    // emails and password reset are removed from YOIBI.
 } = authClient;

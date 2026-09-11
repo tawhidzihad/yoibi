@@ -12,7 +12,7 @@
 
 Suggested route groups:
 - `(public)`: home, privacy policy, public profile/content views
-- `(auth)`: login, signup, forgot-password, verify-email, reset-password
+- `(auth)`: login, signup
 - `(protected)`: authenticated feed, profile, messaging, stream, meet-up
 - `admin`: admin dashboard and moderation views
 
@@ -34,7 +34,7 @@ Suggested route groups:
 ## Authentication UX
 - Email/password login.
 - Google login.
-- Email signup requires verification before login.
+- Email signup creates an immediately usable account (no verification, no password reset).
 - Signup must not automatically sign the user in.
 - Google sign-in may authenticate immediately.
 - Login redirect must preserve the originally requested page/action where practical.

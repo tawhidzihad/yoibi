@@ -26,7 +26,7 @@
 - Self-block, self-ban, and admin-to-admin bans are strictly rejected.
 
 ## 3. Rate Limiting & Abuse Prevention
-- **Better Auth Rate Limiting**: Auth endpoints (`/api/auth/*`) run inside Next.js and use Better Auth's built-in, database-backed `rateLimit` configuration with explicit custom rules for sensitive endpoints (`/sign-in/email`, `/sign-up/email`, `/forget-password`, `/reset-password`, `/send-verification-email`). Distributed state is shared reliably without relying on stateless Edge Runtime memory or requiring external Redis. Vercel L3/L4/L7 DDoS and WAF protections act as the production backstop.
+- **Better Auth Rate Limiting**: Auth endpoints (`/api/auth/*`) run inside Next.js and use Better Auth's built-in, database-backed `rateLimit` configuration with explicit custom rules for sensitive endpoints (`/sign-in/email`, `/sign-up/email`). Email verification and password-reset endpoints do not exist (those flows are removed). Distributed state is shared reliably without relying on stateless Edge Runtime memory or requiring external Redis. Vercel L3/L4/L7 DDoS and WAF protections act as the production backstop.
 - **Backend Rate Limiting (`express-rate-limit`)**:
   - `globalLimiter`: 300 requests / 1 min per IP across all endpoints.
   - `authLimiter`: 15 requests / 15 min per IP on `GET /auth/me`.
