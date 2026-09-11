@@ -27,7 +27,7 @@ function invalidateUserModerationCache(userId) {
  * @param {string} userId
  * @returns {Promise<{ exists: boolean, isBlocked: boolean, blockedReason: string|null, role: string|null }|null>}
  */
-async function getLiveUserModeration(userId) {
+async function getLiveUserModeration(userId, payload = null) {
     if (!userId || mongoose.connection.readyState !== 1) return null;
     const now = Date.now();
     const cached = userModerationCache.get(userId);
@@ -35,13 +35,51 @@ async function getLiveUserModeration(userId) {
         return cached;
     }
     try {
-        const userDoc = await User.findById(userId).select('isBlocked blockedReason role').lean();
+        let userDoc = await User.findById(userId).select('handle isBlocked blockedReason role').lean();
+        if (!userDoc && payload) {
+            const rawHandle = payload.handle || payload.username || (payload.email ? `@${payload.email.split('@')[0]}` : `@user_${userId.substring(0, 6)}`);
+            const cleanHandle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`;
+            try {
+                userDoc = await User.create({
+                    _id: userId,
+                    handle: cleanHandle,
+                    name: payload.name || '',
+                    avatarUrl: payload.avatarUrl || payload.image || '',
+                    bio: '',
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+                if (userDoc && typeof userDoc.toObject === 'function') {
+                    userDoc = userDoc.toObject();
+                }
+            } catch (createErr) {
+                if (createErr.code === 11000) {
+                    try {
+                        userDoc = await User.create({
+                            _id: userId,
+                            handle: `${cleanHandle}_${Date.now().toString(36)}`,
+                            name: payload.name || '',
+                            avatarUrl: payload.avatarUrl || payload.image || '',
+                            bio: '',
+                            createdAt: new Date(),
+                            updatedAt: new Date()
+                        });
+                        if (userDoc && typeof userDoc.toObject === 'function') {
+                            userDoc = userDoc.toObject();
+                        }
+                    } catch {
+                        userDoc = await User.findById(userId).select('handle isBlocked blockedReason role').lean();
+                    }
+                }
+            }
+        }
         const entry = userDoc
             ? {
                 exists: true,
                 isBlocked: Boolean(userDoc.isBlocked),
                 blockedReason: userDoc.blockedReason || null,
                 role: userDoc.role || null,
+                handle: userDoc.handle || null,
                 expiresAt: now + 30000
             }
             : {
@@ -49,6 +87,7 @@ async function getLiveUserModeration(userId) {
                 isBlocked: false,
                 blockedReason: null,
                 role: null,
+                handle: null,
                 expiresAt: now + 30000
             };
         userModerationCache.set(userId, entry);
@@ -139,7 +178,7 @@ async function verifyJwt(req, res, next) {
         const userId = payload.sub || payload.id;
 
         // Live server-side moderation and existence check (prevents stale JWT bypass)
-        const liveUser = await getLiveUserModeration(userId);
+        const liveUser = await getLiveUserModeration(userId, payload);
         if (liveUser) {
             if (!liveUser.exists) {
                 return res.status(401).json({
@@ -166,7 +205,7 @@ async function verifyJwt(req, res, next) {
             id: userId,
             email: payload.email,
             name: payload.name || '',
-            handle: payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : ''),
+            handle: (liveUser && liveUser.handle) || payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : (payload.email ? `@${payload.email.split('@')[0]}` : '')),
             username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
             role: (liveUser && liveUser.role) || payload.role || 'user',
             isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
@@ -236,7 +275,7 @@ async function verifyJwtToken(token) {
     const userId = payload.sub || payload.id;
 
     // Live server-side moderation check
-    const liveUser = await getLiveUserModeration(userId);
+    const liveUser = await getLiveUserModeration(userId, payload);
     if (liveUser) {
         if (!liveUser.exists) {
             const err = new Error('User account no longer exists.');
@@ -256,7 +295,7 @@ async function verifyJwtToken(token) {
         id: userId,
         email: payload.email,
         name: payload.name || '',
-        handle: payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : ''),
+        handle: (liveUser && liveUser.handle) || payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : (payload.email ? `@${payload.email.split('@')[0]}` : '')),
         username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
         role: (liveUser && liveUser.role) || payload.role || 'user',
         isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),

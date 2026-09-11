@@ -106,7 +106,39 @@ function getActiveReservationCount(roomName) {
 }
 
 /**
+ * Counts participants currently connected to the LiveKit room.
+ * Falls back to 0 when LiveKit is unconfigured or unreachable.
+ *
+ * @param {string} roomName
+ * @returns {Promise<number>}
+ */
+async function getConnectedParticipantCount(roomName) {
+    if (!isLiveKitConfigured()) {
+        return 0;
+    }
+
+    try {
+        let httpUrl = env.LIVEKIT_URL;
+        if (httpUrl.startsWith("wss://")) {
+            httpUrl = httpUrl.replace("wss://", "https://");
+        } else if (httpUrl.startsWith("ws://")) {
+            httpUrl = httpUrl.replace("ws://", "http://");
+        }
+        const roomService = new RoomServiceClient(httpUrl, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET);
+        const participants = await roomService.listParticipants(roomName);
+        return Array.isArray(participants) ? participants.length : 0;
+    } catch {
+        return 0;
+    }
+}
+
+/**
  * Attempts an atomic capacity reservation before LiveKit token issuance.
+ *
+ * All async LiveKit lookups happen BEFORE the critical section. The
+ * read-check-write of the in-memory reservation map is fully synchronous —
+ * which is atomic in Node's single-threaded event loop — preventing
+ * concurrent joins from over-booking capacity when LiveKit is configured.
  *
  * @param {string} roomName
  * @param {number} maxParticipants
@@ -114,25 +146,10 @@ function getActiveReservationCount(roomName) {
  * @returns {Promise<{ success: boolean, reservationId?: string, currentCount: number }>}
  */
 async function reserveSlot(roomName, maxParticipants, ttlMs = 20000) {
+    const connectedParticipants = await getConnectedParticipantCount(roomName);
+
+    // Critical section: synchronous (atomic) — no await between read and write.
     const activeReservations = getActiveReservationCount(roomName);
-    let connectedParticipants = 0;
-
-    if (isLiveKitConfigured()) {
-        try {
-            let httpUrl = env.LIVEKIT_URL;
-            if (httpUrl.startsWith("wss://")) {
-                httpUrl = httpUrl.replace("wss://", "https://");
-            } else if (httpUrl.startsWith("ws://")) {
-                httpUrl = httpUrl.replace("ws://", "http://");
-            }
-            const roomService = new RoomServiceClient(httpUrl, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET);
-            const participants = await roomService.listParticipants(roomName);
-            connectedParticipants = Array.isArray(participants) ? participants.length : 0;
-        } catch {
-            connectedParticipants = 0;
-        }
-    }
-
     const effectiveCount = connectedParticipants + activeReservations;
     if (effectiveCount >= maxParticipants) {
         return {
@@ -192,26 +209,8 @@ function resetReservations(roomName) {
  * @returns {Promise<number>}
  */
 async function getActiveParticipantCount(roomName) {
-    const activeReservations = getActiveReservationCount(roomName);
-    let connectedParticipants = 0;
-
-    if (isLiveKitConfigured()) {
-        try {
-            let httpUrl = env.LIVEKIT_URL;
-            if (httpUrl.startsWith("wss://")) {
-                httpUrl = httpUrl.replace("wss://", "https://");
-            } else if (httpUrl.startsWith("ws://")) {
-                httpUrl = httpUrl.replace("ws://", "http://");
-            }
-            const roomService = new RoomServiceClient(httpUrl, env.LIVEKIT_API_KEY, env.LIVEKIT_API_SECRET);
-            const participants = await roomService.listParticipants(roomName);
-            connectedParticipants = Array.isArray(participants) ? participants.length : 0;
-        } catch {
-            connectedParticipants = 0;
-        }
-    }
-
-    return connectedParticipants + activeReservations;
+    const connectedParticipants = await getConnectedParticipantCount(roomName);
+    return connectedParticipants + getActiveReservationCount(roomName);
 }
 
 /**

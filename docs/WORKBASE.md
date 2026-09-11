@@ -63,5 +63,16 @@ This file is a live task scratchpad. The active AI must update it before and dur
 ## Next Task
 - Task ID: TASK-012
 - Title: Phase 5 — Production Verification (Level 2) & Live Deployment Execution
-- Status: PENDING LIVE CREDENTIALS
+- Status: IN PROGRESS — live credentials now present in local `backend/.env`; frontend Vercel project linked (`frontend/.vercel`)
 - Goal: Execute live deployment on Vercel and Railway with live MongoDB Atlas, Cloudinary, and LiveKit Cloud credentials, and execute the production smoke-test checklist.
+
+### TASK-012 Session Recovery Log (2026-09-11)
+Recovered uncommitted work from an interrupted session and hardened it:
+- `backend/src/middleware/auth.js`: JWT-driven **auto-provisioning** of missing application `users` records from verified JWT claims (required for production: Better Auth users and app `users` collection are separate). Completed the interrupted implementation: `handle` is now propagated through the live moderation entry (server-authoritative), and `verifyJwtToken` (Socket.IO path) uses the same handle-derivation chain as `verifyJwt`.
+- `backend/src/models/{user,follow,auditLog}.model.js`: Removed redundant duplicate index declarations (`handle` is `unique: true`; `followingId` and `status` have inline `index: true`) — eliminates Mongoose duplicate-index warnings.
+- `frontend/.gitignore`: New — ignores `.vercel/` and `.env*` (Vercel CLI hygiene).
+- `backend/src/integrations/livekit/livekit.js`: **Production race-condition fix** in `reserveSlot`: the async LiveKit `listParticipants` lookup ran BETWEEN the capacity read and the reservation write; when LiveKit is configured, concurrent joins could over-book. All async lookups now happen before a fully synchronous (atomic) check-and-reserve critical section. Extracted shared `getConnectedParticipantCount` helper (dedupes `getActiveParticipantCount`).
+- `backend/tests/index.js`: Test harness made deterministic — pre-sets `NODE_ENV='test'` and clears `MONGODB_URI`/Cloudinary/LiveKit credentials BEFORE modules load (dotenv never overrides existing `process.env` values). Previously the suite passed only because `backend/.env` did not exist; with live credentials present, health returned 503 and LiveKit network calls broke slot-TTL timing.
+- Docs: `docs/SECURITY-RULES.md` documents auto-provisioning.
+- Quality gates re-verified: backend `npm test` 100% (8/8 suites), backend lint 0/0, `npm audit` 0 vulnerabilities, frontend lint 0/0.
+

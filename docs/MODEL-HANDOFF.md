@@ -7,12 +7,23 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-11
-- Active task: Phase 5 — Milestone 10: Platform Hardening, End-to-End Verification & Deployment Readiness
-- Overall phase: Phase 5 — Milestone 10 ENGINEERING HARDENING COMPLETE (Level 1 Passed 100%)
-- Completion status: `Engineering Hardening Complete — Production Verification Pending`
-- Git repository status: Clean checkpoint committed to `main`
+- Active task: Phase 5 — TASK-012: Production Verification (Level 2) & Live Deployment Execution
+- Overall phase: Phase 5 — TASK-011 Engineering Hardening COMPLETE (Level 1 Passed 100%); TASK-012 Level 2 in progress
+- Completion status: `Live credentials present locally; deployment execution pending`
+- Git repository status: Working tree contains recovered TASK-012 preparation work (auto-provisioning, race fix, test harness determinism, frontend Vercel link hygiene) — committed in this session
 - Current branch: `main`
-- Last completed milestone: **Phase 5 — Milestone 10: Platform Hardening & Deployment Readiness**
+
+## Session Recovery Entry (2026-09-11)
+An interrupted session left uncommitted production-preparation work. It was verified, completed, and hardened:
+1. **Application User Auto-Provisioning (`backend/src/middleware/auth.js`):**
+   - On first authenticated request with a verified JWT `sub` that has no application `users` record, the backend creates the record from verified claims only (`handle`, `name`, `avatarUrl`), with duplicate-handle collision fallback. Required for production because Better Auth's user table and the app `users` collection are separate.
+   - Completed the interrupted implementation: live moderation entry now carries `handle` (server-authoritative), and `verifyJwtToken` (Socket.IO path) uses the same handle-derivation chain as `verifyJwt`.
+2. **Meet-Up Reservation Race Fix (`backend/src/integrations/livekit/livekit.js`):**
+   - `reserveSlot` previously awaited LiveKit `listParticipants` BETWEEN reading reservation count and writing the reservation. With LiveKit configured (real deployment), concurrent joins could over-book capacity (all concurrent joins read count 0). All async lookups now complete BEFORE a synchronous (atomic) check-and-reserve critical section. Shared `getConnectedParticipantCount` helper extracted.
+3. **Redundant Index Cleanup (`user/follow/auditLog` models):** removed duplicate index declarations (`handle` unique auto-index; inline `index: true` on `followingId`, `status`).
+4. **Deterministic Test Harness (`backend/tests/index.js`):** pre-sets `NODE_ENV='test'` and clears `MONGODB_URI`/Cloudinary/LiveKit credentials before module load (dotenv never overrides existing `process.env`). Without this, the presence of live credentials in `backend/.env` broke the suite (health 503; LiveKit network calls broke slot-TTL timing).
+5. **Frontend Vercel prep:** `frontend/.vercel` project link exists; new `frontend/.gitignore` ignores `.vercel/` and `.env*`.
+6. **Docs:** `docs/SECURITY-RULES.md` documents auto-provisioning; `docs/WORKBASE.md` has the TASK-012 recovery log.
   1. **Distributed Rate Limiting:**
      - Backend (`express-rate-limit`): `globalLimiter` (300 req/min/IP), `authLimiter` (15 req/15min on `/auth/me`), `writeLimiter` (60 req/min on mutations), `expensiveLimiter` (10 req/15min on media signatures, stream create/start/join, meetup create/join), `reportLimiter` (20 req/hr on `/reports`), and `adminLimiter` (60 req/min on `/admin/*`). All 429s adhere to `{ success: false, error: { code: 'RATE_LIMITED', message: '...' } }`. All limiters skip automatically when `NODE_ENV === 'test'`.
      - Frontend (Better Auth built-in): Database-backed `rateLimit` in `frontend/src/lib/auth.js` with custom rules for sensitive endpoints (`/sign-in/email`, `/sign-up/email`, `/forget-password`, `/reset-password`, `/send-verification-email`). No reliance on stateless Edge Runtime memory; no Redis introduced for MVP.
@@ -56,24 +67,19 @@ At the end of every meaningful session/task, the active model must update this f
 - Railway deployment config (`backend/railway.json`) and Next.js production configuration (`frontend/next.config.js`).
 
 ## What Is Not Working / Remaining Scope (Level 2: Production Verification)
-- **Live Deployment Execution**: Requires project owner to configure live cloud credentials:
-  1. Vercel deployment with production environment variables.
-  2. Railway deployment with production environment variables.
-  3. MongoDB Atlas live database connection.
-  4. Cloudinary production credentials.
-  5. LiveKit Cloud production project credentials.
-  6. Realtime Socket.IO communication between deployed Vercel and Railway services.
-  7. Execution of canonical end-to-end smoke test checklist with disposable test accounts.
+- **Live Deployment Execution**: Live credentials are now present in the local `backend/.env` (MongoDB Atlas, Cloudinary, LiveKit, Better Auth URLs) and the frontend Vercel project is linked. Remaining:
+  1. Vercel deployment of `frontend/` with production environment variables.
+  2. Railway deployment of `backend/` with the same production variables (`backend/railway.json` ready).
+  3. Verify MongoDB Atlas network access (allowlist) and live connection from Railway.
+  4. Realtime Socket.IO communication between deployed Vercel and Railway services.
+  5. Execution of canonical end-to-end smoke test checklist with disposable test accounts.
 
-## Tests/Checks Run
-- Backend test suite (`npm test`): Passed 100% (8/8 test suites)
+## Tests/Checks Run (this session, 2026-09-11)
+- Backend test suite (`npm test`): Passed 100% (8/8 test suites) — with deterministic unconfigured-services harness
 - Backend ESLint (`npm run lint`): 0 errors, 0 warnings
 - Backend security audit (`npm audit`): 0 vulnerabilities
 - Frontend ESLint (`npm run lint`): 0 errors, 0 warnings
-- Frontend build (`npm run build`): Clean compile (all 21 static/dynamic routes)
-- Zero tab characters across `frontend/src` and `backend/src`
-- 4-space indentation across all modified files
-- Zero secrets committed to git
+- Zero secrets committed to git (`.env` files are gitignored; only variable names inspected, never printed)
 
 ## Exact Resume Instruction
-> Engineering Hardening Complete — Production Verification Pending. When live deployment credentials are ready, execute Level 2 Production Verification and smoke-testing.
+> TASK-012 Level 2 Production Verification in progress: live credentials are configured locally and the frontend Vercel project is linked. Next exact step: deploy `frontend/` to Vercel and `backend/` to Railway with the production environment variables from `backend/.env`, then run the end-to-end smoke-test checklist with disposable test accounts.

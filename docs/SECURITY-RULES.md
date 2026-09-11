@@ -11,6 +11,7 @@
   - Token expiration (`exp`) is checked (`1d` TTL). Expired tokens return `401 TOKEN_EXPIRED`.
   - Audience validation (`aud` claim): Better Auth v1.7.4's built-in `jwt()` plugin issues tokens containing `iss`, `sub`, `exp`, and `iat` claims without a default `aud` claim. Audience verification is intentionally omitted in accordance with the issued claim format. If a custom audience is configured in the future, audience validation will be enabled.
   - `isBlocked` is checked on the JWT payload AND re-verified against live database state on every request via `getLiveUserModeration` with a 30s cache TTL to prevent stale JWT bypasses.
+  - **Application User Record Auto-Provisioning:** If a verified JWT `sub` has no corresponding record in the application `users` collection (e.g., first authenticated request after deployment, or after the 5-phase ban purge), the backend creates the record server-side from verified JWT claims only (`handle`, `name`, `avatarUrl`). Handles are derived server-side (`payload.handle`/`username`/email local-part) with duplicate-handle collision resolution; client-supplied identity fields are never trusted for role, block state, or ownership. Roles always default to `user` unless set by an admin server-side.
 
 ## 2. Authorization & Least Privilege
 - Backend checks the authenticated user on every protected operation.

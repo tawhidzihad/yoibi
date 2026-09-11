@@ -16,7 +16,6 @@ const userSchema = new mongoose.Schema({
     updatedAt: { type: Date, default: Date.now }
 }, { collection: 'users', _id: false });
 
-userSchema.index({ handle: 1 });
 userSchema.index({ isBlocked: 1 });
 
 module.exports = mongoose.model('User', userSchema);
