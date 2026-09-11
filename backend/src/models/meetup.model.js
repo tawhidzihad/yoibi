@@ -7,6 +7,9 @@ const MEETUP_STATUS = {
 
 const meetupSchema = new mongoose.Schema(
     {
+        _id: {
+            type: String
+        },
         ownerId: {
             type: String,
             required: true,
