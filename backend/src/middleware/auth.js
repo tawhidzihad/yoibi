@@ -157,11 +157,14 @@ async function verifyJwt(req, res, next) {
             });
         }
 
-        // Verify token signature against JWKS and validate issuer.
-        // Better Auth v1.7.4 jwt() plugin includes iss, sub, exp, iat claims without a default aud claim.
-        // If a custom audience is configured in the future, add `audience: '<aud>'` here.
+        // Verify token signature against JWKS and validate issuer + audience.
+        // Better Auth v1.7.4 jwt() plugin issues tokens with sub, iat, exp, and
+        // aud claims; `iss` and the default `aud` both equal the Better Auth
+        // baseURL (verified in dist/plugins/jwt/sign.mjs: setIssuer/setAudience).
+        // Both are validated strictly against the configured environment.
         const { payload } = await jwtVerify(token, jwks, {
-            issuer: env.BETTER_AUTH_BASE_URL
+            issuer: env.BETTER_AUTH_BASE_URL,
+            audience: env.BETTER_AUTH_BASE_URL
         });
 
         // Blocked user account check from JWT payload
@@ -260,47 +263,68 @@ async function verifyJwtToken(token) {
         throw err;
     }
 
-    // Verify token signature against JWKS and validate issuer.
-    const { payload } = await jwtVerify(cleanToken, jwks, {
-        issuer: env.BETTER_AUTH_BASE_URL
-    });
+    try {
+        // Verify token signature against JWKS and validate issuer + audience.
+        // See verifyJwt: Better Auth v1.7.4 sets iss and the default aud to baseURL.
+        const { payload } = await jwtVerify(cleanToken, jwks, {
+            issuer: env.BETTER_AUTH_BASE_URL,
+            audience: env.BETTER_AUTH_BASE_URL
+        });
 
-    if (payload.isBlocked === true) {
-        const err = new Error('Your account has been suspended by an administrator.');
-        err.code = 'ACCOUNT_BLOCKED';
-        err.status = 403;
-        throw err;
-    }
-
-    const userId = payload.sub || payload.id;
-
-    // Live server-side moderation check
-    const liveUser = await getLiveUserModeration(userId, payload);
-    if (liveUser) {
-        if (!liveUser.exists) {
-            const err = new Error('User account no longer exists.');
-            err.code = 'UNAUTHORIZED';
-            err.status = 401;
-            throw err;
-        }
-        if (liveUser.isBlocked) {
-            const err = new Error(liveUser.blockedReason || 'Your account has been suspended by an administrator.');
+        if (payload.isBlocked === true) {
+            const err = new Error('Your account has been suspended by an administrator.');
             err.code = 'ACCOUNT_BLOCKED';
             err.status = 403;
             throw err;
         }
-    }
 
-    return {
-        id: userId,
-        email: payload.email,
-        name: payload.name || '',
-        handle: (liveUser && liveUser.handle) || payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : (payload.email ? `@${payload.email.split('@')[0]}` : '')),
-        username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
-        role: (liveUser && liveUser.role) || payload.role || 'user',
-        isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
-        isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked)
-    };
+        const userId = payload.sub || payload.id;
+
+        // Live server-side moderation check
+        const liveUser = await getLiveUserModeration(userId, payload);
+        if (liveUser) {
+            if (!liveUser.exists) {
+                const err = new Error('User account no longer exists.');
+                err.code = 'UNAUTHORIZED';
+                err.status = 401;
+                throw err;
+            }
+            if (liveUser.isBlocked) {
+                const err = new Error(liveUser.blockedReason || 'Your account has been suspended by an administrator.');
+                err.code = 'ACCOUNT_BLOCKED';
+                err.status = 403;
+                throw err;
+            }
+        }
+
+        return {
+            id: userId,
+            email: payload.email,
+            name: payload.name || '',
+            handle: (liveUser && liveUser.handle) || payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : (payload.email ? `@${payload.email.split('@')[0]}` : '')),
+            username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
+            role: (liveUser && liveUser.role) || payload.role || 'user',
+            isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
+            isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked)
+        };
+    } catch (error) {
+        // Keep the explicit error shape above as-is; normalize raw jose errors
+        // into the same { code, status } contract used by the Express middleware
+        // so every consumer (REST + Socket.IO) gets consistent 401 semantics.
+        if (error && error.status && error.code) {
+            throw error;
+        }
+        const isExpired = error.code === 'ERR_JWT_EXPIRED';
+        const err = new Error(
+            isExpired
+                ? 'Authentication token has expired. Please log in again.'
+                : 'Authentication token verification failed.'
+        );
+        err.code = isExpired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN';
+        err.status = 401;
+        err.cause = error;
+        throw err;
+    }
 }
 
 /**
@@ -357,6 +381,14 @@ function requireAdmin(req, res, next) {
     return next();
 }
 
+/**
+ * Resets the cached remote JWKS set so it is re-initialized from the current
+ * configuration on the next verification (used after config changes/tests).
+ */
+function invalidateJWKS() {
+    remoteJWKS = null;
+}
+
 module.exports = {
     verifyJwt,
     verifyJwtToken,
@@ -364,5 +396,6 @@ module.exports = {
     requireAuth,
     requireAdmin,
     getJWKS,
+    invalidateJWKS,
     invalidateUserModerationCache
 };

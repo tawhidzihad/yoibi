@@ -3,17 +3,49 @@ import { authClient } from "@/lib/auth-client";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1";
 
 /**
- * Retrieves the current JWT token from Better Auth client flow.
+ * Official Better Auth JWT acquisition flow (single centralized path).
+ *
+ * Uses the installed Better Auth (v1.7.4) JWT plugin client API:
+ *   `authClient.token()` -> GET ${NEXT_PUBLIC_BETTER_AUTH_URL}/api/auth/token
+ *   which is authenticated by the primary Better Auth session cookie and
+ *   returns `{ token: "<JWKS-verifiable JWT>" }`.
+ *
+ * NOTE: The previous implementation called `authClient.getJwtToken()`, which
+ * the client's dynamic path proxy resolves to `GET /get-jwt-token` — a route
+ * that does not exist in Better Auth 1.7.x — so every request 404'd and no
+ * Authorization header was ever attached. `authClient.token()` is the
+ * official API for the installed version.
+ *
+ * This is the ONLY place in the frontend that acquires the JWT. The Better
+ * Auth session cookie is never used as the external-service JWT.
+ *
+ * @returns {Promise<string>} The JWT, or "" when no session/JWT is available.
  */
-async function getAuthHeader() {
+export async function getJwtToken() {
     try {
-        const res = await authClient.getJwtToken();
-        const token = res?.data?.token || res?.token;
-        if (token) {
-            return { Authorization: `Bearer ${token}` };
+        const { data, error } = await authClient.token();
+        if (error) {
+            // Not logged in, expired session, or auth service unreachable.
+            return "";
         }
+        const token = data?.token;
+        // Never return a non-string truthy value that could produce
+        // "Authorization: Bearer undefined" / "Bearer [object Object]".
+        return typeof token === "string" && token.length > 0 ? token : "";
     } catch (err) {
         console.warn("[ApiClient] Failed to acquire JWT token from Better Auth:", err?.message);
+        return "";
+    }
+}
+
+/**
+ * Builds the Authorization header for the current session, or {} when no
+ * valid JWT exists (never a malformed "Bearer undefined/null" header).
+ */
+async function getAuthHeader() {
+    const token = await getJwtToken();
+    if (token) {
+        return { Authorization: `Bearer ${token}` };
     }
     return {};
 }

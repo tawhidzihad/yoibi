@@ -99,7 +99,11 @@ export function AuthProvider({ children }) {
             password,
             name,
             handle,
+            // Signup must NOT automatically log the user in (approved rule).
             autoSignIn: false,
+            // After the user clicks the verification link, Better Auth marks
+            // the email verified and redirects here -> the login flow.
+            callbackURL: "/login",
         });
 
         if (result.error) {

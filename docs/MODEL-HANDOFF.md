@@ -75,11 +75,18 @@ An interrupted session left uncommitted production-preparation work. It was veri
   5. Execution of canonical end-to-end smoke test checklist with disposable test accounts.
 
 ## Tests/Checks Run (this session, 2026-09-11)
-- Backend test suite (`npm test`): Passed 100% (8/8 test suites) — with deterministic unconfigured-services harness
+- Backend test suite (`npm test`): Passed 100% (9/9 test suites) — with deterministic unconfigured-services harness; now includes `backend/tests/auth-jwt.test.js` (valid/invalid/expired/wrong-issuer/wrong-audience JWT + `/auth/me` end-to-end)
 - Backend ESLint (`npm run lint`): 0 errors, 0 warnings
 - Backend security audit (`npm audit`): 0 vulnerabilities
 - Frontend ESLint (`npm run lint`): 0 errors, 0 warnings
+- Frontend unit tests (`npm test`, vitest): 7/7 passing (centralized API client JWT behavior)
 - Zero secrets committed to git (`.env` files are gitignored; only variable names inspected, never printed)
+
+## Production Auth Verification Status (TASK-013, 2026-09-11)
+- **JWT pipeline**: FIXED — frontend uses official Better Auth 1.7.4 `authClient.token()` centralized in `frontend/src/lib/api/client.js`; Socket.IO hooks reuse it. Deployed JWKS endpoint `https://yoibi-frontend.vercel.app/api/auth/jwks` verified live (EdDSA/Ed25519); deployed `GET /api/auth/token` verified to exist (401 without session). Backend strictly validates `iss`/`aud` (= `BETTER_AUTH_BASE_URL`) and `exp`.
+- **Email verification**: IMPLEMENTED via Resend (`emailVerification.sendVerificationEmail` + `sendOnSignUp` + `sendResetPassword` in `frontend/src/lib/auth.js`, sender in `frontend/src/lib/email.js`). External prerequisite pending: set `RESEND_API_KEY`/`EMAIL_FROM` in Vercel and verify the sending domain in Resend → **Email delivery integration implemented — provider verification pending**.
+- **Google OAuth → MongoDB sync**: FIXED as a consequence of the JWT fix; the backend auto-provisions the YOIBI `users` profile from verified JWT claims on the first authenticated request. Real disposable Google-account smoke test (OAuth → `/auth/me` → MongoDB profile → tweet/video) still requires redeploy + owner go-ahead.
+- **Production env requirements**: Railway `BETTER_AUTH_BASE_URL`/`FRONTEND_URL`/`CORS_ORIGIN` = `https://yoibi-frontend.vercel.app`; Vercel `NEXT_PUBLIC_BETTER_AUTH_URL` = same origin; Google redirect URI `https://yoibi-frontend.vercel.app/api/auth/callback/google`.
 
 ## Exact Resume Instruction
 > TASK-012 Level 2 Production Verification in progress. Both deployments are LIVE and healthy (frontend: https://yoibi-frontend.vercel.app, backend: https://yoibi-backend-production.up.railway.app with Atlas connected). Live-stack smoke checks and a local production boot check passed on 2026-09-11. Next exact steps: (1) redeploy the backend to Railway so the live build includes the user auto-provisioning completion and the Meet-Up reservation race fix (commit 8344ec3), (2) run the authenticated end-to-end smoke test with a disposable test account (owner go-ahead required — writes to production), (3) verify Socket.IO realtime in the browser.

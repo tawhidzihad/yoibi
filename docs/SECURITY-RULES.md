@@ -5,11 +5,15 @@
 - Better Auth JWT plugin supplies a verifiable JWT and JWKS endpoint (`/api/auth/jwks`).
 - Backend protected APIs verify the Bearer token against the JWKS endpoint before business logic.
 - The frontend is an additional UX/request guard, never the final security boundary.
+- **JWT acquisition flow (single centralized path)**:
+  1. User session established (email/password after verification, or Google OAuth) -> primary Better Auth session cookie.
+  2. Frontend calls `authClient.token()` (`GET /api/auth/token`) — the official Better Auth v1.7.4 client API — implemented ONCE in `frontend/src/lib/api/client.js` (`getJwtToken()`); REST client and Socket.IO hooks both reuse it. The Better Auth session cookie is never itself used as the external-service token.
+  3. `Authorization: Bearer <JWT>` attached by the centralized API client; malformed headers (`Bearer undefined`/`Bearer null`) are impossible — a missing/failed JWT yields NO header and a clean 401 error state.
 - **JWT Verification**:
   - `jwtVerify` validates the cryptographic signature against the remote JWKS set.
   - Issuer validation (`issuer: env.BETTER_AUTH_BASE_URL`) is strictly enforced.
   - Token expiration (`exp`) is checked (`1d` TTL). Expired tokens return `401 TOKEN_EXPIRED`.
-  - Audience validation (`aud` claim): Better Auth v1.7.4's built-in `jwt()` plugin issues tokens containing `iss`, `sub`, `exp`, and `iat` claims without a default `aud` claim. Audience verification is intentionally omitted in accordance with the issued claim format. If a custom audience is configured in the future, audience validation will be enabled.
+  - Audience validation (`aud` claim): Better Auth v1.7.4's `jwt()` plugin sets the default `aud` claim to the Better Auth baseURL (verified in the installed package: `dist/plugins/jwt/sign.mjs` calls `setAudience(aud ?? defaultAud)`). Audience validation is therefore STRICTLY enforced (`audience: env.BETTER_AUTH_BASE_URL`) — tokens issued for any other audience are rejected with 401.
   - `isBlocked` is checked on the JWT payload AND re-verified against live database state on every request via `getLiveUserModeration` with a 30s cache TTL to prevent stale JWT bypasses.
   - **Application User Record Auto-Provisioning:** If a verified JWT `sub` has no corresponding record in the application `users` collection (e.g., first authenticated request after deployment, or after the 5-phase ban purge), the backend creates the record server-side from verified JWT claims only (`handle`, `name`, `avatarUrl`). Handles are derived server-side (`payload.handle`/`username`/email local-part) with duplicate-handle collision resolution; client-supplied identity fields are never trusted for role, block state, or ownership. Roles always default to `user` unless set by an admin server-side.
 

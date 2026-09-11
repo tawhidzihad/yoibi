@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io } from "socket.io-client";
-import { authClient } from "@/lib/auth-client";
+import { getJwtToken } from "@/lib/api/client";
 
 const SOCKET_SERVER_URL =
     process.env.NEXT_PUBLIC_SOCKET_URL ||
@@ -59,8 +59,8 @@ export function useMessagingSocket({
         async function initSocket() {
             let token = "";
             try {
-                const res = await authClient.getJwtToken();
-                token = res?.data?.token || res?.token || "";
+                // Centralized Better Auth JWT acquisition (official authClient.token() flow).
+                token = await getJwtToken();
             } catch (err) {
                 console.warn("[MessagingSocket] Failed to acquire auth token:", err?.message);
             }

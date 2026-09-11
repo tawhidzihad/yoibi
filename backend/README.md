@@ -84,7 +84,10 @@ backend/src/
 
 - **Single Auth Authority:** Better Auth handles user registration, email verification, passwords, and sessions.
 - **JWT Plugin:** Issues verifiable JWTs containing user claims (`sub`, `email`, `role`, `isBlocked`).
-- **Backend Verification:** `verifyJwt` middleware uses `jose` to verify incoming `Authorization: Bearer <jwt>` against the Better Auth JWKS endpoint.
+- **Backend Verification:** `verifyJwt` middleware uses `jose` to verify incoming `Authorization: Bearer <jwt>` against the Better Auth JWKS endpoint (`createRemoteJWKSet`).
+- **Issuer/Audience/Expiry:** Strictly enforced — `iss` and the default `aud` both equal Better Auth's baseURL (Better Auth v1.7.4 behavior, verified in the installed package), so both are validated against `BETTER_AUTH_BASE_URL`; expired tokens return `401 TOKEN_EXPIRED`. In production `BETTER_AUTH_BASE_URL` must be the deployed frontend origin (`https://yoibi-frontend.vercel.app`), never `http://localhost:3000`.
+- **Uniform Security Boundary:** Email/password and Google OAuth users pass through the exact same JWT verification path. There is no separate Google authentication path.
+- **MongoDB Profile Sync:** The YOIBI application `users` record (MongoDB) is created/upserted server-side on the first verified-JWT request (`GET /api/v1/auth/me` or any protected route) using verified JWT claims only — the Better Auth user ID is the canonical identity; client-supplied user IDs are never trusted.
 - **Identity Derivation:** `req.user` is attached exclusively by verified token claims. Client-supplied IDs or roles are never trusted.
 - **Access Gates:**
   - `requireAuth`: Guards protected routes against anonymous callers.
