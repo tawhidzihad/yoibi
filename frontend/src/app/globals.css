@@ -176,11 +176,22 @@
 }
 
 /* Homepage marquee accessibility: with reduced motion the track
-   stops moving and its first set of cards remains fully visible. */
+   stops moving and its first set of cards remains fully visible,
+   scrollable so no rule card is ever unreachable. */
 @media (prefers-reduced-motion: reduce) {
     .animate-marquee,
     .animate-marquee-vertical {
         animation: none;
+    }
+    .marquee-fade-x {
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    .marquee-fade-x::-webkit-scrollbar {
+        display: none;
+    }
+    .marquee-fade-x > div:not(:first-child) {
+        display: none;
     }
 }
 
