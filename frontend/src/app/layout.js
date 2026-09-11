@@ -10,6 +10,9 @@ export const metadata = {
     description:
         "One platform for everything social — videos, streams, tweets, and video calls. No algorithms, no manipulation, just people being real.",
     keywords: ["social media", "free speech", "live streams", "videos", "tweets", "meet up"],
+    icons: {
+        icon: "/favicon.svg",
+    },
     openGraph: {
         title: "Yoibi — Be You, Be Yoibi",
         description:
