@@ -1,7 +1,62 @@
-const { jwtVerify, createRemoteJWKSet } = require("jose");
-const { env } = require("../config/env");
+const mongoose = require('mongoose');
+const { jwtVerify, createRemoteJWKSet } = require('jose');
+const { env } = require('../config/env');
+const User = require('../models/user.model');
 
 let remoteJWKS = null;
+
+// In-memory cache for live user moderation state (TTL 30s)
+const userModerationCache = new Map();
+
+/**
+ * Invalidates cached moderation status for a user or all users.
+ *
+ * @param {string} [userId]
+ */
+function invalidateUserModerationCache(userId) {
+    if (userId) {
+        userModerationCache.delete(userId);
+    } else {
+        userModerationCache.clear();
+    }
+}
+
+/**
+ * Checks live user moderation state from database with cache.
+ *
+ * @param {string} userId
+ * @returns {Promise<{ exists: boolean, isBlocked: boolean, blockedReason: string|null, role: string|null }|null>}
+ */
+async function getLiveUserModeration(userId) {
+    if (!userId || mongoose.connection.readyState !== 1) return null;
+    const now = Date.now();
+    const cached = userModerationCache.get(userId);
+    if (cached && cached.expiresAt > now) {
+        return cached;
+    }
+    try {
+        const userDoc = await User.findById(userId).select('isBlocked blockedReason role').lean();
+        const entry = userDoc
+            ? {
+                exists: true,
+                isBlocked: Boolean(userDoc.isBlocked),
+                blockedReason: userDoc.blockedReason || null,
+                role: userDoc.role || null,
+                expiresAt: now + 30000
+            }
+            : {
+                exists: false,
+                isBlocked: false,
+                blockedReason: null,
+                role: null,
+                expiresAt: now + 30000
+            };
+        userModerationCache.set(userId, entry);
+        return entry;
+    } catch {
+        return null;
+    }
+}
 
 /**
  * Lazily initializes the remote JWKS set based on Better Auth URL configuration.
@@ -16,7 +71,7 @@ function getJWKS() {
         remoteJWKS = createRemoteJWKSet(new URL(jwksUrl));
         return remoteJWKS;
     } catch (err) {
-        console.error("[Auth] Failed to initialize JWKS endpoint:", err.message);
+        console.error('[Auth] Failed to initialize JWKS endpoint:', err.message);
         return null;
     }
 }
@@ -28,12 +83,12 @@ function getJWKS() {
 async function verifyJwt(req, res, next) {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({
             success: false,
             error: {
-                code: "UNAUTHORIZED",
-                message: "Authentication token is missing or malformed."
+                code: 'UNAUTHORIZED',
+                message: 'Authentication token is missing or malformed.'
             }
         });
     }
@@ -44,8 +99,8 @@ async function verifyJwt(req, res, next) {
         return res.status(401).json({
             success: false,
             error: {
-                code: "UNAUTHORIZED",
-                message: "Bearer token is empty."
+                code: 'UNAUTHORIZED',
+                message: 'Bearer token is empty.'
             }
         });
     }
@@ -57,8 +112,8 @@ async function verifyJwt(req, res, next) {
             return res.status(500).json({
                 success: false,
                 error: {
-                    code: "AUTH_SERVICE_UNAVAILABLE",
-                    message: "Authentication verification service is not configured."
+                    code: 'AUTH_SERVICE_UNAVAILABLE',
+                    message: 'Authentication verification service is not configured.'
                 }
             });
         }
@@ -67,37 +122,62 @@ async function verifyJwt(req, res, next) {
             issuer: env.BETTER_AUTH_BASE_URL
         });
 
-        // Blocked user account check
+        // Blocked user account check from JWT payload
         if (payload.isBlocked === true) {
             return res.status(403).json({
                 success: false,
                 error: {
-                    code: "ACCOUNT_BLOCKED",
-                    message: "Your account has been suspended by an administrator."
+                    code: 'ACCOUNT_BLOCKED',
+                    message: 'Your account has been suspended by an administrator.'
                 }
             });
         }
 
+        const userId = payload.sub || payload.id;
+
+        // Live server-side moderation and existence check (prevents stale JWT bypass)
+        const liveUser = await getLiveUserModeration(userId);
+        if (liveUser) {
+            if (!liveUser.exists) {
+                return res.status(401).json({
+                    success: false,
+                    error: {
+                        code: 'UNAUTHORIZED',
+                        message: 'User account no longer exists.'
+                    }
+                });
+            }
+            if (liveUser.isBlocked) {
+                return res.status(403).json({
+                    success: false,
+                    error: {
+                        code: 'ACCOUNT_BLOCKED',
+                        message: liveUser.blockedReason || 'Your account has been suspended by an administrator.'
+                    }
+                });
+            }
+        }
+
         // Attach server-verified identity only
         req.user = {
-            id: payload.sub || payload.id,
+            id: userId,
             email: payload.email,
-            name: payload.name || "",
-            handle: payload.handle || (payload.username ? `@${payload.username.replace(/^@/, "")}` : ""),
-            username: payload.username || (payload.handle ? payload.handle.replace(/^@/, "") : ""),
-            role: payload.role || "user",
+            name: payload.name || '',
+            handle: payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : ''),
+            username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
+            role: (liveUser && liveUser.role) || payload.role || 'user',
             isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
-            isBlocked: Boolean(payload.isBlocked)
+            isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked)
         };
 
         return next();
     } catch (error) {
         // Safe logging without exposing token content
-        const isExpired = error.code === "ERR_JWT_EXPIRED";
-        const errorCode = isExpired ? "TOKEN_EXPIRED" : "INVALID_TOKEN";
+        const isExpired = error.code === 'ERR_JWT_EXPIRED';
+        const errorCode = isExpired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN';
         const message = isExpired
-            ? "Authentication token has expired. Please log in again."
-            : "Authentication token verification failed.";
+            ? 'Authentication token has expired. Please log in again.'
+            : 'Authentication token verification failed.';
 
         return res.status(401).json({
             success: false,
@@ -149,15 +229,34 @@ async function verifyJwtToken(token) {
         throw err;
     }
 
+    const userId = payload.sub || payload.id;
+
+    // Live server-side moderation check
+    const liveUser = await getLiveUserModeration(userId);
+    if (liveUser) {
+        if (!liveUser.exists) {
+            const err = new Error('User account no longer exists.');
+            err.code = 'UNAUTHORIZED';
+            err.status = 401;
+            throw err;
+        }
+        if (liveUser.isBlocked) {
+            const err = new Error(liveUser.blockedReason || 'Your account has been suspended by an administrator.');
+            err.code = 'ACCOUNT_BLOCKED';
+            err.status = 403;
+            throw err;
+        }
+    }
+
     return {
-        id: payload.sub || payload.id,
+        id: userId,
         email: payload.email,
         name: payload.name || '',
         handle: payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : ''),
         username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
-        role: payload.role || 'user',
+        role: (liveUser && liveUser.role) || payload.role || 'user',
         isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
-        isBlocked: Boolean(payload.isBlocked)
+        isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked)
     };
 }
 
@@ -174,9 +273,53 @@ async function optionalAuth(req, res, next) {
     return verifyJwt(req, res, next);
 }
 
+/**
+ * Middleware: Enforces that req.user is authenticated.
+ */
+function requireAuth(req, res, next) {
+    if (!req.user || !req.user.id) {
+        return res.status(401).json({
+            success: false,
+            error: {
+                code: 'UNAUTHORIZED',
+                message: 'Authentication required'
+            }
+        });
+    }
+    return next();
+}
+
+/**
+ * Middleware: Enforces that req.user has administrator role.
+ */
+function requireAdmin(req, res, next) {
+    if (!req.user || !req.user.id) {
+        return res.status(401).json({
+            success: false,
+            error: {
+                code: 'UNAUTHORIZED',
+                message: 'Authentication required'
+            }
+        });
+    }
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({
+            success: false,
+            error: {
+                code: 'FORBIDDEN',
+                message: 'Administrator privileges required'
+            }
+        });
+    }
+    return next();
+}
+
 module.exports = {
     verifyJwt,
     verifyJwtToken,
     optionalAuth,
-    getJWKS
+    requireAuth,
+    requireAdmin,
+    getJWKS,
+    invalidateUserModerationCache
 };

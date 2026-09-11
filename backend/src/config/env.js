@@ -10,6 +10,7 @@ const env = {
     HOST: process.env.HOST || "0.0.0.0",
     MONGODB_URI: process.env.MONGODB_URI || "",
     BETTER_AUTH_BASE_URL: process.env.BETTER_AUTH_BASE_URL || "http://localhost:3000",
+    BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET || "yoibi-dev-secret-key-32-chars-minimum-length",
     BETTER_AUTH_JWKS_URL: process.env.BETTER_AUTH_JWKS_URL || "",
     FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
     CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:3000",

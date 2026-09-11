@@ -1282,3 +1282,379 @@ Notifications represent user activity alerts generated as secondary side effects
   }
   ```
 
+---
+
+## 14. Admin Dashboard & Moderation Tools
+
+### 14.1 Authorization & Protection Rules
+- **Admin Guard:** All `/api/v1/admin/*` endpoints strictly require `req.user.role === "admin"`.
+- **Admin Self-Protection:**
+  - An admin cannot ban themselves (`403 ADMIN_SELF_ACTION_FORBIDDEN`).
+  - An admin cannot block themselves (`403 ADMIN_SELF_ACTION_FORBIDDEN`).
+  - An admin cannot ban or block another admin (`403 ADMIN_TARGET_PROTECTED`).
+- **Canonical User Identity:** All `:id` parameters in `/api/v1/admin/users/:id/*` represent the **Better Auth User ID string**.
+
+---
+
+### `GET /api/v1/admin/stats`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Returns system-wide moderation and engagement statistics using indexed count queries.
+- **Metric Classifications:**
+  - **Current-State Counts:** `currentUsers` (current profiles in database), `activeUsers` (not blocked, not deleted), `blockedUsers` (`isBlocked: true`), `liveStreams` (`status: "live"`), `activeMeetUpRooms` (`status: "active"`), `pendingReports` (`status: "pending"`).
+  - **Historical Totals:** `bannedUsers` (count of completed/partial BAN_USER audit records), `totalTweets`, `totalVideos`.
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "users": {
+              "current": 1250,
+              "active": 1210,
+              "blocked": 40,
+              "banned": 15
+          },
+          "content": {
+              "totalTweets": 15420,
+              "totalVideos": 890,
+              "liveStreams": 4,
+              "activeMeetUpRooms": 2
+          },
+          "moderation": {
+              "pendingReports": 8,
+              "resolvedReports": 64,
+              "dismissedReports": 12
+          }
+      },
+      "message": "Admin metrics retrieved"
+  }
+  ```
+- **Error (401 `UNAUTHORIZED`):** Unauthenticated.
+- **Error (403 `FORBIDDEN`):** Caller is not an admin.
+
+---
+
+### `GET /api/v1/admin/users`
+- **Auth:** Required (`role === "admin"`)
+- **Query Parameters:**
+  - `page`: Integer, default 1
+  - `limit`: Integer, default 20, max 100
+  - `search`: String (searches `name`, `handle`, `email`)
+  - `status`: String (`"all"`, `"active"`, `"blocked"`), default `"all"`
+  - `role`: String (`"all"`, `"user"`, `"admin"`), default `"all"`
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "items": [
+              {
+                  "id": "ba_usr_xyz789",
+                  "name": "Bad Actor",
+                  "handle": "@badactor",
+                  "email": "bad@example.com",
+                  "avatarUrl": null,
+                  "role": "user",
+                  "isBlocked": true,
+                  "blockReason": "Spamming offensive links",
+                  "blockedAt": "2026-09-11T02:00:00.000Z",
+                  "createdAt": "2026-09-01T00:00:00.000Z"
+              }
+          ],
+          "pagination": {
+              "page": 1,
+              "limit": 20,
+              "totalItems": 1,
+              "totalPages": 1,
+              "hasNextPage": false
+          }
+      },
+      "message": ""
+  }
+  ```
+
+---
+
+### `GET /api/v1/admin/users/:id`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Retrieves detailed user moderation profile including content counts and moderation history.
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "ba_usr_xyz789",
+          "name": "Bad Actor",
+          "handle": "@badactor",
+          "email": "bad@example.com",
+          "avatarUrl": null,
+          "bio": "Nothing to see",
+          "role": "user",
+          "isBlocked": true,
+          "blockReason": "Spamming offensive links",
+          "blockedAt": "2026-09-11T02:00:00.000Z",
+          "createdAt": "2026-09-01T00:00:00.000Z",
+          "counts": {
+              "tweets": 4,
+              "videos": 1,
+              "streams": 0,
+              "meetupRooms": 0,
+              "followers": 12,
+              "following": 8
+          },
+          "reportsCount": 3
+      },
+      "message": "User moderation details retrieved"
+  }
+  ```
+- **Error (404 `NOT_FOUND`):** User not found.
+
+---
+
+### `POST /api/v1/admin/users/:id/block`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Reversibly suspends user account. Preserves all user data. Denies authentication and active JWTs.
+- **Request Body:**
+  ```json
+  {
+      "reason": "Violating platform hate speech policies"
+  }
+  ```
+  *(Note: `notifyEmail` is not supported in MVP and must not be sent).*
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "ba_usr_xyz789",
+          "isBlocked": true,
+          "blockReason": "Violating platform hate speech policies",
+          "blockedAt": "2026-09-11T05:30:00.000Z"
+      },
+      "message": "User successfully blocked"
+  }
+  ```
+- **Error (400 `VALIDATION_ERROR`):** Missing or empty reason.
+- **Error (403 `ADMIN_SELF_ACTION_FORBIDDEN`):** Admin cannot block self.
+- **Error (403 `ADMIN_TARGET_PROTECTED`):** Admin cannot block another admin.
+- **Error (404 `NOT_FOUND`):** User not found.
+
+---
+
+### `POST /api/v1/admin/users/:id/unblock`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Restores suspended user account. Access is fully restored; all previously preserved data remains intact.
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "ba_usr_xyz789",
+          "isBlocked": false,
+          "blockReason": null,
+          "blockedAt": null
+      },
+      "message": "User successfully unblocked"
+  }
+  ```
+- **Error (404 `NOT_FOUND`):** User not found.
+
+---
+
+### `POST /api/v1/admin/users/:id/ban`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Permanent, destructive purge of user account and owned content. Initializes durable audit record before executing 5-phase cleanup.
+- **Request Body:**
+  ```json
+  {
+      "reason": "Persistent abusive behavior and spam",
+      "confirmHandle": "@badactor"
+  }
+  ```
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "auditId": "audit_65e1b4c8",
+          "status": "COMPLETED",
+          "targetUserId": "ba_usr_xyz789",
+          "deletedCounts": {
+              "tweets": 14,
+              "videos": 2,
+              "streams": 1,
+              "meetupRooms": 0,
+              "follows": 20,
+              "notifications": 45,
+              "cloudinaryAssets": 2,
+              "livekitRooms": 1
+          },
+          "failedCleanups": []
+      },
+      "message": "User permanently banned and data purged"
+  }
+  ```
+- **Error (400 `VALIDATION_ERROR`):** Reason missing or confirmation handle does not match target.
+- **Error (403 `ADMIN_SELF_ACTION_FORBIDDEN`):** Admin cannot ban self.
+- **Error (403 `ADMIN_TARGET_PROTECTED`):** Admin cannot ban another admin.
+- **Error (404 `NOT_FOUND`):** User not found.
+
+---
+
+### `GET /api/v1/admin/content/tweets`
+- **Auth:** Required (`role === "admin"`)
+- **Query Parameters:** `page`, `limit`, `search`, `authorId`
+- **Response (200):** Paginated tweets list enriched with author details.
+
+### `DELETE /api/v1/admin/content/tweets/:id`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Administrative removal of an offending tweet and decrement of parent reply count if applicable.
+- **Response (200):** `{ "success": true, "data": { "id": "tweet_123" }, "message": "Tweet deleted by administrator" }`
+
+---
+
+### `GET /api/v1/admin/content/videos`
+- **Auth:** Required (`role === "admin"`)
+- **Query Parameters:** `page`, `limit`, `search`, `authorId`
+- **Response (200):** Paginated videos list.
+
+### `DELETE /api/v1/admin/content/videos/:id`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Administrative removal of an offending video. Deletes Cloudinary asset and MongoDB record.
+- **Response (200):** `{ "success": true, "data": { "id": "video_123" }, "message": "Video deleted by administrator" }`
+
+---
+
+### `GET /api/v1/admin/content/streams`
+- **Auth:** Required (`role === "admin"`)
+- **Query Parameters:** `page`, `limit`, `status` (`"all"`, `"live"`, `"ready"`, `"ended"`)
+- **Response (200):** Paginated streams list.
+
+### `DELETE /api/v1/admin/content/streams/:id`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Administrative termination and removal of an offending stream. Terminates LiveKit room if active.
+- **Response (200):** `{ "success": true, "data": { "id": "stream_123" }, "message": "Stream ended and removed by administrator" }`
+
+---
+
+### `GET /api/v1/admin/content/meetups`
+- **Auth:** Required (`role === "admin"`)
+- **Query Parameters:** `page`, `limit`, `status` (`"all"`, `"active"`, `"ended"`)
+- **Response (200):** Paginated Meet-Up rooms list.
+
+### `DELETE /api/v1/admin/content/meetups/:id`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Administrative termination and removal of an offending Meet-Up room. Terminates LiveKit room if active.
+- **Response (200):** `{ "success": true, "data": { "id": "meetup_123" }, "message": "Meet-Up room ended and removed by administrator" }`
+
+---
+
+### `POST /api/v1/reports`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Platform user submits a report against content or a user.
+- **Request Body:**
+  ```json
+  {
+      "targetType": "tweet",
+      "targetId": "tweet_123",
+      "reason": "Harassment and offensive language",
+      "description": "User is posting threats in replies"
+  }
+  ```
+  *(Valid `targetType` values: `"tweet"`, `"video"`, `"stream"`, `"meetup"`, `"user"`).*
+- **Response (201):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "rep_65e1c2a1",
+          "status": "pending",
+          "createdAt": "2026-09-11T05:35:00.000Z"
+      },
+      "message": "Report submitted successfully"
+  }
+  ```
+
+---
+
+### `GET /api/v1/admin/reports`
+- **Auth:** Required (`role === "admin"`)
+- **Query Parameters:**
+  - `page`: Integer, default 1
+  - `limit`: Integer, default 20
+  - `status`: String (`"all"`, `"pending"`, `"resolved"`, `"dismissed"`), default `"all"`
+  - `targetType`: String (`"all"`, `"tweet"`, `"video"`, `"stream"`, `"meetup"`, `"user"`), default `"all"`
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "items": [
+              {
+                  "id": "rep_65e1c2a1",
+                  "reporter": {
+                      "id": "ba_usr_reporter1",
+                      "name": "Jane Reporter",
+                      "handle": "@janerep"
+                  },
+                  "targetType": "tweet",
+                  "targetId": "tweet_123",
+                  "targetPreview": {
+                      "content": "Offensive tweet text snippet...",
+                      "authorHandle": "@badactor"
+                  },
+                  "reason": "Harassment and offensive language",
+                  "description": "User is posting threats in replies",
+                  "status": "pending",
+                  "resolutionNotes": null,
+                  "resolvedBy": null,
+                  "resolvedAt": null,
+                  "createdAt": "2026-09-11T05:35:00.000Z"
+              }
+          ],
+          "pagination": {
+              "page": 1,
+              "limit": 20,
+              "totalItems": 1,
+              "totalPages": 1,
+              "hasNextPage": false
+          }
+      },
+      "message": ""
+  }
+  ```
+
+---
+
+### `PATCH /api/v1/admin/reports/:id`
+- **Auth:** Required (`role === "admin"`)
+- **Description:** Moderates a pending report.
+- **Request Body:**
+  ```json
+  {
+      "status": "resolved",
+      "resolutionNotes": "Offending tweet was removed and user was issued a warning."
+  }
+  ```
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": {
+          "id": "rep_65e1c2a1",
+          "status": "resolved",
+          "resolutionNotes": "Offending tweet was removed and user was issued a warning.",
+          "resolvedBy": "ba_usr_admin1",
+          "resolvedAt": "2026-09-11T05:40:00.000Z"
+      },
+      "message": "Report status updated"
+  }
+  ```
+
+---
+
+### `GET /api/v1/admin/audit-logs`
+- **Auth:** Required (`role === "admin"`)
+- **Query Parameters:** `page`, `limit`, `action` (`"all"`, `"BAN_USER"`, `"BLOCK_USER"`, `"UNBLOCK_USER"`, `"DELETE_CONTENT"`)
+- **Response (200):** Paginated audit log records.
+
+

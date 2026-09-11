@@ -5,6 +5,7 @@ const { runStreamsTests } = require("./streams.test");
 const { runMeetupTests } = require("./meetup.test");
 const { runMessagingTests } = require("./messaging.test");
 const { runNotificationsTests } = require("./notifications.test");
+const { runAdminTests } = require("./admin.test");
 
 async function main() {
     console.log("==================================================");
@@ -24,6 +25,8 @@ async function main() {
     await runMessagingTests();
     console.log("\n--------------------------------------------------\n");
     await runNotificationsTests();
+    console.log("\n--------------------------------------------------\n");
+    await runAdminTests();
 
     console.log("\n==================================================");
     console.log("    ALL BACKEND TEST SUITES PASSED (100%)         ");

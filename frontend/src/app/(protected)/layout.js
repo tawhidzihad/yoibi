@@ -15,6 +15,7 @@ import {
     User,
     Plus,
     LogOut,
+    Shield,
 } from "lucide-react";
 import { YoibiLogo } from "../../shared/ui/YoibiLogo";
 import { Dock, DockIcon } from "../../shared/ui/Dock";
@@ -23,7 +24,7 @@ import { cn } from "../../shared/utils/cn";
 import { useAuth } from "../../features/auth/context/AuthContext";
 import { NotificationBadge, useNotifications } from "../../features/notifications";
 
-const navItems = [
+const baseNavItems = [
     { href: "/feed",          label: "Feed",          icon: Home },
     { href: "/posts",         label: "Posts",         icon: FileText },
     { href: "/tweets",        label: "Tweets",        icon: AtSign },
@@ -57,8 +58,12 @@ function getSafeReturnUrl(pathname) {
     return pathname;
 }
 
-function LeftNav({ onLogout, unreadCount = 0 }) {
+function LeftNav({ user, onLogout, unreadCount = 0 }) {
     const pathname = usePathname();
+    const isAdmin = user?.role === "admin";
+    const navItems = isAdmin
+        ? [...baseNavItems, { href: "/admin", label: "Admin", icon: Shield }]
+        : baseNavItems;
 
     return (
         <aside className="sticky top-0 flex h-screen w-[220px] shrink-0 flex-col border-r border-border/50 bg-background px-3 py-6">
@@ -161,6 +166,14 @@ function RightPanel({ user, onLogout }) {
 
                     {/* Profile & Logout links */}
                     <div className="mt-3 flex flex-col gap-2">
+                        {user.role === "admin" && (
+                            <Link
+                                href="/admin"
+                                className="block rounded-lg border border-cyan-500/40 bg-cyan-500/10 py-1.5 text-center text-xs font-semibold text-cyan-500 transition-colors hover:bg-cyan-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                            >
+                                Admin Dashboard
+                            </Link>
+                        )}
                         <Link
                             href="/wall"
                             className="block rounded-lg border border-border/60 bg-secondary py-1.5 text-center text-xs font-medium text-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
@@ -191,8 +204,10 @@ export default function ProtectedLayout({ children }) {
         if (status === "unauthenticated") {
             const safeRedirect = getSafeReturnUrl(pathname);
             router.replace(`/login?redirect=${encodeURIComponent(safeRedirect)}`);
+        } else if (status === "authenticated" && user?.isBlocked) {
+            router.replace(`/account-blocked?reason=${encodeURIComponent(user.blockReason || "")}`);
         }
-    }, [status, pathname, router]);
+    }, [status, user, pathname, router]);
 
     if (status === "loading") {
         return (
@@ -202,7 +217,7 @@ export default function ProtectedLayout({ children }) {
         );
     }
 
-    if (status === "unauthenticated") {
+    if (status === "unauthenticated" || (status === "authenticated" && user?.isBlocked)) {
         return null;
     }
 
@@ -215,7 +230,7 @@ export default function ProtectedLayout({ children }) {
         <div className="relative min-h-screen bg-background">
             {/* ── DESKTOP: 3-column grid ── */}
             <div className="hidden lg:flex lg:max-w-[1152px] lg:mx-auto">
-                <LeftNav onLogout={handleLogout} unreadCount={unreadCount} />
+                <LeftNav user={user} onLogout={handleLogout} unreadCount={unreadCount} />
 
                 <main
                     id="main-content"

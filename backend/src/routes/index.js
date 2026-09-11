@@ -8,6 +8,8 @@ const streamsRoutes = require("./streams.routes");
 const meetupRoutes = require("./meetup.routes");
 const messagesRoutes = require("./messages.routes");
 const notificationsRoutes = require("./notifications.routes");
+const reportsRoutes = require("./reports.routes");
+const adminRoutes = require("./admin.routes");
 
 const apiRouter = Router();
 
@@ -37,6 +39,12 @@ apiRouter.use(messagesRoutes);
 
 // Mount notifications routes (Activity alerts & unread badges)
 apiRouter.use(notificationsRoutes);
+
+// Mount moderation reports routes
+apiRouter.use(reportsRoutes);
+
+// Mount admin dashboard and moderation routes
+apiRouter.use(adminRoutes);
 
 module.exports = apiRouter;
 

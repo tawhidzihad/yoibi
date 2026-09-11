@@ -6,60 +6,58 @@ This file is a live task scratchpad. The active AI must update it before and dur
 > **In YOIBI, `Tweet` is the social content entity. `POST` is an HTTP request method, not a separate content domain.**
 > **In YOIBI, `Video` is the video content entity (Shorts & Longform), hosted via Cloudinary with server-issued upload intents and MongoDB metadata.**
 > **In YOIBI, Direct Messaging follows the server-authoritative rule: User A can direct message User B only if A follows B (`followsRepository.isFollowing(senderId, recipientId) === true`).**
+> **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Task
-- Task ID: TASK-009
-- Title: Phase 4 — Milestone 8: Notifications & Activity Feed Integration
+- Task ID: TASK-010
+- Title: Phase 5 — Milestone 9: Admin Dashboard & Moderation Tools
 - Status: COMPLETED & VERIFIED (100% QUALITY GATES PASSED)
-- Goal: Implement real-time notifications for social interactions (like tweet, retweet, reply, follow, like video), Better Auth verified String user IDs identity model, secondary side-effect failure semantics (primary actions succeed independently), state-transition duplicate prevention with undo cleanup, actor profile resolution at read time with graceful missing-user fallback, deleted-target resilience, standard page-based pagination, Socket.IO realtime `notification:new` delivery, and modern responsive frontend notifications UI.
+- Goal: Implement comprehensive admin moderation dashboard, user management (Block/Unblock/Ban), content moderation (browse & delete across Tweets, Videos, Streams, Meet-Up), reports queue with resolution lifecycle, permanent audit log explorer with external snapshot telemetry, and account-blocked enforcement with dedicated UX.
 - Scope Accomplished:
-  - Contract:
-    - `contracts/API-CONTRACT.md`: Section 13 added with comprehensive specifications for `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/:id/read`, `PATCH /notifications/read-all`, and Socket.IO `notification:new` event on `user:<recipientId>` personal room.
-    - `contracts/openapi.yaml`: Synchronized with all notification endpoints, parameters, and response schemas (`NotificationActor`, `NotificationItem`, `NotificationListResponse`, `NotificationUnreadCountResponse`, `NotificationReadResponse`, `NotificationReadAllResponse`).
-  - Notifications Backend:
-    - Model: `backend/src/models/notification.model.js` with Better Auth String IDs (`recipientId: String`, `actorId: String`), enum types (`like_tweet`, `retweet`, `reply`, `follow`, `like_video`), target types (`tweet`, `video`, `user`), compound unique index `{ actorId: 1, type: 1, targetId: 1 }` for deduplication, and query indexes.
-    - Repository: `backend/src/repositories/notifications.repository.js` (create, findById, findPaginated, countUnread, markAsRead, markAllAsRead, deleteNotification for undo cleanup, and attachActors for dynamic public profile resolution).
-    - Service: `backend/src/services/notifications.service.js` with guarded secondary side-effect creation/deletion, self-notification suppression (`actorId === recipientId`), and ownership-enforced mark-as-read methods.
-    - Sockets: `backend/src/sockets/notifications.socket.js` attached to shared Socket.IO instance; emits `notification:new` to `user:<recipientId>`.
-    - Triggers & Undo Cleanup: Integrated into Tweet likes/unlikes, Tweet retweets/undo retweets, Tweet replies, User follows/unfollows, and Video likes/unlikes.
-    - Validators: `backend/src/validators/notifications.validator.js` (Zod schemas for query pagination/filtering and params).
-    - Controllers: `backend/src/controllers/notifications.controller.js`.
-    - Routes: `backend/src/routes/notifications.routes.js` mounted under `/api/v1` in `backend/src/routes/index.js`.
-    - Automated Tests: `backend/tests/notifications.test.js` covering all 39 test scenarios across 9 categories (primary action independence, duplicate prevention, self-notification suppression, actor resolution, target handling, REST security & operations, Socket.IO delivery).
-  - Frontend Notifications:
-    - API Client: `frontend/src/lib/api/notifications.js` (`getNotifications`, `getUnreadCount`, `markNotificationRead`, `markAllNotificationsRead`).
-    - Hook: `frontend/src/features/notifications/hooks/useNotifications.js` with unread count management, real-time Socket.IO `notification:new` listener, pagination, and optimistic mark-read updates.
-    - UI Components: `frontend/src/features/notifications/ui/` (`NotificationBadge.js`, `NotificationItem.js`, `NotificationList.js`).
-    - Protected Page: `frontend/src/app/(protected)/notifications/page.js`.
-    - Protected Layout Integration: Desktop LeftNav, mobile header, and mobile bottom dock updated with notifications links and real-time unread count badges.
+  - Contracts & Specifications:
+    - `contracts/API-CONTRACT.md`: Section 14 added with full specifications for all `/admin/*` and `/reports` endpoints.
+    - `contracts/openapi.yaml`: Synchronized with Admin and Reports paths, models, schemas, and security requirements.
+    - `docs/BAN-DELETION-PLAN.md`: Canonical 5-phase deletion plan and 9-stage technical mapping documented and enforced.
+  - Backend Admin & Moderation:
+    - Models: `backend/src/models/auditLog.model.js` (durable state machine, snapshots, deletedCounts) and `backend/src/models/report.model.js`.
+    - Repositories: `backend/src/repositories/admin.repository.js`, `backend/src/repositories/auditLog.repository.js`, `backend/src/repositories/reports.repository.js`.
+    - Services: `backend/src/services/admin.service.js` (canonical 5-phase Ban orchestrator, Block/Unblock, dashboard stats), `backend/src/services/reports.service.js`, `backend/src/services/contentModeration.service.js`.
+    - Integration & Security: `backend/src/integrations/betterAuth/betterAuthAdmin.js`, `backend/src/middleware/authorize.js` (`requireAdmin`), `backend/src/middleware/auth.js` (`ACCOUNT_BLOCKED` 403 guard with caching and instant invalidation).
+    - Validators & Routes: `backend/src/validators/admin.validator.js`, `backend/src/validators/reports.validator.js`, `backend/src/routes/admin.routes.js`, `backend/src/routes/reports.routes.js`.
+    - Automated Tests: `backend/tests/admin.test.js` covering HTTP route security, reports system, block/unblock, content moderation, canonical 5-phase Ban orchestrator, idempotency & resumability, and dashboard metrics; integrated into `backend/tests/index.js` (all 8 backend test suites pass 100%).
+  - Frontend Admin Dashboard:
+    - API Clients: `frontend/src/lib/api/admin.js`, `frontend/src/lib/api/reports.js`.
+    - Account Blocked UX: `frontend/src/app/(auth)/account-blocked/page.js` with server-provided reason and sign-out.
+    - Admin Feature: `frontend/src/features/admin/` with custom hooks (`useAdminStats`, `useAdminUsers`, `useAdminReports`, `useAdminContent`, `useAdminAuditLogs`) and UI components (`AdminGuard`, `AdminNav`, `StatsOverview`, `UserTable`, `UserDetailModal`, `BlockUserModal`, `UnblockUserModal`, `BanUserModal`, `ReportsQueue`, `ReportDetailModal`, `ContentModerator`, `AuditLogViewer`).
+    - Admin Pages: `/admin`, `/admin/users`, `/admin/content`, `/admin/reports`, `/admin/audit-logs`.
+    - Layout Integration: `frontend/src/app/(protected)/layout.js` updated with `isBlocked` redirect guard and conditional Admin navigation.
   - Quality Gates Passed:
-    - `backend`: `npm test` -> 100% passing across Foundation, Tweets, Videos, Streams, Meet-Up, Messaging, and Notifications test suites.
+    - `backend`: `npm test` -> 100% passing across all 8 suites (Foundation, Tweets, Videos, Streams, Meet-Up, Messaging, Notifications, Admin).
     - `backend`: `npm run lint` -> 0 errors, 0 warnings.
     - `frontend`: `npm run lint` -> 0 errors, 0 warnings.
-    - `frontend`: `npm run build` -> Clean compile, all routes static/dynamic optimized.
+    - `frontend`: `npm run build` -> Clean production compile, all 21 routes static/dynamic optimized.
 
 ## Implementation Checklist
 - [x] Synchronize API contracts (`API-CONTRACT.md`, `openapi.yaml`)
-- [x] Backend: Notification model (`notification.model.js`) with Better Auth String IDs
-- [x] Backend: Notifications repository (`notifications.repository.js`) with actor enrichment and undo deletion
-- [x] Backend: Notifications service (`notifications.service.js`) with guarded side effects and self-notification check
-- [x] Backend: Socket.IO notification handler (`notifications.socket.js`, `server.js`)
-- [x] Backend: Triggers and undo cleanup integrated into Tweet likes, retweets, replies, User follows, and Video likes
-- [x] Backend: Notifications validators, controllers, and routes (`notifications.validator.js`, `notifications.controller.js`, `notifications.routes.js`)
-- [x] Backend: Notifications test suite (`notifications.test.js`, `index.js`) -> 100% passing
-- [x] Frontend: Notifications API client (`notifications.js`)
-- [x] Frontend: `useNotifications.js` hook with real-time Socket.IO listener
-- [x] Frontend: Notifications UI components (`NotificationBadge`, `NotificationItem`, `NotificationList`)
-- [x] Frontend: Notifications page (`notifications/page.js`) and ProtectedLayout nav/dock integration
-- [x] Run backend tests (`npm test`) -> 100% passing
-- [x] Run backend ESLint (`npm run lint`) -> 0 errors, 0 warnings
-- [x] Run frontend ESLint (`npm run lint`) -> 0 errors, 0 warnings
-- [x] Run frontend production build (`npm run build`) -> Clean compile
-- [x] Update documentation (`README.md`, `WORKBASE.md`, `MODEL-HANDOFF.md`)
+- [x] Backend: AuditLog and Report Mongoose models (`auditLog.model.js`, `report.model.js`)
+- [x] Backend: Admin, AuditLog, and Reports repositories
+- [x] Backend: Better Auth official admin plugin integration (`betterAuthAdmin.js`)
+- [x] Backend: Admin service with Block, Unblock, and canonical 5-phase Ban orchestrator
+- [x] Backend: Content moderation service and Reports service
+- [x] Backend: Admin validators, controllers, and routes
+- [x] Backend: Automated test suite (`admin.test.js`, integrated in `index.js`) -> 100% passing
+- [x] Backend: ESLint clean (0 errors, 0 warnings)
+- [x] Frontend: Admin and Reports API client modules (`admin.js`, `reports.js`)
+- [x] Frontend: Account Blocked page (`(auth)/account-blocked/page.js`)
+- [x] Frontend: Admin feature hooks and UI components (`frontend/src/features/admin/`)
+- [x] Frontend: Admin routes (`/admin`, `/admin/users`, `/admin/content`, `/admin/reports`, `/admin/audit-logs`)
+- [x] Frontend: Protected layout integration with `isBlocked` redirect and Admin navigation
+- [x] Frontend: ESLint clean (0 errors, 0 warnings)
+- [x] Frontend: Production build clean (`npm run build`)
+- [x] Documentation updated (`WORKBASE.md`, `MODEL-HANDOFF.md`, `README.md`)
 
 ## Next Task
-- Task ID: TASK-010
-- Title: Phase 5 — Milestone 9: Admin Dashboard & Moderation Tools
-- Status: PENDING
-- Goal: Implement admin moderation dashboard, content and user reporting workflows, audit logs, and account moderation.
-
+- Task ID: TASK-011
+- Title: Phase 5 — Milestone 10: Platform Hardening, End-to-End Polish & Deployment Readiness
+- Status: READY FOR NEXT SESSION
+- Goal: Perform end-to-end integration smoke testing across all 9 milestones, security audits, rate-limiting hardening, and deployment readiness checks.

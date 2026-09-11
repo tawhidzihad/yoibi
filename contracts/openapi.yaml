@@ -1256,6 +1256,587 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
+  /admin/stats:
+    get:
+      tags:
+        - Admin
+      summary: Get platform statistics
+      description: Returns current-state and historical platform engagement and moderation metrics.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminStatsResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: List users for moderation
+      description: Returns paginated user accounts with search and status filters.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, active, blocked]
+            default: all
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [all, user, admin]
+            default: all
+      responses:
+        '200':
+          description: Paginated user accounts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/users/{id}:
+    get:
+      tags:
+        - Admin
+      summary: Get user moderation details
+      description: Returns detailed profile, engagement counts, and report history for a user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Better Auth user ID string
+      responses:
+        '200':
+          description: Detailed user moderation profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/users/{id}/block:
+    post:
+      tags:
+        - Admin
+      summary: Block user account
+      description: Suspends user access reversibly; preserves all user data.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockUserRequest'
+      responses:
+        '200':
+          description: User blocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlockUserResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/users/{id}/unblock:
+    post:
+      tags:
+        - Admin
+      summary: Unblock user account
+      description: Restores user access; all preserved data remains intact.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User unblocked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnblockUserResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/users/{id}/ban:
+    post:
+      tags:
+        - Admin
+      summary: Permanently ban user and purge data
+      description: Destructive, irreversible phased purge of account and all owned content.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BanUserRequest'
+      responses:
+        '200':
+          description: User banned and purged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BanUserResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/content/tweets:
+    get:
+      tags:
+        - Admin
+      summary: Browse tweets for moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: authorId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated tweets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TweetListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/content/tweets/{id}:
+    delete:
+      tags:
+        - Admin
+      summary: Moderation delete of tweet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tweet removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteTweetResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/content/videos:
+    get:
+      tags:
+        - Admin
+      summary: Browse videos for moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: authorId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated videos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/content/videos/{id}:
+    delete:
+      tags:
+        - Admin
+      summary: Moderation delete of video
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Video removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteVideoResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/content/streams:
+    get:
+      tags:
+        - Admin
+      summary: Browse streams for moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, live, ready, ended]
+            default: all
+      responses:
+        '200':
+          description: Paginated streams
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/content/streams/{id}:
+    delete:
+      tags:
+        - Admin
+      summary: Moderation terminate and delete stream
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stream ended and deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/content/meetups:
+    get:
+      tags:
+        - Admin
+      summary: Browse meet-up rooms for moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, active, ended]
+            default: all
+      responses:
+        '200':
+          description: Paginated meet-up rooms
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetUpListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/content/meetups/{id}:
+    delete:
+      tags:
+        - Admin
+      summary: Moderation terminate and delete meet-up room
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Room terminated and deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /reports:
+    post:
+      tags:
+        - Reports
+      summary: Submit moderation report
+      description: Platform user submits a report against content or a user account.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+      responses:
+        '201':
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateReportResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /admin/reports:
+    get:
+      tags:
+        - Admin
+      summary: List moderation reports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, pending, resolved, dismissed]
+            default: all
+        - name: targetType
+          in: query
+          schema:
+            type: string
+            enum: [all, tweet, video, stream, meetup, user]
+            default: all
+      responses:
+        '200':
+          description: Paginated reports
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/reports/{id}:
+    patch:
+      tags:
+        - Admin
+      summary: Resolve or dismiss report
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [resolved, dismissed]
+                resolutionNotes:
+                  type: string
+      responses:
+        '200':
+          description: Report updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportUpdateResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/audit-logs:
+    get:
+      tags:
+        - Admin
+      summary: List admin audit logs
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: action
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated audit logs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuditLogListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1657,6 +2238,421 @@ components:
         message:
           type: string
           example: All notifications marked as read
+
+    AdminStatsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            users:
+              type: object
+              properties:
+                current:
+                  type: integer
+                active:
+                  type: integer
+                blocked:
+                  type: integer
+                banned:
+                  type: integer
+            content:
+              type: object
+              properties:
+                totalTweets:
+                  type: integer
+                totalVideos:
+                  type: integer
+                liveStreams:
+                  type: integer
+                activeMeetUpRooms:
+                  type: integer
+            moderation:
+              type: object
+              properties:
+                pendingReports:
+                  type: integer
+                resolvedReports:
+                  type: integer
+                dismissedReports:
+                  type: integer
+        message:
+          type: string
+
+    AdminUserItem:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        handle:
+          type: string
+        email:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        role:
+          type: string
+        isBlocked:
+          type: boolean
+        blockReason:
+          type: string
+          nullable: true
+        blockedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminUserListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminUserItem'
+            pagination:
+              $ref: '#/components/schemas/PaginationMeta'
+        message:
+          type: string
+
+    AdminUserDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            handle:
+              type: string
+            email:
+              type: string
+            avatarUrl:
+              type: string
+              nullable: true
+            bio:
+              type: string
+            role:
+              type: string
+            isBlocked:
+              type: boolean
+            blockReason:
+              type: string
+              nullable: true
+            blockedAt:
+              type: string
+              format: date-time
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+            counts:
+              type: object
+              properties:
+                tweets:
+                  type: integer
+                videos:
+                  type: integer
+                streams:
+                  type: integer
+                meetupRooms:
+                  type: integer
+                followers:
+                  type: integer
+                following:
+                  type: integer
+            reportsCount:
+              type: integer
+        message:
+          type: string
+
+    BlockUserRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          minLength: 1
+
+    BlockUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            isBlocked:
+              type: boolean
+            blockReason:
+              type: string
+            blockedAt:
+              type: string
+              format: date-time
+        message:
+          type: string
+
+    UnblockUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            isBlocked:
+              type: boolean
+            blockReason:
+              type: string
+              nullable: true
+            blockedAt:
+              type: string
+              nullable: true
+        message:
+          type: string
+
+    BanUserRequest:
+      type: object
+      required:
+        - reason
+        - confirmHandle
+      properties:
+        reason:
+          type: string
+          minLength: 1
+        confirmHandle:
+          type: string
+          minLength: 1
+
+    BanUserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            auditId:
+              type: string
+            status:
+              type: string
+              enum: [COMPLETED, PARTIAL, FAILED]
+            targetUserId:
+              type: string
+            deletedCounts:
+              type: object
+              properties:
+                tweets:
+                  type: integer
+                videos:
+                  type: integer
+                streams:
+                  type: integer
+                meetupRooms:
+                  type: integer
+                follows:
+                  type: integer
+                notifications:
+                  type: integer
+                cloudinaryAssets:
+                  type: integer
+                livekitRooms:
+                  type: integer
+            failedCleanups:
+              type: array
+              items:
+                type: object
+        message:
+          type: string
+
+    CreateReportRequest:
+      type: object
+      required:
+        - targetType
+        - targetId
+        - reason
+      properties:
+        targetType:
+          type: string
+          enum: [tweet, video, stream, meetup, user]
+        targetId:
+          type: string
+        reason:
+          type: string
+        description:
+          type: string
+
+    CreateReportResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+        message:
+          type: string
+
+    AdminReportItem:
+      type: object
+      properties:
+        id:
+          type: string
+        reporter:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            handle:
+              type: string
+              nullable: true
+        targetType:
+          type: string
+        targetId:
+          type: string
+        targetPreview:
+          type: object
+        reason:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [pending, resolved, dismissed]
+        resolutionNotes:
+          type: string
+          nullable: true
+        resolvedBy:
+          type: string
+          nullable: true
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminReportListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminReportItem'
+            pagination:
+              $ref: '#/components/schemas/PaginationMeta'
+        message:
+          type: string
+
+    AdminReportUpdateResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+            resolutionNotes:
+              type: string
+            resolvedBy:
+              type: string
+            resolvedAt:
+              type: string
+              format: date-time
+        message:
+          type: string
+
+    AdminAuditLogItem:
+      type: object
+      properties:
+        id:
+          type: string
+        adminId:
+          type: string
+        action:
+          type: string
+        targetUserId:
+          type: string
+          nullable: true
+        targetResourceId:
+          type: string
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+        status:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedCounts:
+          type: object
+        failedCleanups:
+          type: array
+          items:
+            type: object
+
+    AdminAuditLogListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminAuditLogItem'
+            pagination:
+              $ref: '#/components/schemas/PaginationMeta'
+        message:
+          type: string
 
   responses:
     UnauthorizedError:

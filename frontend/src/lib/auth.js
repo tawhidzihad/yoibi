@@ -1,5 +1,5 @@
 import { betterAuth } from "better-auth";
-import { jwt } from "better-auth/plugins";
+import { jwt, admin } from "better-auth/plugins";
 
 export const auth = betterAuth({
     baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL || process.env.BETTER_AUTH_URL || "http://localhost:3000",
@@ -21,5 +21,7 @@ export const auth = betterAuth({
                 expirationTime: "1d",
             },
         }),
+        admin(),
     ],
 });
+
