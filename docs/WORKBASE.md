@@ -76,3 +76,25 @@ Recovered uncommitted work from an interrupted session and hardened it:
 - Docs: `docs/SECURITY-RULES.md` documents auto-provisioning.
 - Quality gates re-verified: backend `npm test` 100% (8/8 suites), backend lint 0/0, `npm audit` 0 vulnerabilities, frontend lint 0/0.
 
+### TASK-012 Production Smoke Test Results (2026-09-11)
+**DISCOVERY: Both deployments are ALREADY LIVE** (not recorded in the previous handoff):
+- Frontend: `https://yoibi-frontend.vercel.app` — live (Vercel project linked in `frontend/.vercel`)
+- Backend: `https://yoibi-backend-production.up.railway.app` — live, `database: connected` (uptime 735s at check time)
+- `frontend/.env` wires `NEXT_PUBLIC_API_BASE_URL` to the Railway backend URL; `backend/.env` wires Better Auth/JWKS/CORS to the Vercel frontend URL.
+
+**Live-stack smoke checks (all passed, read-only):**
+1. `GET /api/v1/health` → 200 `{ status: 'ok', database: 'connected' }`
+2. `GET /api/v1/tweets` → 200 success, 3 items in live DB; `/videos` → 200 (0); `/streams` → 200 (0)
+3. Unknown route → 404 envelope
+4. CORS preflight (`OPTIONS /tweets`, Origin: live frontend) → 204 with correct `Access-Control-Allow-Origin`
+5. `GET /api/v1/auth/me` without token → 401
+6. Frontend security headers all present: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security`, `Permissions-Policy`
+
+**Local production boot check (current working tree, real credentials):**
+- `NODE_ENV=production node src/server.js` → connected to live MongoDB Atlas, health 200 `database: connected`, clean stderr, graceful shutdown.
+
+**Remaining Level 2 steps:**
+1. **Redeploy backend to Railway** — the live build predates today's fixes (auto-provisioning completion + reservation race fix are NOT live). Frontend redeploy optional (ships the new favicon).
+2. Authenticated end-to-end smoke test with a disposable test account (sign-up → JWT → `/auth/me` → tweet create/like/reply → follow → DM → notifications) — writes to production; requires owner go-ahead.
+3. Verify Socket.IO realtime between Vercel and Railway in the browser.
+
