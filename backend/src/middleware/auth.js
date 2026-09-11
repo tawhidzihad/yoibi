@@ -1,12 +1,25 @@
 const mongoose = require('mongoose');
 const { jwtVerify, createRemoteJWKSet } = require('jose');
 const { env } = require('../config/env');
-const User = require('../models/user.model');
+const { findProfileOrCreate } = require('../services/userProfile.service');
+const { HANDLE_PREFIX, deriveHandleBaseFor } = require('../utils/handles');
 
 let remoteJWKS = null;
 
 // In-memory cache for live user moderation state (TTL 30s)
 const userModerationCache = new Map();
+
+/**
+ * Restricts an identity role to the only two YOIBI application roles.
+ * Any unknown/arbitrary value (including a client-supplied role claim) is
+ * normalized to "user" — never "admin".
+ *
+ * @param {string} [value]
+ * @returns {'user'|'admin'}
+ */
+function normalizeRole(value) {
+    return value === 'admin' ? 'admin' : 'user';
+}
 
 /**
  * Invalidates cached moderation status for a user or all users.
@@ -35,50 +48,23 @@ async function getLiveUserModeration(userId, payload = null) {
         return cached;
     }
     try {
-        let userDoc = await User.findById(userId).select('handle isBlocked blockedReason role').lean();
-        if (!userDoc && payload) {
-            const rawHandle = payload.handle || payload.username || (payload.email ? `@${payload.email.split('@')[0]}` : `@user_${userId.substring(0, 6)}`);
-            const cleanHandle = rawHandle.startsWith('@') ? rawHandle : `@${rawHandle}`;
-            try {
-                userDoc = await User.create({
-                    _id: userId,
-                    handle: cleanHandle,
-                    name: payload.name || '',
-                    avatarUrl: payload.avatarUrl || payload.image || '',
-                    bio: '',
-                    createdAt: new Date(),
-                    updatedAt: new Date()
-                });
-                if (userDoc && typeof userDoc.toObject === 'function') {
-                    userDoc = userDoc.toObject();
-                }
-            } catch (createErr) {
-                if (createErr.code === 11000) {
-                    try {
-                        userDoc = await User.create({
-                            _id: userId,
-                            handle: `${cleanHandle}_${Date.now().toString(36)}`,
-                            name: payload.name || '',
-                            avatarUrl: payload.avatarUrl || payload.image || '',
-                            bio: '',
-                            createdAt: new Date(),
-                            updatedAt: new Date()
-                        });
-                        if (userDoc && typeof userDoc.toObject === 'function') {
-                            userDoc = userDoc.toObject();
-                        }
-                    } catch {
-                        userDoc = await User.findById(userId).select('handle isBlocked blockedReason role').lean();
-                    }
-                }
-            }
-        }
+        // Auto-provisions the YOIBI profile from verified JWT claims when it is
+        // missing (server-side, handle/role derived — never trusted from client).
+        let userDoc = await findProfileOrCreate({
+            userId,
+            name: payload ? (payload.name || '') : '',
+            email: payload ? (payload.email || '') : '',
+            avatarUrl: payload ? (payload.avatarUrl || payload.image || '') : ''
+        });
+        // findProfileOrCreate returns lean docs only when the DB is connected.
+        userDoc = userDoc && typeof userDoc.toObject === 'function' ? userDoc.toObject() : userDoc;
+
         const entry = userDoc
             ? {
                 exists: true,
                 isBlocked: Boolean(userDoc.isBlocked),
                 blockedReason: userDoc.blockedReason || null,
-                role: userDoc.role || null,
+                role: normalizeRole(userDoc.role) || null,
                 handle: userDoc.handle || null,
                 expiresAt: now + 30000
             }
@@ -203,15 +189,20 @@ async function verifyJwt(req, res, next) {
             }
         }
 
-        // Attach server-verified identity only
+        // Attach server-verified identity only. Email is exposed ONLY through
+        // the authenticated /auth/me flow — never through public APIs.
+        const handleBase = deriveHandleBaseFor({
+            name: payload.name,
+            email: payload.email,
+            userId
+        });
         req.user = {
             id: userId,
             email: payload.email,
             name: payload.name || '',
-            handle: (liveUser && liveUser.handle) || payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : (payload.email ? `@${payload.email.split('@')[0]}` : '')),
-            username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
-            role: (liveUser && liveUser.role) || payload.role || 'user',
-            isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
+            handle: (liveUser && liveUser.handle) || `${HANDLE_PREFIX}${handleBase}`,
+            username: payload.username || handleBase,
+            role: normalizeRole((liveUser && liveUser.role) || payload.role || 'user'),
             isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked)
         };
 
@@ -297,14 +288,18 @@ async function verifyJwtToken(token) {
             }
         }
 
+        const handleBase = deriveHandleBaseFor({
+            name: payload.name,
+            email: payload.email,
+            userId
+        });
         return {
             id: userId,
             email: payload.email,
             name: payload.name || '',
-            handle: (liveUser && liveUser.handle) || payload.handle || (payload.username ? `@${payload.username.replace(/^@/, '')}` : (payload.email ? `@${payload.email.split('@')[0]}` : '')),
-            username: payload.username || (payload.handle ? payload.handle.replace(/^@/, '') : ''),
-            role: (liveUser && liveUser.role) || payload.role || 'user',
-            isEmailVerified: Boolean(payload.emailVerified || payload.isEmailVerified),
+            handle: (liveUser && liveUser.handle) || `${HANDLE_PREFIX}${handleBase}`,
+            username: payload.username || handleBase,
+            role: normalizeRole((liveUser && liveUser.role) || payload.role || 'user'),
             isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked)
         };
     } catch (error) {

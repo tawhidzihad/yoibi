@@ -85,7 +85,7 @@ async function runTests() {
         const user = await verifyJwtToken(validToken);
         assert.strictEqual(user.id, "usr_google_test_1");
         assert.strictEqual(user.email, "google.user@example.com");
-        assert.strictEqual(user.isEmailVerified, true);
+        assert.strictEqual(user.isEmailVerified, undefined, "Email-verification state must never be exposed (feature removed).");
         assert.strictEqual(user.role, "user");
         console.log("✓ Valid Better Auth JWT verified: sub/iss/exp/aud accepted, identity derived from token only.");
 

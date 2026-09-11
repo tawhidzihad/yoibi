@@ -72,6 +72,35 @@ describe("Better Auth configuration (no confirmation step, no reset)", () => {
     });
 });
 
+describe("Better Auth persistent storage wiring (MongoDB adapter)", () => {
+    const authSource = readSrc("lib/auth.js");
+
+    it("uses the official Better Auth MongoDB adapter for persistent user storage", () => {
+        expect(authSource).toContain("better-auth/adapters/mongodb");
+        expect(authSource).toContain("mongodbAdapter(");
+        expect(authSource).toContain("database:");
+    });
+
+    it("pins the database name to yoibi_database (never the driver default)", () => {
+        expect(authSource).toContain('const YOIBI_DATABASE_NAME = "yoibi_database"');
+        expect(authSource).toContain("db(YOIBI_DATABASE_NAME)");
+    });
+
+    it("disables transactions so standalone/dev/test MongoDB works (Atlas-safe)", () => {
+        expect(authSource).toContain("transaction: false");
+        expect(authSource).toMatch(/IllegalOperation/);
+    });
+
+    it("requires MONGODB_URI in production (no silent in-memory fallback)", () => {
+        expect(authSource).toContain("MONGODB_URI is required in production");
+        expect(authSource).toContain("in-memory storage");
+    });
+
+    it("never configures verification or reset hooks", () => {
+        expect(authSource).not.toMatch(/sendVerificationEmail|sendResetPassword|requireEmailVerification|forgetPassword|resetPassword/i);
+    });
+});
+
 describe("auth client surface (email/password + Google only)", () => {
     const clientSource = readSrc("lib/auth-client.js");
 

@@ -1,4 +1,5 @@
 const User = require('../../models/user.model');
+const { findProfileOrCreate } = require('../../services/userProfile.service');
 
 /**
  * Controller: Update current authenticated user profile
@@ -22,19 +23,16 @@ async function updateMe(req, res) {
         );
 
         if (!updatedUser) {
-            // Create user profile if it doesn't exist yet
-            updatedUser = await User.create({
-                _id: userId,
-                handle: userHandle || `@user_${userId.substring(0, 6)}`,
+            // Create the profile server-side if it does not exist yet. Role and
+            // handle are always derived server-side; role can never be changed
+            // through this endpoint (Zod strips it before it reaches here).
+            const created = await findProfileOrCreate({
+                userId,
                 name: updates.name || req.user.name || '',
-                avatarUrl: updates.avatarUrl || '',
-                bio: updates.bio || '',
-                createdAt: new Date(),
-                updatedAt: new Date()
+                email: req.user.email || '',
+                avatarUrl: updates.avatarUrl || ''
             });
-            if (updatedUser && typeof updatedUser.toObject === 'function') {
-                updatedUser = updatedUser.toObject();
-            }
+            updatedUser = created && typeof created.toObject === 'function' ? created.toObject() : created;
         }
 
         const data = { ...updatedUser };

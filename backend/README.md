@@ -40,7 +40,7 @@ cp .env.example .env
 | `NODE_ENV` | Runtime environment | `development` / `production` | Yes |
 | `PORT` | HTTP listener port | `5000` (auto-assigned on Railway) | Yes |
 | `HOST` | Bind host address | `0.0.0.0` (required for containers/Railway) | Yes |
-| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/yoibi` | Yes in Prod |
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/yoibi_database` | Yes in Prod |
 | `BETTER_AUTH_BASE_URL` | Better Auth server origin | `http://localhost:3000` | Yes |
 | `BETTER_AUTH_SECRET` | Shared secret with Better Auth | `replace_with_secure_random_secret` | Yes |
 | `BETTER_AUTH_JWKS_URL` | Public JWKS endpoint URL | Auto-derived from `BETTER_AUTH_BASE_URL` | Optional |

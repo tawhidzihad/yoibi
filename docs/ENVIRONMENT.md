@@ -18,10 +18,11 @@ YOIBI is architected as two decoupled, independently deployable applications:
 | `BETTER_AUTH_SECRET` | Frontend & Backend | Server-Only Secret | **NO** | **Yes** | `replace_with_secure_random_32_character_secret` | Random 32+ char cryptographic secret | Signs Better Auth sessions/JWTs on frontend and verifies them / signs admin API calls on backend. |
 | `GOOGLE_CLIENT_ID` | Frontend | Server-Only Config | **NO** | No (Optional) | `your_google_oauth_client_id` | Valid Google OAuth Client ID | Google Social Login OAuth Client ID. Production redirect URI: `https://yoibi-frontend.vercel.app/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update it if a custom domain is adopted). |
 | `GOOGLE_CLIENT_SECRET` | Frontend | Server-Only Secret | **NO** | No (Optional) | `your_google_oauth_client_secret` | Valid Google OAuth Client Secret | Google Social Login OAuth Client Secret. |
+| `MONGODB_URI` (Frontend) | Frontend | Server-Only Secret | **NO** | **Yes** | `mongodb://localhost:27017/yoibi_database` | `mongodb+srv://<user>:<pass>@cluster.mongodb.net/yoibi_database?retryWrites=true&w=majority` | Server-only connection string for the **Better Auth Mongo adapter** (persistent user/account/session storage in `yoibi_database`). Same Atlas cluster/database as the backend. NEVER exposed to the browser. |
 | `NODE_ENV` | Backend | Server-Only Config | **NO** | **Yes** | `development` | `production` | Node execution environment mode (`development`, `production`, `test`). |
 | `PORT` | Backend | Server-Only Config | **NO** | **Yes** | `5000` | Auto-assigned (e.g. `$PORT` on Railway) | TCP listening port for Express HTTP and WebSocket server. |
 | `HOST` | Backend | Server-Only Config | **NO** | **Yes** | `0.0.0.0` | `0.0.0.0` | Bind host address (0.0.0.0 required for containers and Railway). |
-| `MONGODB_URI` | Backend | Server-Only Secret | **NO** | **Yes** | `mongodb://localhost:27017/yoibi` | MongoDB Atlas Replica Set Connection URI | MongoDB connection string for database operations. |
+| `MONGODB_URI` | Backend | Server-Only Secret | **NO** | **Yes** | `mongodb://localhost:27017/yoibi_database` | `mongodb+srv://<user>:<pass>@cluster.mongodb.net/yoibi_database?retryWrites=true&w=majority` | MongoDB connection string. The database name is **always** `yoibi_database`; the backend normalizes the URI (inserting `/yoibi_database` when missing, replacing `test`/sibling names) and verifies the active database after connecting. Never a `test`/`dev`/`sample` DB. |
 | `BETTER_AUTH_BASE_URL` | Backend | Server-Only Config | **NO** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Next.js frontend origin used for server-to-server admin calls and default JWKS derivation. |
 | `BETTER_AUTH_JWKS_URL` | Backend | Server-Only Config | **NO** | No (Optional) | Empty (auto-derived) | `https://yourdomain.com/api/auth/jwks` (or empty) | Explicit remote JWKS endpoint; defaults to `${BETTER_AUTH_BASE_URL}/api/auth/jwks`. |
 | `FRONTEND_URL` | Backend | Server-Only Config | **NO** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Trusted frontend origin URL. |
@@ -44,6 +45,8 @@ YOIBI is architected as two decoupled, independently deployable applications:
 - **Backend**: Express verifies incoming JWT tokens (`Authorization: Bearer <token>`) against the Better Auth public JWKS endpoint (`createRemoteJWKSet`, default `${BETTER_AUTH_BASE_URL}/api/auth/jwks`, override with `BETTER_AUTH_JWKS_URL`) and uses `BETTER_AUTH_SECRET` for HMAC signature verification on administrative actions (`auth.api.banUser`, `unbanUser`, `removeUser`).
 - **Production JWKS**: `https://yoibi-frontend.vercel.app/api/auth/jwks` (verified live: EdDSA/Ed25519 key with `kid`). Railway's `BETTER_AUTH_BASE_URL` must be `https://yoibi-frontend.vercel.app` (never `http://localhost:3000`), because it determines both the JWKS URL and the strictly validated `iss`/`aud` claims.
 - **Rule**: `BETTER_AUTH_SECRET` must be identical on both Frontend and Backend environments.
+- **Persistent storage (single authority)**: Better Auth stores users, email/password credentials (hashed), authentication sessions, and OAuth provider accounts in MongoDB via the official Better Auth **MongoDB adapter** (`better-auth/adapters/mongodb`). The adapter targets the same `MONGODB_URI` → `yoibi_database` (collections `user`, `session`, `account`, `verification`). Without this adapter Better Auth falls back to an **in-memory** store and users could not log in after a restart — the adapter is required in every environment. The YOIBI application `users` collection NEVER stores passwords or verification state.
+- **No verification / no password reset**: Email verification and password reset are removed from YOIBI (no emailer, no hooks, no routes). Email/password signup creates an immediately usable account; the only login methods are email+password and Google OAuth.
 
 ## 2.1.1 Transactional Email (Removed)
 - **Removed**: YOIBI no longer sends any transactional email. Account-confirmation emails and password reset were removed from the authentication system.
@@ -51,8 +54,13 @@ YOIBI is architected as two decoupled, independently deployable applications:
 - **Environment variables**: `RESEND_API_KEY` and `EMAIL_FROM` are no longer used by any code and are removed from `.env.example` files and from Vercel/Railway environment requirements.
 
 ## 2.2 MongoDB
-- **Backend Only**: MongoDB is connected exclusively by the Express backend (`backend/src/config/database.js`) using `MONGODB_URI`.
-- **Frontend Never Connects Directly**: The frontend makes zero direct MongoDB connections.
+- **One database — `yoibi_database`** (Atlas). YOIBI uses exactly one database with two related data layers:
+  1. **Better Auth (authentication-owned)**: the frontend server runtime connects through the official Better Auth Mongo adapter and owns the `user`, `session`, and `account` collections — email, hashed password credentials, login sessions, and OAuth (Google) provider accounts. Better Auth is the SINGLE authentication authority. No email-verification or password-reset flows exist, so no verification/resend state is stored anywhere.
+  2. **YOIBI application profile**: the Express backend connects with Mongoose and owns the `users` collection plus all feature collections (`tweets`, `videos`, `streams`, `meetup_rooms`, `follows`, `conversations`, `messages`, `notifications`, `reports`, `auditLogs`).
+- **Identity mapping (single canonical identity)**: `users._id` (String) ≡ Better Auth user ID (JWT `sub`). All ownership fields reuse the same string: `Tweet.authorId`, `Video.authorId`, `Stream.authorId`, `MeetUp.ownerId`, follow/message/notification/report IDs, and admin target IDs. There is no second/duplicate identity field.
+- **No password duplication**: the application `users` profile has NO `password`/`passwordHash`/`hashedPassword` fields; credentials live only in Better Auth storage.
+- **Database-name enforcement**: `backend/src/config/mongoUri.js` normalizes `MONGODB_URI` so the resolved database is always `yoibi_database` (inserted when the URI omits a database segment — MongoDB would otherwise default to `test` — and replacing accidental `test`/`sampledb` names); `backend/src/config/db.js` verifies and logs the REAL active database name after connecting.
+- **Indexes**: `users.handle` is UNIQUE (canonical handle — the DB is the final authority), `users.role` and `users.isBlocked` are indexed; Better Auth's Mongo adapter creates its own required indexes.
 
 ## 2.3 Cloudinary Video Media Storage
 - **Backend Only**: Upload intents are created on the backend (`backend/src/integrations/cloudinary/cloudinary.js`), generating signed parameters (`signature`, `timestamp`, `apiKey`, `publicId`).
@@ -78,6 +86,7 @@ Create `frontend/.env.local`:
 NEXT_PUBLIC_API_BASE_URL=http://localhost:5000/api/v1
 NEXT_PUBLIC_BETTER_AUTH_URL=http://localhost:3000
 BETTER_AUTH_SECRET=yoibi-dev-secret-key-32-chars-minimum-length
+MONGODB_URI=mongodb://localhost:27017/yoibi_database
 # GOOGLE_CLIENT_ID=
 # GOOGLE_CLIENT_SECRET=
 ```
@@ -88,7 +97,7 @@ Create `backend/.env`:
 NODE_ENV=development
 PORT=5000
 HOST=0.0.0.0
-MONGODB_URI=mongodb://localhost:27017/yoibi
+MONGODB_URI=mongodb://localhost:27017/yoibi_database
 BETTER_AUTH_BASE_URL=http://localhost:3000
 BETTER_AUTH_SECRET=yoibi-dev-secret-key-32-chars-minimum-length
 FRONTEND_URL=http://localhost:3000
@@ -110,6 +119,7 @@ Configure in Vercel Dashboard -> Project Settings -> Environment Variables:
 - `NEXT_PUBLIC_API_BASE_URL` = Railway Express API URL + `/api/v1`
 - `NEXT_PUBLIC_BETTER_AUTH_URL` = `https://yoibi-frontend.vercel.app` (actual deployed frontend origin)
 - `BETTER_AUTH_SECRET` = `<production-random-32-char-secret>`
+- `MONGODB_URI` = `mongodb+srv://<user>:<password>@cluster.mongodb.net/yoibi_database?retryWrites=true&w=majority` (SECRET, server-only — powers the Better Auth Mongo adapter persistent storage. Must target `yoibi_database`.)
 - `GOOGLE_CLIENT_ID` = `<production-google-client-id>` (Optional)
 - `GOOGLE_CLIENT_SECRET` = `<production-google-client-secret>` (Optional)
 
@@ -119,7 +129,7 @@ NOTE: `RESEND_API_KEY` and `EMAIL_FROM` are no longer required (account-confirma
 Configure in Railway Dashboard -> Variables:
 - `NODE_ENV` = `production`
 - `HOST` = `0.0.0.0`
-- `MONGODB_URI` = `mongodb+srv://<user>:<password>@cluster.mongodb.net/yoibi?retryWrites=true&w=majority`
+- `MONGODB_URI` = `mongodb+srv://<user>:<password>@cluster.mongodb.net/yoibi_database?retryWrites=true&w=majority` (must include `yoibi_database`; the backend enforces it)
 - `BETTER_AUTH_BASE_URL` = `https://yoibi-frontend.vercel.app` (JWKS + issuer/audience derivation — never localhost)
 - `BETTER_AUTH_SECRET` = `<production-random-32-char-secret>` (Matches Vercel value)
 - `FRONTEND_URL` = `https://yoibi-frontend.vercel.app`
@@ -146,3 +156,25 @@ Configure in Railway Dashboard -> Variables:
   !.env.example
   ```
 - **Rule**: Never commit production credentials, `.env`, or `.env.local` to Git repository history. `.env.example` contains only non-sensitive templates and placeholders.
+
+---
+
+# 6. Administrator Provisioning (Secure, No Hardcoded Credentials)
+
+YOIBI has EXACTLY two application roles: `user` (default for every new signup) and `admin`. New accounts can NEVER self-assign `admin`. There is no admin-password in source code, README, API contract, or Git.
+
+To (re)create the administrator account after the database was deleted, use the approved server-side provisioning method:
+
+1. **Create the account first through Better Auth** — sign up normally at `/signup` (email + password) or sign in with Google. This creates the Better Auth user (email, hashed password) and, on the first authenticated request, the YOIBI `users` profile with `role = "user"`.
+2. **Promote the profile to admin server-side** — run one command against the **`yoibi_database`** `users` collection with the account's Better Auth user ID (verify it first via the authenticated `GET /api/v1/auth/me` `id`):
+   ```js
+   // mongosh (authenticated Atlas session) — NOT in application code:
+   use yoibi_database
+   db.users.updateOne({ _id: "<BetterAuthUserId>" }, { $set: { role: "admin", updatedAt: new Date() } })
+   ```
+   The role takes effect on the next authenticated request (the backend re-reads role from the `users` document on every request).
+3. **Verify** — sign out, sign back in, and confirm `GET /api/v1/auth/me` returns `"role": "admin"`, and the Admin nav appears.
+
+Rules:
+- The role is only ever granted by a trusted operator in the database (or a future admin tool protected by `requireAdmin`). The client can never send a role; the PATCH `/api/v1/users/me` validator strips `role` before it reaches the service.
+- No signup/request path ever defaults to `admin`.
