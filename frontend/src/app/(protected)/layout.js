@@ -25,27 +25,26 @@ import { useAuth } from "../../features/auth/context/AuthContext";
 import { NotificationBadge, useNotifications } from "../../features/notifications";
 
 const baseNavItems = [
-    { href: "/feed",          label: "Feed",          icon: Home },
-    { href: "/posts",         label: "Posts",         icon: FileText },
-    { href: "/tweets",        label: "Tweets",        icon: AtSign },
-    { href: "/videos",        label: "Videos",        icon: Play },
-    { href: "/streams",       label: "Streams",       icon: Radio },
-    { href: "/meetup",        label: "Meet Up",       icon: Users },
-    { href: "/messages",      label: "Messages",      icon: MessageSquare },
+    { href: "/feed", label: "Feed", icon: Home },
+    { href: "/tweets", label: "Tweets", icon: AtSign },
+    { href: "/videos", label: "Videos", icon: Play },
+    { href: "/streams", label: "Streams", icon: Radio },
+    { href: "/meetup", label: "Meet Up", icon: Users },
+    { href: "/messages", label: "Messages", icon: MessageSquare },
     { href: "/notifications", label: "Notifications", icon: Bell, hasBadge: true },
-    { href: "/wall",          label: "My Wall",       icon: User },
+    { href: "/wall", label: "My Wall", icon: User },
 ];
 
 const dockItems = [
-    { icon: Home,          label: "Feed",          href: "/feed" },
-    { icon: FileText,      label: "Posts",         href: "/posts" },
-    { icon: AtSign,        label: "Tweets",        href: "/tweets" },
-    { icon: Play,          label: "Videos",        href: "/videos" },
-    { icon: Radio,         label: "Streams",       href: "/streams" },
-    { icon: Users,         label: "Meet Up",       href: "/meetup" },
-    { icon: MessageSquare, label: "Messages",      href: "/messages" },
-    { icon: Bell,          label: "Notifications", href: "/notifications", hasBadge: true },
-    { icon: User,          label: "Wall",          href: "/wall" },
+    { icon: Home, label: "Feed", href: "/feed" },
+    { icon: FileText, label: "Posts", href: "/posts" },
+    { icon: AtSign, label: "Tweets", href: "/tweets" },
+    { icon: Play, label: "Videos", href: "/videos" },
+    { icon: Radio, label: "Streams", href: "/streams" },
+    { icon: Users, label: "Meet Up", href: "/meetup" },
+    { icon: MessageSquare, label: "Messages", href: "/messages" },
+    { icon: Bell, label: "Notifications", href: "/notifications", hasBadge: true },
+    { icon: User, label: "Wall", href: "/wall" },
 ];
 
 /**
@@ -153,7 +152,7 @@ function RightPanel({ user, onLogout }) {
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-2 border-t border-border/50 pt-3">
                         {[
-                            { label: "Posts",     value: user.postsCount     ?? 0 },
+                            { label: "Posts", value: user.postsCount ?? 0 },
                             { label: "Followers", value: user.followersCount ?? 0 },
                             { label: "Following", value: user.followingCount ?? 0 },
                         ].map(({ label, value }) => (
