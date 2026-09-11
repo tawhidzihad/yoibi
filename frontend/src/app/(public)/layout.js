@@ -1,5 +1,5 @@
 export default function PublicLayout({ children }) {
-    return (
-        <main>{children}</main>
-    );
+    // The homepage owns its own semantic <header>/<main>/<footer>.
+    return children;
 }
+
