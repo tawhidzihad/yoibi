@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -11,9 +11,10 @@ import {
     Users,
     LogOut,
     Shield,
+    Menu,
+    User
 } from "lucide-react";
 import { YoibiLogo } from "../../shared/ui/YoibiLogo";
-import { Dock, DockIcon } from "../../shared/ui/Dock";
 import { LoadingFallback } from "../../shared/feedback/LoadingFallback";
 import { cn } from "../../shared/utils/cn";
 import { useAuth } from "../../features/auth/context/AuthContext";
@@ -24,14 +25,6 @@ const baseNavItems = [
     { href: "/videos", label: "Videos", icon: Play },
     { href: "/streams", label: "Streams", icon: Radio },
     { href: "/meetup", label: "Meet Up", icon: Users },
-];
-
-const dockItems = [
-    { icon: Home, label: "Feed", href: "/feed" },
-    { icon: AtSign, label: "Tweets", href: "/tweets" },
-    { icon: Play, label: "Videos", href: "/videos" },
-    { icon: Radio, label: "Streams", href: "/streams" },
-    { icon: Users, label: "Meet Up", href: "/meetup" },
 ];
 
 /**
@@ -151,9 +144,10 @@ function RightPanel({ user }) {
                         )}
                         <Link
                             href={profileHandle ? `/profile/${profileHandle}` : "/feed"}
-                            className="block rounded-lg border border-border/60 bg-secondary py-1.5 text-center text-xs font-medium text-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                            className="flex items-center justify-center gap-2 rounded-lg border border-border/60 bg-secondary py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                         >
-                            View My Profile
+                            <User size={14} aria-hidden="true" />
+                            My Profile
                         </Link>
                     </div>
                 </div>
@@ -166,6 +160,31 @@ export default function ProtectedLayout({ children }) {
     const { status, user, logout } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setIsDrawerOpen(false);
+    }, [pathname]);
+
+    useEffect(() => {
+        if (isDrawerOpen) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, [isDrawerOpen]);
+
+    useEffect(() => {
+        const handleEsc = (e) => {
+            if (e.key === "Escape") setIsDrawerOpen(false);
+        };
+        window.addEventListener("keydown", handleEsc);
+        return () => window.removeEventListener("keydown", handleEsc);
+    }, []);
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -210,49 +229,127 @@ export default function ProtectedLayout({ children }) {
                 <RightPanel user={user} />
             </div>
 
-            {/* ── MOBILE / TABLET: header + dock ── */}
+            {/* ── MOBILE / TABLET: header + drawer ── */}
             <div className="flex flex-col lg:hidden min-h-screen">
                 {/* Mobile sticky header */}
                 <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/50 bg-background/95 px-4 backdrop-blur-sm">
-                    <Link
-                        href="/feed"
-                        className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
-                        aria-label="Yoibi home"
-                    >
-                        <YoibiLogo className="h-7 w-7 text-cyan-500" />
-                        <span className="text-base font-bold tracking-tight text-foreground">Yoibi</span>
-                    </Link>
                     <button
                         type="button"
-                        onClick={handleLogout}
-                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded cursor-pointer"
+                        onClick={() => setIsDrawerOpen(true)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 overflow-hidden"
+                        aria-label="Open navigation menu"
+                        aria-expanded={isDrawerOpen}
+                        aria-controls="mobile-drawer"
                     >
-                        <LogOut size={16} aria-hidden="true" />
-                        Sign Out
+                        {user?.avatarUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={user.avatarUrl} alt={user.name || user.handle} className="h-full w-full object-cover" />
+                        ) : (
+                            <span className="text-xs font-bold uppercase">{user?.name?.[0] || user?.handle?.[0] || "U"}</span>
+                        )}
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setIsDrawerOpen(true)}
+                        className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        aria-label="Open navigation menu"
+                        aria-expanded={isDrawerOpen}
+                        aria-controls="mobile-drawer"
+                    >
+                        <Menu size={24} aria-hidden="true" />
                     </button>
                 </header>
 
-                <main id="main-content" className="flex-1 pb-24" tabIndex={-1}>
+                <main id="main-content" className="flex-1 pb-6" tabIndex={-1}>
                     {children}
                 </main>
 
-                {/* Mobile bottom dock */}
-                <div className="fixed bottom-4 left-0 right-0 z-40 flex justify-center px-4">
-                    <Dock>
-                        {dockItems.map(({ icon: Icon, label, href }) => {
-                            const active = pathname === href || pathname.startsWith(href + "/");
-                            return (
-                                <DockIcon
-                                    key={href}
-                                    active={active}
-                                    onClick={() => router.push(href)}
-                                    label={label}
+                {/* Mobile Drawer Backdrop */}
+                {isDrawerOpen && (
+                    <div
+                        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity"
+                        onClick={() => setIsDrawerOpen(false)}
+                        aria-hidden="true"
+                    />
+                )}
+
+                {/* Mobile Drawer */}
+                <div
+                    id="mobile-drawer"
+                    className={cn(
+                        "fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] transform bg-background border-r border-border/50 shadow-2xl transition-transform duration-300 ease-in-out motion-reduce:transition-none flex flex-col",
+                        isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+                    )}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Mobile navigation"
+                >
+                    <div className="flex-1 overflow-y-auto px-4 py-6">
+                        <Link
+                            href="/feed"
+                            className="mb-8 flex items-center gap-2.5 px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
+                            onClick={() => setIsDrawerOpen(false)}
+                        >
+                            <YoibiLogo className="h-8 w-8 text-cyan-500" />
+                            <span className="text-lg font-bold tracking-tight text-foreground">Yoibi</span>
+                        </Link>
+
+                        <nav aria-label="Mobile main navigation" className="flex flex-col gap-1">
+                            {user?.role === "admin" && (
+                                <Link
+                                    href="/admin"
+                                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                                    onClick={() => setIsDrawerOpen(false)}
                                 >
-                                    <Icon size={20} aria-hidden="true" />
-                                </DockIcon>
-                            );
-                        })}
-                    </Dock>
+                                    <Shield size={20} aria-hidden="true" />
+                                    <span>Admin</span>
+                                </Link>
+                            )}
+                            {baseNavItems.map(({ href, label, icon: Icon }) => {
+                                const active = pathname === href || pathname.startsWith(href + "/");
+                                return (
+                                    <Link
+                                        key={href}
+                                        href={href}
+                                        className={cn(
+                                            "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                                            active
+                                                ? "bg-cyan-500/10 text-cyan-600"
+                                                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                                        )}
+                                        aria-current={active ? "page" : undefined}
+                                        onClick={() => setIsDrawerOpen(false)}
+                                    >
+                                        <Icon size={20} aria-hidden="true" />
+                                        <span>{label}</span>
+                                    </Link>
+                                );
+                            })}
+                        </nav>
+                        
+                        <div className="mt-8 border-t border-border/50 pt-4">
+                            <Link
+                                href={user?.handle ? `/profile/${String(user.handle).replace(/^@/, "").trim()}` : "/feed"}
+                                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                                onClick={() => setIsDrawerOpen(false)}
+                            >
+                                <User size={20} aria-hidden="true" />
+                                <span>My Profile</span>
+                            </Link>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-border/50 p-4">
+                        <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive cursor-pointer"
+                        >
+                            <LogOut size={20} aria-hidden="true" />
+                            <span>Sign Out</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

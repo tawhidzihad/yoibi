@@ -128,3 +128,10 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 6. **Author identity links**: TweetCard, VideoCard, StreamCard link to `/profile/{handle}` (dead `/wall/{handle}` links fixed). Videos/streams author enrichment bug fixed (`User.findOne({ id })` → `{ _id }` — authors now resolve real handles/avatars).
 7. **Tests**: `backend/tests/users-profile.test.js` (11 sections) and `frontend/tests/profile.test.js` (12 tests). Backend: npm test 100% (9 suites), lint clean, audit 0. Frontend: vitest 55/55, lint clean, build OK (`/profile/[username]` dynamic).
 
+## Responsive Navigation & Feed Cleanup (TASK-015, 2026-09-12)
+
+1. **Mobile Navigation Redesign**: The fixed bottom dock was completely removed. Mobile navigation now uses a slide-out left drawer containing the main navigation links, "My Profile", and "Sign Out". 
+2. **Mobile Header**: The static top-left Yoibi logo was replaced with the authenticated user's avatar and a hamburger menu icon, both of which trigger the drawer.
+3. **Feed Component Cleanup**: The inline "What's on your mind" tweet composer and the filtering tabs ("All Posts", "Following") were removed from the FeedView. Users now rely on the dedicated /tweets page for tweet creation.
+4. **Desktop Adjustments**: "View My Profile" was changed to "My Profile" with a consistent user icon in the desktop profile card.
+5. **Consistency and Polish**: Used standard lucide-react icons (Menu, User) consistently across responsive states. Ensured full scroll-lock and accessible interactions for the mobile drawer.

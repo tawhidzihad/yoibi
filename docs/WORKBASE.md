@@ -132,3 +132,10 @@ Also: backend JWT verification now strictly validates `aud` (Better Auth 1.7.4 s
 
 **Superseded (2026-09-11, auth simplification):** email verification and password reset were removed entirely (Resend stack and its env vars, the verification-email Better Auth config, and the three removed auth routes). Email/password signup creates an immediately usable account. No email provider variables are required.
 
+### TASK-014 Responsive Feed & Mobile Navigation Redesign (2026-09-12)
+- Replaced the bottom dock mobile navigation with a left-side drawer component.
+- The drawer includes sliding animations, a dimming backdrop, Escape key closing, and disables body scroll while open.
+- The mobile header now displays the current user's avatar and a hamburger menu icon. Both triggers open the drawer.
+- The Feed page was cleaned up by removing the inline Tweet composer and filtering tabs (All Posts / Following). Actual Tweet creation remains fully functional on the dedicated /tweets route.
+- Ensured icon consistency across the mobile drawer and desktop sidebar.
+- Desktop profile card now displays "My Profile" instead of "View My Profile", matching the mobile navigation label.
