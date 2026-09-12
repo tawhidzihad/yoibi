@@ -10,8 +10,7 @@ Specification Type: Human-readable single source of truth for frontend/backend c
 ### 1.1 Base URL & Protocol
 - HTTP Base URL: `/api/v1`
 - Protocol: HTTPS in production; HTTP in local development (`http://localhost:5000/api/v1`)
-- Realtime Gateway: Socket.IO on `/socket.io` with WebSocket transport preference.
-- LiveKit Gateway: LiveKit Cloud or self-hosted server (`wss://livekit.yoibi.com`) with tokens issued by the backend.
+- Realtime Gateway: LiveKit rooms (`wss://livekit.yoibi.com`) with tokens issued by the backend.
 
 ### 1.2 Authentication
 - Authentication Authority: Better Auth (`/api/auth/*`).
@@ -540,199 +539,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ---
 
-## 8. Messaging & Direct Messages (Socket.IO Realtime)
-
-> **Mandatory DM Follow-Rule:** User A can direct message User B **only if A follows B** (`followsRepository.isFollowing(senderId, recipientId) === true`).
-> - The backend enforces this verification on EVERY message send (both REST and Socket.IO).
-> - Mutual follow is NOT required.
-> - If A unfollows B: conversations and history remain; new messages from A to B are blocked (`403 DM_FOLLOW_REQUIRED`); messaging resumes when A follows B again.
-> 
-> **Message Idempotency Rule:**
-> - Every message payload must provide a unique `clientMessageId` (UUID generated on the client).
-> - The compound key `{ senderId, clientMessageId }` is uniquely indexed.
-> - Retries with the same idempotency key return the previously persisted message without creating duplicates.
-> 
-> **Standard Page-Based Pagination:**
-> - Conversation list and message history use YOIBI standard page-based pagination: `page`, `limit`, `totalItems`, `totalPages`, `hasNextPage`.
-> 
-> **Scaling & Transport:**
-> - Socket.IO transports: `["polling", "websocket"]`.
-> - Single-instance Socket.IO server for MVP; horizontally scalable via `@socket.io/redis-adapter` when required.
-
-### 8.1 HTTP Endpoints
-
-#### `GET /api/v1/messages/conversations`
-- Auth: Required (`Bearer <token>`)
-- Description: Lists conversations with participants, last message snippet, and unread count for authenticated user.
-- Query Parameters:
-  - `page` (integer, optional, default: 1)
-  - `limit` (integer, optional, default: 20, max: 50)
-- Response (200):
-  ```json
-  {
-      "success": true,
-      "data": {
-          "items": [
-              {
-                  "id": "65e1a2b3c4d5e6f7a8b9c0d1",
-                  "participants": [
-                      {
-                          "id": "usr_sender_123",
-                          "name": "Jane Doe",
-                          "handle": "@janedoe",
-                          "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg"
-                      },
-                      {
-                          "id": "usr_recipient_456",
-                          "name": "Bob Smith",
-                          "handle": "@bobsmith",
-                          "avatarUrl": "https://res.cloudinary.com/.../avatar2.jpg"
-                      }
-                  ],
-                  "lastMessage": {
-                      "content": "Hey, let's collaborate on the project!",
-                      "senderId": "usr_sender_123",
-                      "clientMessageId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-                      "createdAt": "2026-09-11T03:00:00.000Z"
-                  },
-                  "unreadCount": 0,
-                  "updatedAt": "2026-09-11T03:00:00.000Z"
-              }
-          ],
-          "pagination": {
-              "page": 1,
-              "limit": 20,
-              "totalItems": 1,
-              "totalPages": 1,
-              "hasNextPage": false
-          }
-      },
-      "message": ""
-  }
-  ```
-
-#### `GET /api/v1/messages/conversations/:conversationId`
-- Auth: Required (`Bearer <token>`)
-- Authorization: User must be a participant in the conversation.
-- Description: Retrieves paginated message history for a conversation.
-- Query Parameters:
-  - `page` (integer, optional, default: 1)
-  - `limit` (integer, optional, default: 30, max: 100)
-- Response (200):
-  ```json
-  {
-      "success": true,
-      "data": {
-          "items": [
-              {
-                  "id": "65e1a2b3c4d5e6f7a8b9c0d2",
-                  "conversationId": "65e1a2b3c4d5e6f7a8b9c0d1",
-                  "senderId": "usr_sender_123",
-                  "recipientId": "usr_recipient_456",
-                  "content": "Hey, let's collaborate on the project!",
-                  "clientMessageId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-                  "readAt": null,
-                  "createdAt": "2026-09-11T03:00:00.000Z"
-              }
-          ],
-          "pagination": {
-              "page": 1,
-              "limit": 30,
-              "totalItems": 1,
-              "totalPages": 1,
-              "hasNextPage": false
-          }
-      },
-      "message": ""
-  }
-  ```
-- Error (403 `FORBIDDEN`): Authenticated user is not a participant in this conversation.
-- Error (404 `NOT_FOUND`): Conversation not found.
-
-#### `POST /api/v1/messages`
-- Auth: Required (`Bearer <token>`)
-- Description: Sends a direct message. Enforces follow relationship and idempotency via `clientMessageId`.
-- Request Body:
-  ```json
-  {
-      "recipientId": "usr_recipient_456",
-      "content": "Hey, let's collaborate on the project!",
-      "clientMessageId": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
-  }
-  ```
-- Business Rule Checks:
-  - Sender must follow recipient (`followsRepository.isFollowing(senderId, recipientId) === true`).
-  - Cannot message self (`senderId === recipientId`).
-  - Idempotent: if message with `{ senderId, clientMessageId }` already exists, returns existing record with `200 OK`.
-- Response (201 Created / 200 OK for retry):
-  ```json
-  {
-      "success": true,
-      "data": {
-          "id": "65e1a2b3c4d5e6f7a8b9c0d2",
-          "conversationId": "65e1a2b3c4d5e6f7a8b9c0d1",
-          "senderId": "usr_sender_123",
-          "recipientId": "usr_recipient_456",
-          "content": "Hey, let's collaborate on the project!",
-          "clientMessageId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
-          "readAt": null,
-          "createdAt": "2026-09-11T03:00:00.000Z"
-      },
-      "message": "Message sent successfully"
-  }
-  ```
-- Error (400 `CANNOT_MESSAGE_SELF`): Cannot message yourself.
-- Error (403 `DM_FOLLOW_REQUIRED`): You can only message users whom you follow.
-- Error (422 `VALIDATION_ERROR`): Content empty, exceeds 2000 characters, or invalid `clientMessageId`.
-
-#### `PATCH /api/v1/messages/conversations/:conversationId/read`
-- Auth: Required (`Bearer <token>`)
-- Authorization: Authenticated user must be a participant in the conversation.
-- Description: Marks unread messages received by the current user in the conversation as read (`readAt: Date`). Does not modify user's own outgoing messages.
-- Response (200):
-  ```json
-  {
-      "success": true,
-      "data": {
-          "conversationId": "65e1a2b3c4d5e6f7a8b9c0d1",
-          "updatedCount": 3
-      },
-      "message": "Conversation marked as read"
-  }
-  ```
-
-### 8.2 Socket.IO Realtime Events
-
-- **Connection Handshake:**
-  ```javascript
-  io.connect({
-      transports: ["polling", "websocket"],
-      auth: { token: "Bearer <jwt_token>" }
-  });
-  ```
-- **Socket Rooms:**
-  - Personal Room: `user:<userId>` (for personal direct message and notification delivery)
-  - Conversation Room: `conv:<conversationId>` (for ephemeral events like typing indicators)
-
-- **Client -> Server Events:**
-  - `conversation:join`: `{ conversationId: "conv_123" }` (validates participant membership before joining room)
-  - `conversation:leave`: `{ conversationId: "conv_123" }`
-  - `message:send`: `{ recipientId: "usr_456", content: "Hello", clientMessageId: "uuid" }`
-  - `typing:start`: `{ conversationId: "conv_123" }`
-  - `typing:stop`: `{ conversationId: "conv_123" }`
-  - `conversation:read`: `{ conversationId: "conv_123" }`
-
-- **Server -> Client Events:**
-  - `authenticated`: `{ userId: "usr_123" }`
-  - `message:ack`: `{ clientMessageId: "uuid", message: { ... } }`
-  - `message:new`: `{ message: { ... } }` (delivered to `user:<recipientId>` and `user:<senderId>`)
-  - `message:error`: `{ clientMessageId: "uuid", code: "DM_FOLLOW_REQUIRED", message: "..." }`
-  - `typing:update`: `{ conversationId: "conv_123", userId: "usr_123", isTyping: true }`
-  - `conversation:read_update`: `{ conversationId: "conv_123", readerId: "usr_123" }`
-
----
-
-## 9. Streams (LiveKit Realtime Broadcasts)
+## 8. Streams (LiveKit Realtime Broadcasts)
 
 > **Architectural Standard:** A Stream is a live realtime broadcast experience. It is strictly separate from `Tweet`, uploaded `Video` (Cloudinary), and collaborative multi-peer `Meet-Up` rooms.
 > 
@@ -748,7 +555,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 > - **Public Discovery**: Stream listing (`GET /streams`) and stream detail (`GET /streams/:id`) are public endpoints.
 > - **Anonymous Viewer Access**: `POST /streams/:id/join` uses `optionalAuth`. Anonymous (unauthenticated) viewers receive viewer-only LiveKit tokens (`canPublish: false`, `canSubscribe: true`) with an opaque identity `viewer_<uuid>`.
 > - **Broadcasting Restrictions**: Only authenticated stream creators/owners can publish audio, video, or screen share (`POST /streams/:id/start` requires `verifyJwt`).
-> - **Social Actions Restricted**: Anonymous viewers cannot perform authenticated-only social actions (such as liking, messaging, following, or tipping).
+> - **Social Actions Restricted**: Anonymous viewers cannot perform authenticated-only social actions (such as liking, following, or tipping).
 
 ### Lifecycle & Join Rules
 
@@ -971,7 +778,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ---
 
-## 10. Meet-Up Rooms (LiveKit Integration)
+## 9. Meet-Up Rooms (LiveKit Integration)
 
 > **Architecture:** Multi-participant collaborative rooms supporting bidirectional interactive audio, video, and screen sharing powered by LiveKit SFU.
 > 
@@ -1141,7 +948,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ---
 
-## 11. Reports & User Flagging
+## 10. Reports & User Flagging
 
 ### `POST /api/v1/reports`
 - Auth: Required (`Bearer <token>`)
@@ -1166,7 +973,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ---
 
-## 12. Admin & Moderation
+## 11. Admin & Moderation
 
 > **Mandatory Moderation Rules:**
 > 1. Requires server-side verification that authenticated user has `role: "admin"`.
@@ -1262,144 +1069,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ---
 
-## 13. Notifications API
-
-### Overview & Architecture
-Notifications represent user activity alerts generated as secondary side effects from primary domain operations (like tweet, retweet, reply to tweet, follow user, like video). Direct messages are excluded as they provide their own realtime channel and unread counters.
-
-#### Key Principles:
-1. **Secondary Side Effect:** Primary operations succeed independently. If notification persistence or realtime delivery fails, primary action results are not affected or rolled back.
-2. **Identity Model:** `recipientId` and `actorId` are Better Auth verified String user IDs (consistent with `Tweet.authorId`, `Video.authorId`, etc.).
-3. **Actor Resolution:** Notifications store `actorId` and resolve current public profile info (`id`, `name`, `handle`, `avatarUrl`) at read/emission time. If actor no longer exists, returns fallback `name: "Unknown user"`, `handle: null`, `avatarUrl: null`.
-4. **Target Resolution & Deleted Targets:** Notifications persist even when referenced content is deleted. Frontend displays "This content is no longer available" without crashing. Route mapping:
-   - `like_tweet`, `retweet`, `reply` -> `/tweets/:targetId`
-   - `like_video` -> `/videos/:targetId`
-   - `follow` -> `/wall/:actor.handle` (actor profile)
-5. **Duplicate Prevention:** Notifications are generated only on `inactive -> active` state transitions. Undo operations (unlike, unfollow, undo retweet) delete the active notification, allowing clean re-creation. Unique compound index `{ actorId: 1, type: 1, targetId: 1 }` provides database-level deduplication.
-6. **Self-Notification:** Notifications are never generated when `actorId === recipientId`.
-
----
-
-### `GET /api/v1/notifications`
-- **Auth:** Required (`Bearer <token>`)
-- **Query Parameters:**
-  - `page` (integer, default: 1, min: 1)
-  - `limit` (integer, default: 20, min: 1, max: 50)
-  - `read` (boolean, optional — filter by read state)
-- **Response (200):**
-  ```json
-  {
-      "success": true,
-      "data": {
-          "items": [
-              {
-                  "id": "notif_65e1a2b3",
-                  "type": "like_tweet",
-                  "actor": {
-                      "id": "ba_usr_abc123",
-                      "name": "Jane Doe",
-                      "handle": "@janedoe",
-                      "avatarUrl": "https://res.cloudinary.com/demo/image/upload/avatar.jpg"
-                  },
-                  "targetId": "tweet_456",
-                  "targetType": "tweet",
-                  "read": false,
-                  "createdAt": "2026-09-11T05:00:00.000Z"
-              }
-          ],
-          "pagination": {
-              "page": 1,
-              "limit": 20,
-              "totalItems": 42,
-              "totalPages": 3,
-              "hasNextPage": true
-          }
-      },
-      "message": ""
-  }
-  ```
-- **Error (401 `UNAUTHORIZED`):** Missing or invalid auth token.
-
----
-
-### `GET /api/v1/notifications/unread-count`
-- **Auth:** Required (`Bearer <token>`)
-- **Response (200):**
-  ```json
-  {
-      "success": true,
-      "data": {
-          "unreadCount": 7
-      },
-      "message": ""
-  }
-  ```
-- **Error (401 `UNAUTHORIZED`):** Missing or invalid auth token.
-
----
-
-### `PATCH /api/v1/notifications/:id/read`
-- **Auth:** Required (`Bearer <token>`)
-- **Authorization:** `notification.recipientId === req.user.id`
-- **Response (200):**
-  ```json
-  {
-      "success": true,
-      "data": {
-          "id": "notif_65e1a2b3",
-          "read": true
-      },
-      "message": "Notification marked as read"
-  }
-  ```
-- **Error (401 `UNAUTHORIZED`):** Missing or invalid auth token.
-- **Error (403 `FORBIDDEN`):** Cannot modify notifications belonging to another user.
-- **Error (404 `NOT_FOUND`):** Notification not found.
-
----
-
-### `PATCH /api/v1/notifications/read-all`
-- **Auth:** Required (`Bearer <token>`)
-- **Response (200):**
-  ```json
-  {
-      "success": true,
-      "data": {
-          "updatedCount": 7
-      },
-      "message": "All notifications marked as read"
-  }
-  ```
-- **Error (401 `UNAUTHORIZED`):** Missing or invalid auth token.
-
----
-
-### Socket.IO Event: `notification:new`
-- **Direction:** Server -> Client only
-- **Room:** `user:<recipientId>` (reusing existing authenticated personal room)
-- **Payload:**
-  ```json
-  {
-      "notification": {
-          "id": "notif_65e1a2b3",
-          "type": "like_tweet",
-          "actor": {
-              "id": "ba_usr_abc123",
-              "name": "Jane Doe",
-              "handle": "@janedoe",
-              "avatarUrl": "https://res.cloudinary.com/demo/image/upload/avatar.jpg"
-          },
-          "targetId": "tweet_456",
-          "targetType": "tweet",
-          "read": false,
-          "createdAt": "2026-09-11T05:00:00.000Z"
-      }
-  }
-  ```
-
----
-
-## 14. Admin Dashboard & Moderation Tools
+## 12. Admin Dashboard & Moderation Tools
 
 ### 14.1 Authorization & Protection Rules
 - **Admin Guard:** All `/api/v1/admin/*` endpoints strictly require `req.user.role === "admin"`.
@@ -1599,7 +1269,6 @@ Notifications represent user activity alerts generated as secondary side effects
               "streams": 1,
               "meetupRooms": 0,
               "follows": 20,
-              "notifications": 45,
               "cloudinaryAssets": 2,
               "livekitRooms": 1
           },

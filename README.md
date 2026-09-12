@@ -1,6 +1,6 @@
 # YOIBI — Modern Social Network Platform
 
-YOIBI is a next-generation social networking platform featuring micro-posts (Tweets), community video sharing (Shorts & Longform), live video broadcasts (Streams), multi-peer collaborative rooms (Meet-Up), follow-gated direct messaging, real-time activity notifications, and comprehensive administrative moderation.
+YOIBI is a next-generation social networking platform featuring micro-posts (Tweets), community video sharing (Shorts & Longform), live video broadcasts (Streams), multi-peer collaborative rooms (Meet-Up),  comprehensive administrative moderation.
 
 ---
 
@@ -12,7 +12,7 @@ YOIBI is built with strict boundary separation between frontend and backend serv
 yoibi/
 ├── frontend/             # Next.js 16 (App Router) + Tailwind CSS v4 + Better Auth client
 │   ├── src/app/          # Page routes, layouts, error/loading boundaries
-│   ├── src/features/     # Feature-sliced modules (tweets, videos, streams, meet-up, messages, notifications, admin)
+│   ├── src/features/     # Feature-sliced modules (tweets, videos, streams, meet-up, admin)
 │   ├── src/shared/       # Reusable components (buttons, modals, inputs, layout navigation)
 │   ├── src/lib/          # API client, Better Auth configuration, utils
 │   └── next.config.js    # Security response headers & permissions policy
@@ -28,7 +28,6 @@ yoibi/
 │   ├── src/repositories/ # MongoDB data access layers
 │   ├── src/models/       # Mongoose schemas
 │   ├── src/validators/   # Zod request validation schemas
-│   ├── src/sockets/      # Socket.IO realtime server (messaging, notifications)
 │   ├── src/integrations/ # LiveKit and Cloudinary server SDK integrations
 │   ├── tests/            # Automated test suite runner (8 test suites)
 │   └── railway.json      # Railway Config-as-Code deployment specification
@@ -53,7 +52,7 @@ yoibi/
 | **Authentication** | Better Auth v1.7.4 (JWT plugin, Admin plugin) | User registration, verified JWT issuance, JWKS endpoint |
 | **Backend** | Node.js, Express 5, Mongoose 9, `jose`, `express-rate-limit` | REST API, authorization, business rules, DB management |
 | **Database** | MongoDB / MongoDB Atlas | Persistent document storage |
-| **Realtime Gateway** | Socket.IO 4 | Direct messaging, typing indicators, activity notifications |
+| **Realtime Media** | LiveKit Cloud (SFU) | Live streams and Meet-Up rooms |
 | **Live Media & Video**| LiveKit Cloud (SFU) & Cloudinary | Realtime live streaming, Meet-Up rooms, video storage |
 | **Deployment** | Vercel (Frontend), Railway (Backend) | Production hosting & zero-downtime scaling |
 
@@ -103,9 +102,9 @@ npm run build
 2. **Community Videos (`/videos`)**: Short and long-form video sharing with server-signed Cloudinary direct uploads, 8 canonical categories, and playback initiation tracking.
 3. **Live Streams (`/streams`)**: Live video broadcasts via LiveKit SFU with public discovery, anonymous viewer access, owner-only broadcasting, and anti-PII opaque room naming.
 4. **Meet-Up Collaborative Rooms (`/meetup`)**: Multi-participant interactive audio/video/screen-sharing rooms with reservation TTLs, capacity enforcement, and presentation snapshots.
-5. **Direct Messaging (`/messages`)**: Real-time 1-on-1 direct messaging protected by the mandatory server-authoritative follow rule (User A must follow User B), client message idempotency, and live typing indicators.
-6. **Activity Notifications (`/notifications`)**: Real-time alerts for likes, retweets, replies, and follows with unread badge counters, safe fallbacks for deleted actors, and optimistic mark-read state.
-7. **Admin & Moderation Suite (`/admin`)**: Dashboard analytics, user management, reversible user blocking (session revocation), content moderation, and permanent 5-phase / 9-stage destructive user ban orchestrator with pre-cleanup audit logging.
+5. **Admin & Moderation Suite (`/admin`)**: Dashboard analytics, user management, reversible user blocking (session revocation), content moderation, and permanent 5-phase / 9-stage destructive user ban orchestrator with pre-cleanup audit logging.
+
+> **Scope note:** Direct Messaging (`/messages`), Activity Notifications (`/notifications`), and the sidebar "New Post" shortcut were intentionally removed from the current YOIBI product scope. Tweet creation remains available through the Tweets feature composer.
 
 ---
 

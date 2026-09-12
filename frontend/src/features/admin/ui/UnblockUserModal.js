@@ -42,7 +42,7 @@ export function UnblockUserModal({ isOpen, onClose, user, onConfirm, loading }) 
                 <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-300">
                     <p className="font-semibold text-emerald-200">Restore Account Access</p>
                     <p className="mt-1 text-emerald-300/80 leading-relaxed">
-                        Unblocking will restore access to all platform features for this user. Their previous tweets, videos, followers, and direct messages remain intact.
+                        Unblocking will restore access to all platform features for this user. Their previous tweets, videos, streams, meet-ups, and follows remain intact.
                     </p>
                 </div>
 

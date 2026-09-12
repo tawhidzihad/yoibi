@@ -2,8 +2,6 @@ const http = require("http");
 const app = require("./app");
 const { env, validateEnv } = require("./config/env");
 const { connectDatabase, disconnectDatabase } = require("./config/db");
-const { initMessagingSocket } = require("./sockets/messaging.socket");
-const { initNotificationSocket } = require("./sockets/notifications.socket");
 
 // Validate critical environment
 const { isValid, missing } = validateEnv();
@@ -15,10 +13,6 @@ if (!isValid) {
 }
 
 const server = http.createServer(app);
-
-// Attach Socket.IO to the existing HTTP listener
-const io = initMessagingSocket(server);
-initNotificationSocket(io);
 
 /**
  * Boots the server and required services.

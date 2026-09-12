@@ -269,7 +269,7 @@ export function AuditLogViewer({
                                 <span className="font-bold text-foreground flex items-center gap-1.5">
                                     <Layers size={13} className="text-cyan-400" /> Data Purge Statistics
                                 </span>
-                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center pt-1">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center pt-1">
                                     <div className="rounded-lg bg-secondary/60 p-2 border border-border/40">
                                         <p className="text-sm font-bold text-foreground">{selectedLog.deletedCounts.tweets ?? 0}</p>
                                         <p className="text-[10px] text-muted-foreground">Tweets Purged</p>
@@ -281,14 +281,6 @@ export function AuditLogViewer({
                                     <div className="rounded-lg bg-secondary/60 p-2 border border-border/40">
                                         <p className="text-sm font-bold text-foreground">{selectedLog.deletedCounts.follows ?? 0}</p>
                                         <p className="text-[10px] text-muted-foreground">Follows Cleared</p>
-                                    </div>
-                                    <div className="rounded-lg bg-secondary/60 p-2 border border-border/40">
-                                        <p className="text-sm font-bold text-foreground">{selectedLog.deletedCounts.messagesAnonymized ?? 0}</p>
-                                        <p className="text-[10px] text-muted-foreground">Msgs Anonymized</p>
-                                    </div>
-                                    <div className="rounded-lg bg-secondary/60 p-2 border border-border/40">
-                                        <p className="text-sm font-bold text-foreground">{selectedLog.deletedCounts.notifications ?? 0}</p>
-                                        <p className="text-[10px] text-muted-foreground">Notifs Purged</p>
                                     </div>
                                 </div>
                             </div>

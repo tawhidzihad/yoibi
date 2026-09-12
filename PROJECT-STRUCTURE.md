@@ -71,10 +71,8 @@ yoibi/
 │       │   ├── reactions/
 │       │   ├── retweets/
 │       │   ├── media-upload/
-│       │   ├── messaging/
 │       │   ├── streams/
 │       │   ├── meet-up/
-│       │   ├── notifications/
 │       │   ├── reports/
 │       │   └── admin/
 │       ├── shared/
@@ -114,7 +112,6 @@ yoibi/
         ├── models/
         ├── validators/
         ├── middleware/
-        ├── sockets/
         ├── integrations/
         │   ├── cloudinary/
         │   └── livekit/
@@ -133,7 +130,6 @@ yoibi/
 - `backend/models`: MongoDB schemas/models.
 - `backend/validators`: request validation.
 - `backend/middleware`: auth, authorization, rate limits, CORS, error handling, request context.
-- `backend/sockets`: Socket.IO events and guards.
 - `backend/integrations`: vendor SDK wrappers only.
 - `contracts`: frontend/backend agreement. Changes here must be reviewed by both sides.
 

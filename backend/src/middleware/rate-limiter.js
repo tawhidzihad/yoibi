@@ -51,7 +51,7 @@ const authLimiter = createLimiter({
 });
 
 /**
- * Write / mutation endpoint rate limiter (tweets, replies, likes, messages, follow, etc.).
+ * Write / mutation endpoint rate limiter (tweets, replies, likes, follows, etc.).
  * 60 requests / 1 minute per IP.
  */
 const writeLimiter = createLimiter({

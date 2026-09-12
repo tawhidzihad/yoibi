@@ -6,8 +6,6 @@ const tweetsRoutes = require("./tweets.routes");
 const videosRoutes = require("./videos.routes");
 const streamsRoutes = require("./streams.routes");
 const meetupRoutes = require("./meetup.routes");
-const messagesRoutes = require("./messages.routes");
-const notificationsRoutes = require("./notifications.routes");
 const reportsRoutes = require("./reports.routes");
 const adminRoutes = require("./admin.routes");
 
@@ -38,12 +36,6 @@ apiRouter.use(streamsRoutes);
 
 // Mount meetup routes (LiveKit collaborative multi-peer rooms)
 apiRouter.use(meetupRoutes);
-
-// Mount messaging routes (One-to-one direct messages & conversations)
-apiRouter.use(messagesRoutes);
-
-// Mount notifications routes (Activity alerts & unread badges)
-apiRouter.use(notificationsRoutes);
 
 // Mount moderation reports routes
 apiRouter.use(reportsRoutes);

@@ -1,5 +1,4 @@
 const videosRepository = require("../../repositories/videos.repository");
-const notificationsService = require("../notifications.service");
 
 /**
  * Records a video playback initiation event and increments viewsCount.
@@ -41,19 +40,6 @@ async function likeVideo(id, user) {
     const updated = await videosRepository.addLike(id, user.id);
     const likesCount = updated ? updated.likesCount : (video.likesCount || 0) + 1;
 
-    // Secondary side effect: Trigger notification on inactive -> active video like
-    if (updated && video.authorId) {
-        notificationsService.createNotification({
-            actorId: user.id,
-            recipientId: video.authorId,
-            type: "like_video",
-            targetId: id,
-            targetType: "video"
-        }).catch((err) => {
-            console.error("[Notification Trigger] like_video error:", err.message);
-        });
-    }
-
     return {
         liked: true,
         likesCount
@@ -81,17 +67,6 @@ async function unlikeVideo(id, user) {
 
     const updated = await videosRepository.removeLike(id, user.id);
     const likesCount = updated ? updated.likesCount : Math.max(0, (video.likesCount || 0) - 1);
-
-    // Secondary side effect: Clean up active notification on undo
-    if (updated) {
-        notificationsService.deleteNotification({
-            actorId: user.id,
-            type: "like_video",
-            targetId: id
-        }).catch((err) => {
-            console.error("[Notification Undo] like_video error:", err.message);
-        });
-    }
 
     return {
         liked: false,

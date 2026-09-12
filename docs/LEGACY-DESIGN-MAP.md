@@ -67,7 +67,7 @@ This document captures the design tokens, typography, colors, patterns, and asse
 ## Layout & Responsive Geometry
 - Max Container Width: `max-w-6xl` (`1152px`) centered with `px-4`
 - Desktop Grid Layout: `grid-cols-[220px_1fr_260px]` with `gap-6`
-  - Left Column (220px): Sticky sidebar containing brand header, navigation menu, "New Post" button
+  - Left Column (220px): Sticky sidebar containing brand header, navigation menu
   - Center Column (1fr): Main feed/content area (`pb-24 pt-6 lg:pb-6`)
   - Right Column (260px): Sticky sidebar containing current user card (stats: posts, followers, following) and profile navigation
 - Mobile Layout (< 1024px):

@@ -4,7 +4,7 @@ This document is the authoritative reference for all environment variables acros
 
 YOIBI is architected as two decoupled, independently deployable applications:
 1. **Frontend (`frontend/`)**: Next.js (App Router) client UI + Next.js server runtime (Better Auth server handler & session APIs).
-2. **Backend (`backend/`)**: Node.js + Express REST API, MongoDB Mongoose data layer, Socket.IO gateway, LiveKit token authority, and Cloudinary upload intent signing authority.
+2. **Backend (`backend/`)**: Node.js + Express REST API, MongoDB Mongoose data layer, LiveKit token authority, and Cloudinary upload intent signing authority.
 
 ---
 
@@ -14,7 +14,7 @@ YOIBI is architected as two decoupled, independently deployable applications:
 |---|---|---|---|---|---|---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend | Public (Client) | **Yes** | **Yes** | `http://localhost:5000/api/v1` | `https://api.yourdomain.com/api/v1` | Base REST API URL for frontend-to-backend communication. |
 | `NEXT_PUBLIC_BETTER_AUTH_URL` | Frontend | Public (Client) | **Yes** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Base URL for Better Auth authentication client & server endpoints. |
-| `NEXT_PUBLIC_SOCKET_URL` | Frontend | Public (Client) | **Yes** | No (Optional) | `http://localhost:5000` (or empty) | `https://api.yourdomain.com` (or empty) | Optional override for Socket.IO realtime connection URL; auto-derived if empty. |
+| `NEXT_PUBLIC_SOCKET_URL` | Frontend | Public (Client) | **Yes** | No (Optional/Ignored) | `http://localhost:5000` (or empty) | Ignored | Deprecated — Socket.IO realtime was removed from YOIBI. Realtime media uses LiveKit WebRTC. |
 | `BETTER_AUTH_SECRET` | Frontend & Backend | Server-Only Secret | **NO** | **Yes** | `replace_with_secure_random_32_character_secret` | Random 32+ char cryptographic secret | Signs Better Auth sessions/JWTs on frontend and verifies them / signs admin API calls on backend. |
 | `GOOGLE_CLIENT_ID` | Frontend | Server-Only Config | **NO** | No (Optional) | `your_google_oauth_client_id` | Valid Google OAuth Client ID | Google Social Login OAuth Client ID. Production redirect URI: `https://yoibi-frontend.vercel.app/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update it if a custom domain is adopted). |
 | `GOOGLE_CLIENT_SECRET` | Frontend | Server-Only Secret | **NO** | No (Optional) | `your_google_oauth_client_secret` | Valid Google OAuth Client Secret | Google Social Login OAuth Client Secret. |
@@ -26,7 +26,7 @@ YOIBI is architected as two decoupled, independently deployable applications:
 | `BETTER_AUTH_BASE_URL` | Backend | Server-Only Config | **NO** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Next.js frontend origin used for server-to-server admin calls and default JWKS derivation. |
 | `BETTER_AUTH_JWKS_URL` | Backend | Server-Only Config | **NO** | No (Optional) | Empty (auto-derived) | `https://yourdomain.com/api/auth/jwks` (or empty) | Explicit remote JWKS endpoint; defaults to `${BETTER_AUTH_BASE_URL}/api/auth/jwks`. |
 | `FRONTEND_URL` | Backend | Server-Only Config | **NO** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Trusted frontend origin URL. |
-| `CORS_ORIGIN` | Backend | Server-Only Config | **NO** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Allowed origin for Express REST endpoints and Socket.IO CORS policies. |
+| `CORS_ORIGIN` | Backend | Server-Only Config | **NO** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Allowed origin for Express REST endpoints. |
 | `CLOUDINARY_CLOUD_NAME` | Backend | Server-Only Config | **NO** | **Yes** (Videos) | `your_cloudinary_cloud_name` | Cloudinary account name | Cloudinary cloud name for video media management. |
 | `CLOUDINARY_API_KEY` | Backend | Server-Only Config | **NO** | **Yes** (Videos) | `your_cloudinary_api_key` | Cloudinary API Key | Cloudinary API Key for generating signed upload signatures. |
 | `CLOUDINARY_API_SECRET` | Backend | Server-Only Secret | **NO** | **Yes** (Videos) | `your_cloudinary_api_secret` | Cloudinary API Secret | Cloudinary signing secret for SHA-256 signatures and asset purge operations. |
@@ -40,8 +40,8 @@ YOIBI is architected as two decoupled, independently deployable applications:
 
 ## 2.1 Better Auth & JWT Verification
 - **Frontend**: Better Auth runs as a server route handler at `frontend/src/app/api/auth/[...all]/route.js`. It consumes `NEXT_PUBLIC_BETTER_AUTH_URL` for public client redirection and `BETTER_AUTH_SECRET` for signing sessions and JWT tokens.
-- **JWT acquisition (single centralized path)**: The frontend acquires the external-service JWT exclusively via the official Better Auth JWT plugin client API — `authClient.token()` (`GET /api/auth/token`, session-cookie authenticated) — implemented once in `frontend/src/lib/api/client.js` (`getJwtToken()`) and reused by REST calls and Socket.IO hooks. The previous `authClient.getJwtToken()` call resolved to a non-existent route in Better Auth v1.7.4 and produced no token at all.
-- **Session vs JWT distinction**: The primary Better Auth session cookie stays with Better Auth. The JWT plugin issues a separate, JWKS-verifiable token (`iss` = `aud` = Better Auth baseURL, `sub` = Better Auth user ID, `exp` = 1d) used ONLY for `Authorization: Bearer` calls to the Railway Express API and Socket.IO. The session cookie is never used as the external-service token.
+- **JWT acquisition (single centralized path)**: The frontend acquires the external-service JWT exclusively via the official Better Auth JWT plugin client API — `authClient.token()` (`GET /api/auth/token`, session-cookie authenticated) — implemented once in `frontend/src/lib/api/client.js` (`getJwtToken()`) and reused by REST calls. The previous `authClient.getJwtToken()` call resolved to a non-existent route in Better Auth v1.7.4 and produced no token at all.
+- **Session vs JWT distinction**: The primary Better Auth session cookie stays with Better Auth. The JWT plugin issues a separate, JWKS-verifiable token (`iss` = `aud` = Better Auth baseURL, `sub` = Better Auth user ID, `exp` = 1d) used ONLY for `Authorization: Bearer` calls to the Railway Express API. The session cookie is never used as the external-service token.
 - **Backend**: Express verifies incoming JWT tokens (`Authorization: Bearer <token>`) against the Better Auth public JWKS endpoint (`createRemoteJWKSet`, default `${BETTER_AUTH_BASE_URL}/api/auth/jwks`, override with `BETTER_AUTH_JWKS_URL`) and uses `BETTER_AUTH_SECRET` for HMAC signature verification on administrative actions (`auth.api.banUser`, `unbanUser`, `removeUser`).
 - **Production JWKS**: `https://yoibi-frontend.vercel.app/api/auth/jwks` (verified live: EdDSA/Ed25519 key with `kid`). Railway's `BETTER_AUTH_BASE_URL` must be `https://yoibi-frontend.vercel.app` (never `http://localhost:3000`), because it determines both the JWKS URL and the strictly validated `iss`/`aud` claims.
 - **Rule**: `BETTER_AUTH_SECRET` must be identical on both Frontend and Backend environments.
@@ -56,8 +56,8 @@ YOIBI is architected as two decoupled, independently deployable applications:
 ## 2.2 MongoDB
 - **One database — `yoibi_database`** (Atlas). YOIBI uses exactly one database with two related data layers:
   1. **Better Auth (authentication-owned)**: the frontend server runtime connects through the official Better Auth Mongo adapter and owns the `user`, `session`, and `account` collections — email, hashed password credentials, login sessions, and OAuth (Google) provider accounts. Better Auth is the SINGLE authentication authority. No email-verification or password-reset flows exist, so no verification/resend state is stored anywhere.
-  2. **YOIBI application profile**: the Express backend connects with Mongoose and owns the `users` collection plus all feature collections (`tweets`, `videos`, `streams`, `meetup_rooms`, `follows`, `conversations`, `messages`, `notifications`, `reports`, `auditLogs`).
-- **Identity mapping (single canonical identity)**: `users._id` (String) ≡ Better Auth user ID (JWT `sub`). All ownership fields reuse the same string: `Tweet.authorId`, `Video.authorId`, `Stream.authorId`, `MeetUp.ownerId`, follow/message/notification/report IDs, and admin target IDs. There is no second/duplicate identity field.
+  2. **YOIBI application profile**: the Express backend connects with Mongoose and owns the `users` collection plus all feature collections (`tweets`, `videos`, `streams`, `meetup_rooms`, `follows`, `reports`, `auditLogs`).
+- **Identity mapping (single canonical identity)**: `users._id` (String) ≡ Better Auth user ID (JWT `sub`). All ownership fields reuse the same string: `Tweet.authorId`, `Video.authorId`, `Stream.authorId`, `MeetUp.ownerId`, follow/report IDs, and admin target IDs. There is no second/duplicate identity field.
 - **No password duplication**: the application `users` profile has NO `password`/`passwordHash`/`hashedPassword` fields; credentials live only in Better Auth storage.
 - **Database-name enforcement**: `backend/src/config/mongoUri.js` normalizes `MONGODB_URI` so the resolved database is always `yoibi_database` (inserted when the URI omits a database segment — MongoDB would otherwise default to `test` — and replacing accidental `test`/`sampledb` names); `backend/src/config/db.js` verifies and logs the REAL active database name after connecting.
 - **Indexes**: `users.handle` is UNIQUE (canonical handle — the DB is the final authority), `users.role` and `users.isBlocked` are indexed; Better Auth's Mongo adapter creates its own required indexes.
@@ -70,9 +70,9 @@ YOIBI is architected as two decoupled, independently deployable applications:
 - **Backend Only Authority**: The backend (`backend/src/integrations/livekit/livekit.js`) uses `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to mint short-lived participant tokens containing least-privilege permissions and opaque identities (`host_<uuid>`, `viewer_<uuid>`, `meetup_<userId>_<uuid>`).
 - **Frontend Client**: The frontend receives the ephemeral token and `LIVEKIT_URL` via authenticated REST endpoints (`POST /api/v1/streams/:id/join`, `POST /api/v1/meetup/rooms/:id/join`). Neither `LIVEKIT_API_KEY` nor `LIVEKIT_API_SECRET` is ever exposed to the client.
 
-## 2.5 Socket.IO Realtime Gateway
-- **Frontend**: Connects to the WebSocket server using `NEXT_PUBLIC_SOCKET_URL` (or auto-derived `NEXT_PUBLIC_API_BASE_URL` origin).
-- **Backend**: Listens on the same HTTP server instance initialized by Express and enforces CORS origin matching `CORS_ORIGIN`.
+## 2.5 Realtime Transport
+
+> **Note:** Socket.IO and the associated realtime messaging/notification gateway were intentionally removed from YOIBI. Realtime media transport for Streams and Meet-Up uses LiveKit WebRTC directly. No WebSocket gateway or `socket.io` package is installed. The `NEXT_PUBLIC_SOCKET_URL` variable is ignored by the current application.
 
 ---
 

@@ -13,7 +13,7 @@
 Suggested route groups:
 - `(public)`: home, privacy policy, public profile/content views
 - `(auth)`: login, signup
-- `(protected)`: authenticated feed, profile, messaging, stream, meet-up
+- `(protected)`: authenticated feed, profile, tweets, videos, streams, meet-up
 - `admin`: admin dashboard and moderation views
 
 ## Design system
@@ -38,7 +38,7 @@ Suggested route groups:
 - Signup must not automatically sign the user in.
 - Google sign-in may authenticate immediately.
 - Login redirect must preserve the originally requested page/action where practical.
-- Protected interactions such as like, retweet, comment, DM, joining rooms, and joining streams require authentication.
+- Protected interactions such as like, retweet, replies, joining rooms, and joining streams require authentication.
 
 ## Home page rule
 Keep the existing recognizable home design during the migration. Make only small improvements initially. Do not let the agent redesign it heavily before inner systems are complete.

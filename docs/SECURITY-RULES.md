@@ -7,7 +7,7 @@
 - The frontend is an additional UX/request guard, never the final security boundary.
 - **JWT acquisition flow (single centralized path)**:
   1. User session established (email/password after verification, or Google OAuth) -> primary Better Auth session cookie.
-  2. Frontend calls `authClient.token()` (`GET /api/auth/token`) — the official Better Auth v1.7.4 client API — implemented ONCE in `frontend/src/lib/api/client.js` (`getJwtToken()`); REST client and Socket.IO hooks both reuse it. The Better Auth session cookie is never itself used as the external-service token.
+  2. Frontend calls `authClient.token()` (`GET /api/auth/token`) — the official Better Auth v1.7.4 client API — implemented ONCE in `frontend/src/lib/api/client.js` (`getJwtToken()`); REST client reuses it. The Better Auth session cookie is never itself used as the external-service token.
   3. `Authorization: Bearer <JWT>` attached by the centralized API client; malformed headers (`Bearer undefined`/`Bearer null`) are impossible — a missing/failed JWT yields NO header and a clean 401 error state.
 - **JWT Verification**:
   - `jwtVerify` validates the cryptographic signature against the remote JWKS set.
@@ -30,7 +30,7 @@
 - **Backend Rate Limiting (`express-rate-limit`)**:
   - `globalLimiter`: 300 requests / 1 min per IP across all endpoints.
   - `authLimiter`: 15 requests / 15 min per IP on `GET /auth/me`.
-  - `writeLimiter`: 60 requests / 1 min per IP on social/content mutations (tweets, replies, likes, messages, follow, notifications).
+  - `writeLimiter`: 60 requests / 1 min per IP on social/content mutations (tweets, replies, likes, follow).
   - `expensiveLimiter`: 10 requests / 15 min per IP on media signatures, stream create/start/join, and meetup create/join.
   - `reportLimiter`: 20 requests / 1 hour per IP on `POST /reports`.
   - `adminLimiter`: 60 requests / 1 min per IP on all `/admin/*` operations.
@@ -39,7 +39,7 @@
 - **Request Abuse & Input Bounds**:
   - Admin search queries are capped at 100 characters to prevent regex denial-of-service.
   - User profile update fields are bounded (name: 50 chars, bio: 280 chars, avatarUrl: 1000 chars).
-  - Tweet content: max 280 chars. Direct message: max 2000 chars. Report description: max 2000 chars. Admin reason: max 1000 chars.
+  - Tweet content: max 280 chars. Report description: max 2000 chars. Admin reason: max 1000 chars.
   - Video upload size: max 100 MB (`104,857,600` bytes).
 
 ## 4. Secrets Isolation
@@ -55,7 +55,6 @@ Only explicitly public client variables may use the `NEXT_PUBLIC_` prefix (`NEXT
 ## 5. HTTP, Realtime & Network Safety
 - **CORS & Origin Validation**:
   - Strict origin validation using `allowedOrigins` (`FRONTEND_URL`, `CORS_ORIGIN`, `CLIENT_URL`).
-  - Socket.IO CORS never uses wildcard `*` in production.
 - **Security Response Headers (`next.config.js`)**:
   - `X-Frame-Options: DENY` (anti-clickjacking)
   - `X-Content-Type-Options: nosniff` (anti-MIME sniffing)
@@ -64,10 +63,7 @@ Only explicitly public client variables may use the `NEXT_PUBLIC_` prefix (`NEXT
   - `Permissions-Policy: camera=(self), microphone=(self), geolocation=(), interest-cohort=()` (permits LiveKit camera/mic on same-origin pages while blocking unauthorized third-party embeds)
 - **Content Security Policy (CSP)**:
   - Restrictive CSP is intentionally deferred for post-MVP hardening to prevent breakage of LiveKit WebRTC media transport, WebSocket upgrade protocols, inline Next.js Turbopack hydration scripts, and Cloudinary media delivery.
-- **Socket.IO Realtime Security**:
-  - Connection handshake verifies JWT Bearer token before accepting socket connections.
-  - Personal rooms (`user:<userId>`) isolate private message and notification delivery.
-  - Conversation rooms (`conv:<id>`) enforce participant authorization before admitting sockets.
+- **Socket.IO Realtime Security**: YOIBI no longer uses Socket.IO — realtime communication for Streams and Meet-Up uses LiveKit WebRTC directly with short-lived tokens minted by the backend.
 
 ## 6. LiveKit & Realtime Media Access Policy
 - **Stream Discovery & Viewing**:
@@ -91,7 +87,7 @@ Only explicitly public client variables may use the `NEXT_PUBLIC_` prefix (`NEXT
 
 ## 8. Admin Moderation & Ban Orchestration
 - **Block**: Access-denial state (`isBlocked: true`). Revokes Better Auth sessions and immediately denies API and socket access with 403 `ACCOUNT_BLOCKED`. User is redirected to account-blocked page. Unblock restores access.
-- **Ban**: Permanent destructive data cleanup orchestrated across 5 phases and 9 stages. Requires handle confirmation. Purges tweets, replies, videos, Cloudinary assets, LiveKit sessions, follows, notifications, and deletes MongoDB and Better Auth accounts while preserving an immutable AuditLog record.
+- **Ban**: Permanent destructive data cleanup orchestrated across 5 phases and 9 stages. Requires handle confirmation. Purges tweets, replies, videos, Cloudinary assets, LiveKit sessions, follows, and deletes MongoDB and Better Auth accounts while preserving an immutable AuditLog record.
 
 ## 9. Code Readability & Maintenance
 Security code must remain clean, modular, and maintainable. Avoid monolithic middleware files, magic condition chains, or unexplained security abstractions.

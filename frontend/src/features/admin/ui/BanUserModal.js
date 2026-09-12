@@ -87,8 +87,6 @@ export function BanUserModal({ isOpen, onClose, user, onConfirm, loading }) {
                                 <li>All owned Videos and associated Cloudinary assets are permanently purged.</li>
                                 <li>Active LiveKit broadcast and Meet-Up rooms are immediately terminated and deleted.</li>
                                 <li>Follow relationships are bidirectionally severed and counters repaired.</li>
-                                <li>Sent direct messages are anonymized to <code className="bg-destructive/20 px-1 py-0.5 rounded text-[11px]">deleted_user</code> preserving recipient history.</li>
-                                <li>Received and generated notifications are purged.</li>
                                 <li>Moderation reports are permanently preserved for legal and audit history.</li>
                                 <li>A permanent audit log entry is finalized.</li>
                             </ul>

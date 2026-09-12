@@ -7,9 +7,6 @@ const Video = require('../src/models/video.model');
 const Stream = require('../src/models/stream.model');
 const MeetUp = require('../src/models/meetup.model');
 const Follow = require('../src/models/follow.model');
-const Message = require('../src/models/message.model');
-const Conversation = require('../src/models/conversation.model');
-const Notification = require('../src/models/notification.model');
 
 const adminService = require('../src/services/admin.service');
 const reportsService = require('../src/services/reports.service');
@@ -93,9 +90,6 @@ async function runAdminTests() {
         const memoryStreams = new Map();
         const memoryMeetups = new Map();
         const memoryFollows = new Map();
-        const memoryMessages = new Map();
-        const memoryConversations = new Map();
-        const memoryNotifications = new Map();
         const memoryReports = new Map();
         const memoryAuditLogs = new Map();
 
@@ -541,55 +535,6 @@ async function runAdminTests() {
         };
         User.updateMany = async () => ({});
 
-        // Populate Messages & Conversations:
-        // Message sent by target to innocent
-        const targetMsg = {
-            _id: 'msg_target_1',
-            senderId: targetId,
-            recipientId: innocentUser.id,
-            content: 'Offensive DM content preserved'
-        };
-        memoryMessages.set(targetMsg._id, targetMsg);
-        Message.updateMany = async (filter, update) => {
-            let count = 0;
-            for (const m of memoryMessages.values()) {
-                if (m.senderId === filter.senderId) {
-                    m.senderId = update.$set.senderId;
-                    count++;
-                }
-            }
-            return { modifiedCount: count };
-        };
-
-        const targetConv = {
-            _id: 'conv_123',
-            participants: [targetId, innocentUser.id]
-        };
-        memoryConversations.set(targetConv._id, targetConv);
-        Conversation.updateMany = async (_filter, _update) => {
-            for (const c of memoryConversations.values()) {
-                const idx = c.participants.indexOf(targetId);
-                if (idx !== -1) {
-                    c.participants[idx] = 'deleted_user';
-                }
-            }
-            return {};
-        };
-
-        // Populate Notifications: 1 received, 1 actor
-        memoryNotifications.set('notif_1', { _id: 'notif_1', recipientId: targetId, actorId: innocentUser.id });
-        memoryNotifications.set('notif_2', { _id: 'notif_2', recipientId: innocentUser.id, actorId: targetId });
-        Notification.deleteMany = async (_filter) => {
-            let count = 0;
-            for (const [id, n] of memoryNotifications.entries()) {
-                if (n.recipientId === targetId || n.actorId === targetId) {
-                    memoryNotifications.delete(id);
-                    count++;
-                }
-            }
-            return { deletedCount: count };
-        };
-
         // Test 6.1: Phase A Validation - Self-Ban Rejected
         await assert.rejects(
             async () => {
@@ -672,26 +617,15 @@ async function runAdminTests() {
         assert.strictEqual(memoryUsers.get(innocentUser.id).followingCount, 0, 'Innocent followingCount must be decremented');
         console.log('✓ Follows bidirectionally cleaned and counters decremented safely.');
 
-        // 5. Direct Messages Anonymized
-        const anonymizedMsg = memoryMessages.get('msg_target_1');
-        assert.strictEqual(anonymizedMsg.senderId, 'deleted_user', 'Sender ID must be anonymized to deleted_user');
-        assert.strictEqual(anonymizedMsg.content, 'Offensive DM content preserved', 'Message content must be preserved');
-        assert.deepStrictEqual(memoryConversations.get('conv_123').participants, ['deleted_user', innocentUser.id], 'Conversation participant updated to deleted_user');
-        console.log('✓ Sent messages anonymized to senderId: "deleted_user" and history preserved.');
-
-        // 6. Notifications purged
-        assert.strictEqual(memoryNotifications.size, 0, 'Target notifications must be purged');
-        console.log('✓ Target received and generated notifications purged.');
-
-        // 7. Reports PRESERVED
+        // 5. Reports PRESERVED
         assert.strictEqual(memoryReports.size, 1, 'Moderation reports must be preserved and never deleted');
         console.log('✓ Moderation reports preserved permanently.');
 
-        // 8. User profile removed from MongoDB
+        // 6. User profile removed from MongoDB
         assert.strictEqual(memoryUsers.has(targetId), false, 'Target user profile must be deleted from MongoDB');
         console.log('✓ Target user document purged from MongoDB.');
 
-        // 9. Durable AuditLog contains snapshots, counts, and completion timestamp
+        // 7. Durable AuditLog contains snapshots, counts, and completion timestamp
         const finalAudit = memoryAuditLogs.get(banResult.auditLogId);
         assert.strictEqual(finalAudit.status, 'COMPLETED');
         assert.strictEqual(finalAudit.action, 'BAN_USER');

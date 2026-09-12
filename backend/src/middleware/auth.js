@@ -317,7 +317,7 @@ async function verifyJwtToken(token) {
     } catch (error) {
         // Keep the explicit error shape above as-is; normalize raw jose errors
         // into the same { code, status } contract used by the Express middleware
-        // so every consumer (REST + Socket.IO) gets consistent 401 semantics.
+        // so every consumer gets consistent 401 semantics.
         if (error && error.status && error.code) {
             throw error;
         }

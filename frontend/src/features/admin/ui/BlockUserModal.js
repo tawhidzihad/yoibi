@@ -56,7 +56,7 @@ export function BlockUserModal({ isOpen, onClose, user, onConfirm, loading }) {
                         <div>
                             <p className="font-semibold text-amber-200">Reversible Suspension</p>
                             <p className="mt-1 text-amber-300/80 leading-relaxed">
-                                Blocking suspends the user&apos;s active sessions and prevents access. All tweets, videos, followers, and messages will be preserved. You can unblock this user at any time.
+                                Blocking suspends the user&apos;s active sessions and prevents access. All tweets, videos, streams, meet-ups, and follows will be preserved. You can unblock this user at any time.
                             </p>
                         </div>
                     </div>

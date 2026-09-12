@@ -4,7 +4,7 @@ import path from "node:path";
 
 /**
  * User Profile System frontend regression tests (static contract checks):
- *   - /wall references are gone (sidebar, dock, tweet author, notifications)
+ *   - /wall references are gone (sidebar, dock, tweet author)
  *   - the right-side card links to /profile/{handle} ("View My Profile")
  *   - the right-side card no longer contains Sign Out
  *   - /profile/[username] dynamic route exists
@@ -64,12 +64,6 @@ describe("author identity profile links", () => {
     it("StreamCard author identity links to /profile/{handle}", () => {
         const streamCard = readSrc("features/streams/ui/StreamCard.js");
         expect(streamCard).toContain('href={`/profile/${(stream.author?.handle || "broadcaster").replace(/^@/, "")}`');
-    });
-
-    it("follow notifications route to /profile/{handle}", () => {
-        const notificationItem = readSrc("features/notifications/ui/NotificationItem.js");
-        expect(notificationItem).toContain("return rawHandle ? `/profile/${rawHandle}`");
-        expect(notificationItem).not.toMatch(/\/wall/);
     });
 });
 

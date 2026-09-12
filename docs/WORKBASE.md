@@ -5,7 +5,6 @@ This file is a live task scratchpad. The active AI must update it before and dur
 ## Core Architectural Standard
 > **In YOIBI, `Tweet` is the social content entity. `POST` is an HTTP request method, not a separate content domain.**
 > **In YOIBI, `Video` is the video content entity (Shorts & Longform), hosted via Cloudinary with server-issued upload intents and MongoDB metadata.**
-> **In YOIBI, Direct Messaging follows the server-authoritative rule: User A can direct message User B only if A follows B (`followsRepository.isFollowing(senderId, recipientId) === true`).**
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Task
@@ -24,7 +23,7 @@ This file is a live task scratchpad. The active AI must update it before and dur
   - **Username/handle editing**: server-normalized (lowercase, `@`-stripped, URL-safe `[a-z0-9]`, 3–24), unique DB index → duplicate returns `422 HANDLE_TAKEN`. After a successful handle change the client `router.replace("/profile/{newHandle}")` — never left on a stale URL.
   - **Profile API**: `GET /api/v1/users/:handle` now returns the real dynamic counts `tweetsCount`/`videosCount`/`streamsCount` (server-computed by canonical `authorId` ownership, `postsCount` = legacy `tweetsCount` alias), plus `bannerUrl`, `country`, and `isOwner`. Public allowlist never exposes email/age/phone/role/block state. `PATCH /api/v1/users/me` gained `handle` + `bannerUrl`; authorization is `req.user.id` only; the stale-handle `$or` update bug (which could target the WRONG user after a handle change) was removed — updates now match `_id` exclusively.
   - **Content tabs**: Tweets (`authorHandle` server-side filter), Videos (`authorId`), Streams (`status=all` new lifecycle filter) — all paginated server-side; polished empty states ("No tweets/videos/streams yet") and skeletons on load.
-  - **Author profile links**: TweetCard (`/wall/{handle}` dead-link fix → `/profile/{handle}`), VideoCard author row, StreamCard broadcaster identity, and follow notifications now navigate to `/profile/{handle}`.
+  - **Author profile links**: TweetCard (`/wall/{handle}` dead-link fix → `/profile/{handle}`), VideoCard author row, StreamCard broadcaster identity, and follow events now navigate to `/profile/{handle}`.
   - **Bug fixes**: videos/streams repository author enrichment used `User.findOne({ id: ... })` (field is `_id`) → authors always fell back to "Yoibi Member"/"Broadcaster"; fixed to `{ _id }`. `validate` middleware now attaches validated/transformed data to `req.validatedBody/Query/Params` (handle normalization now actually applies).
   - Contracts synced (`contracts/API-CONTRACT.md`, `contracts/openapi.yaml`): public profile contract w/ counts + banner, `PATCH /users/me` (handle + bannerUrl), `POST /users/me/upload-signature`, new `UserPublicProfile` + `ProfileImageUploadSignature` schemas.
   - Tests: `backend/tests/users-profile.test.js` (schema banner, handle normalization/rules, strict allowlist, projection allow/deny, counts-by-authorId determinism, upload signature folders/no-secret) — registered in the suite; `frontend/tests/profile.test.js` (12 tests: side/dock cleanup, right-card contract, author links, dynamic route, real-data API usage, edit modal constraints).
@@ -43,7 +42,7 @@ This file is a live task scratchpad. The active AI must update it before and dur
   - Security Headers & Permissions-Policy:
     - `frontend/next.config.js`: Implemented `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security`, and `Permissions-Policy: camera=(self), microphone=(self), geolocation=(), interest-cohort=()`.
   - CORS & Realtime Hardening:
-    - Fixed Socket.IO wildcard fallback in `backend/src/sockets/messaging.socket.js`. Added strict origin validation against `allowedOrigins` (`FRONTEND_URL`, `CORS_ORIGIN`, `CLIENT_URL`).
+    - Fixed Socket.IO wildcard fallback in `backend/src/sockets/(removed)`. Added strict origin validation against `allowedOrigins` (`FRONTEND_URL`, `CORS_ORIGIN`, `CLIENT_URL`).
     - Added `CLIENT_URL` to `backend/src/config/env.js`.
   - Health & Readiness Probes:
     - `backend/src/controllers/read/health.controller.js`: Returns HTTP 200 `{ status: 'ok' }` when DB connected or in dev/test unconfigured mode; returns HTTP 503 `{ status: 'degraded' }` when configured DB is disconnected. Includes uptime and timestamp.
@@ -117,13 +116,13 @@ Recovered uncommitted work from an interrupted session and hardened it:
 
 **Remaining Level 2 steps:**
 1. **Redeploy backend to Railway** — the live build predates today's fixes (auto-provisioning completion + reservation race fix are NOT live). Frontend redeploy optional (ships the new favicon).
-2. Authenticated end-to-end smoke test with a disposable test account (sign-up → JWT → `/auth/me` → tweet create/like/reply → follow → DM → notifications) — writes to production; requires owner go-ahead.
+2. Authenticated end-to-end smoke test with a disposable test account (sign-up → JWT → `/auth/me` → tweet create/like/reply → follow → follow) — writes to production; requires owner go-ahead.
 3. Verify Socket.IO realtime between Vercel and Railway in the browser.
 
 ### TASK-013 Production Authentication Fix (2026-09-11)
 Connected investigation of three production auth symptoms (all traced to verified root causes in the installed Better Auth **1.7.4**):
 
-1. **JWT missing/malformed (root cause, fixed):** The frontend called `authClient.getJwtToken()` in 3 places (`lib/api/client.js`, `useMessagingSocket.js`, `useNotifications.js`). Better Auth 1.7.4 has no such client action — the dynamic path proxy resolves it to `GET /api/auth/get-jwt-token`, which 404s, so **no Authorization header was ever attached** (→ "Authentication token is missing or malformed"). Fixed with the official API `authClient.token()` (`GET /api/auth/token` — route existence verified live: 401 without session), centralized once in `lib/api/client.js::getJwtToken()`; Socket.IO hooks reuse it. Malformed `Bearer undefined/null` headers are structurally impossible now.
+1. **JWT missing/malformed (root cause, fixed):** The frontend called `authClient.getJwtToken()` in 3 places (`lib/api/client.js`, `(removed)::getJwtToken()`; Socket.IO hooks reuse it. Malformed `Bearer undefined/null` headers are structurally impossible now.
 2. **Verification email never sent (root cause, fixed):** `frontend/src/lib/auth.js` required verification with **no verification-email block configured** — Better Auth logged "Verification email isn't enabled" and sent nothing. Implemented the official verification-email config plus password-reset hook, delivered via **Resend** through `frontend/src/lib/email.js` (plain `fetch`, zero new runtime dependencies). Provider domain verification is an external prerequisite → status: **Email delivery integration implemented — provider verification pending**.
 3. **Google users missing in YOIBI MongoDB (same root cause as #1):** The Mongo `users` profile is created server-side on the first verified-JWT request (`/auth/me` auto-provisioning). With JWT acquisition broken, Google users never reached the backend. Flow restored: Google OAuth → Better Auth user → `authClient.token()` JWT → `/auth/me` → server-side upsert keyed by the verified Better Auth user ID.
 

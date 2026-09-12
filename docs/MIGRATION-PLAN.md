@@ -34,16 +34,16 @@ Suggested sequence:
 5. reactions
 6. retweets
 7. media upload
-8. messaging
-9. streams
-10. meet-up
-11. notifications
-12. admin
+8. streams
+9. meet-up
+10. admin
+
+NOTE: messaging and notifications are removed from the current YOIBI scope.
 
 ## Phase 4 — Admin
 - dashboard analytics
 - paginated resource inspection
-- report/message handling
+- report handling
 - ban/block/unblock
 - destructive data cleanup rules
 

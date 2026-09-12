@@ -14,8 +14,7 @@ const userSchema = new mongoose.Schema({
     // _id IS the canonical Better Auth user ID (verified from the JWT `sub` claim).
     // All YOIBI ownership fields reuse this same String identity:
     //   Tweet.authorId, Video.authorId, Stream.authorId, MeetUp.ownerId,
-    //   Follow.*Id, Message.senderId/recipientId, Notification.actorId/recipientId,
-    //   Report.reporterId/targetId, admin target IDs.
+    //   Follow.*Id, Report.reporterId/targetId, admin target IDs.
     // Better Auth owns authentication data (email credentials, hashed password,
     // sessions, provider accounts) — it is NEVER duplicated in this profile.
     _id: { type: String },

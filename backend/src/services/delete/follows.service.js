@@ -1,5 +1,4 @@
 const followsRepository = require('../../repositories/follows.repository');
-const notificationsService = require('../notifications.service');
 const User = require('../../models/user.model');
 
 /**
@@ -33,15 +32,6 @@ async function unfollowUser(followerId, targetUserId) {
             User.updateOne({ _id: targetUserId, followersCount: { $gt: 0 } }, { $inc: { followersCount: -1 } }),
             User.updateOne({ _id: followerId, followingCount: { $gt: 0 } }, { $inc: { followingCount: -1 } })
         ]);
-
-        // Secondary side effect: Clean up active notification on unfollow
-        notificationsService.deleteNotification({
-            actorId: followerId,
-            type: 'follow',
-            targetId: targetUserId
-        }).catch((err) => {
-            console.error('[Notification Undo] follow error:', err.message);
-        });
     }
 
     return {

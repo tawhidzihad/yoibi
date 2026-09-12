@@ -17,7 +17,7 @@ At the end of every meaningful session/task, the active model must update this f
 An interrupted session left uncommitted production-preparation work. It was verified, completed, and hardened:
 1. **Application User Auto-Provisioning (`backend/src/middleware/auth.js`):**
    - On first authenticated request with a verified JWT `sub` that has no application `users` record, the backend creates the record from verified claims only (`handle`, `name`, `avatarUrl`), with duplicate-handle collision fallback. Required for production because Better Auth's user table and the app `users` collection are separate.
-   - Completed the interrupted implementation: live moderation entry now carries `handle` (server-authoritative), and `verifyJwtToken` (Socket.IO path) uses the same handle-derivation chain as `verifyJwt`.
+   - Completed the interrupted implementation: live moderation entry now carries `handle` (server-authoritative), and the JWT path uses the same handle-derivation chain as `verifyJwt`.
 2. **Meet-Up Reservation Race Fix (`backend/src/integrations/livekit/livekit.js`):**
    - `reserveSlot` previously awaited LiveKit `listParticipants` BETWEEN reading reservation count and writing the reservation. With LiveKit configured (real deployment), concurrent joins could over-book capacity (all concurrent joins read count 0). All async lookups now complete BEFORE a synchronous (atomic) check-and-reserve critical section. Shared `getConnectedParticipantCount` helper extracted.
 3. **Redundant Index Cleanup (`user/follow/auditLog` models):** removed duplicate index declarations (`handle` unique auto-index; inline `index: true` on `followingId`, `status`).
@@ -30,7 +30,7 @@ An interrupted session left uncommitted production-preparation work. It was veri
   2. **Security Headers & Permissions Policy:**
      - `frontend/next.config.js`: Enforces `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Strict-Transport-Security: max-age=31536000; includeSubDomains`, and `Permissions-Policy: camera=(self), microphone=(self), geolocation=(), interest-cohort=()`. Restrictive CSP intentionally deferred to avoid breaking WebRTC/Turbopack.
   3. **CORS & Realtime Hardening:**
-     - Eliminated Socket.IO wildcard fallback (`env.CLIENT_URL || '*'`) in `backend/src/sockets/messaging.socket.js`. Strict origin validation whitelists `FRONTEND_URL`, `CORS_ORIGIN`, `CLIENT_URL`. Added `CLIENT_URL` configuration in `backend/src/config/env.js`.
+     - Socket.IO and its wildcard fallback were removed from YOIBI. Origin validation remains enforced for Express REST endpoints against `allowedOrigins` (`FRONTEND_URL`, `CORS_ORIGIN`, `CLIENT_URL`). Added `CLIENT_URL` configuration in `backend/src/config/env.js`.
   4. **Health & Readiness Behavior:**
      - `GET /api/v1/health` in `backend/src/controllers/read/health.controller.js` checks live MongoDB readiness via `mongoose.connection.readyState === 1`. Returns HTTP 200 `{ status: 'ok', database: 'connected' }` when ready; returns HTTP 503 `{ status: 'degraded', database: 'disconnected' }` when configured DB is unavailable.
   5. **Request Abuse Protections:**
@@ -59,8 +59,6 @@ An interrupted session left uncommitted production-preparation work. It was veri
 - Cloudinary server-signed video uploads, metadata registration, playback views tracking.
 - LiveKit live stream broadcasts (host publishing, anonymous viewing, lifecycle termination).
 - LiveKit Meet-Up multi-peer collaborative rooms (reservation TTLs, slot capacity).
-- Direct messaging with server-authoritative follow rule and Socket.IO realtime delivery.
-- Real-time notifications with duplicate prevention, unread counts, and optimistic UI.
 - Comprehensive Admin & Moderation suite (dashboard metrics, user block/unblock, canonical 5-phase/9-stage destructive ban orchestrator with pre-cleanup audit logging, content moderation, reports queue).
 - Multi-tier rate limiting (Better Auth database-backed + Express rate limiter).
 - Security response headers with LiveKit camera/mic permissions.
@@ -71,7 +69,7 @@ An interrupted session left uncommitted production-preparation work. It was veri
   1. Vercel deployment of `frontend/` with production environment variables.
   2. Railway deployment of `backend/` with the same production variables (`backend/railway.json` ready).
   3. Verify MongoDB Atlas network access (allowlist) and live connection from Railway.
-  4. Realtime Socket.IO communication between deployed Vercel and Railway services.
+  4. Realtime LiveKit WebRTC communication between deployed Vercel and Railway services.
   5. Execution of canonical end-to-end smoke test checklist with disposable test accounts.
 
 ## Tests/Checks Run (this session, 2026-09-11)
@@ -83,7 +81,7 @@ An interrupted session left uncommitted production-preparation work. It was veri
 - Zero secrets committed to git (`.env` files are gitignored; only variable names inspected, never printed)
 
 ## Production Auth Verification Status (TASK-013, 2026-09-11)
-- **JWT pipeline**: FIXED — frontend uses official Better Auth 1.7.4 `authClient.token()` centralized in `frontend/src/lib/api/client.js`; Socket.IO hooks reuse it. Deployed JWKS endpoint `https://yoibi-frontend.vercel.app/api/auth/jwks` verified live (EdDSA/Ed25519); deployed `GET /api/auth/token` verified to exist (401 without session). Backend strictly validates `iss`/`aud` (= `BETTER_AUTH_BASE_URL`) and `exp`.
+- **JWT pipeline**: FIXED — frontend uses official Better Auth 1.7.4 `authClient.token()` centralized in `frontend/src/lib/api/client.js`; REST client reuses it. Deployed JWKS endpoint `https://yoibi-frontend.vercel.app/api/auth/jwks` verified live (EdDSA/Ed25519); deployed `GET /api/auth/token` verified to exist (401 without session). Backend strictly validates `iss`/`aud` (= `BETTER_AUTH_BASE_URL`) and `exp`.
 - **Email confirmation step**: REMOVED (2026-09-11, auth simplification). The Resend delivery stack, the confirmation-email Better Auth block, and the `/verify-email` route were deleted. Email/password signup now creates an immediately usable account (no confirmation step); password reset was also removed and `RESEND_API_KEY`/`EMAIL_FROM` are no longer used. See `docs/ENVIRONMENT.md`.
 - **Google OAuth → MongoDB sync**: FIXED as a consequence of the JWT fix; the backend auto-provisions the YOIBI `users` profile from verified JWT claims on the first authenticated request. Real disposable Google-account smoke test (OAuth → `/auth/me` → MongoDB profile → tweet/video) still requires redeploy + owner go-ahead.
 - **Production env requirements**: Railway `BETTER_AUTH_BASE_URL`/`FRONTEND_URL`/`CORS_ORIGIN` = `https://yoibi-frontend.vercel.app`; Vercel `NEXT_PUBLIC_BETTER_AUTH_URL` = same origin; Google redirect URI `https://yoibi-frontend.vercel.app/api/auth/callback/google`.
@@ -100,7 +98,7 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 8. **Tests added**: `frontend/tests/better-auth-persistence.test.js` (real MongoDB via `mongodb-memory-server`: signup → logout → login → wrong-password → hash-only storage); `backend/tests/auth-architecture.test.js` (URI normalization, handle rules, profile auto-provisioning, role system, no-credential schema contract). All suites, lint, and audit pass 100% after the changes.
 
 ## Exact Resume Instruction
-> TASK-012 Level 2 Production Verification: persistent-storage verification PASSED on the LIVE stack (commit `3e06f69` deployed to both Vercel and Railway on 2026-09-11). Signup → logout → re-login persistence, JWKS, `/api/auth/token` 401, removed-route 404s, and direct Atlas database verification are all done; disposable smoke data was cleaned up (Better Auth collections empty again). Remaining exact steps: (1) run the disposable Google OAuth smoke test in the browser (owner go-ahead — writes to production) to verify the YOIBI profile auto-provisioning on a Google-first login, (2) verify Socket.IO realtime in the browser, (3) optionally run a disposable Tweet/Video-upload-signature check via the deployed `/api/v1` with a Bearer token.
+> TASK-012 Level 2 Production Verification: persistent-storage verification PASSED on the LIVE stack (commit `3e06f69` deployed to both Vercel and Railway on 2026-09-11). Signup → logout → re-login persistence, JWKS, `/api/auth/token` 401, removed-route 404s, and direct Atlas database verification are all done; disposable smoke data was cleaned up (Better Auth collections empty again). Remaining exact steps: (1) run the disposable Google OAuth smoke test in the browser (owner go-ahead — writes to production) to verify the YOIBI profile auto-provisioning on a Google-first login, (2) verify LiveKit realtime in the browser, (3) optionally run a disposable Tweet/Video-upload-signature check via the deployed `/api/v1` with a Bearer token.
 
 ## Authentication & User Profile Architecture (TASK-013 redesign, 2026-09-12)
 
@@ -127,6 +125,6 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
    - Tweets: `GET /tweets?authorHandle={handle}` — resolved to a canonical `authorId` in the service.
    - Videos: `GET /videos?authorId={id}` (existing filter).
    - Streams: `GET /streams?authorId={id}&status=all` — new `status=all` lifecycle filter (ready/live/ended).
-6. **Author identity links**: TweetCard, VideoCard, StreamCard, and follow notifications link to `/profile/{handle}` (dead `/wall/{handle}` links fixed). Videos/streams author enrichment bug fixed (`User.findOne({ id })` → `{ _id }` — authors now resolve real handles/avatars).
+6. **Author identity links**: TweetCard, VideoCard, StreamCard link to `/profile/{handle}` (dead `/wall/{handle}` links fixed). Videos/streams author enrichment bug fixed (`User.findOne({ id })` → `{ _id }` — authors now resolve real handles/avatars).
 7. **Tests**: `backend/tests/users-profile.test.js` (11 sections) and `frontend/tests/profile.test.js` (12 tests). Backend: npm test 100% (9 suites), lint clean, audit 0. Frontend: vitest 55/55, lint clean, build OK (`/profile/[username]` dynamic).
 

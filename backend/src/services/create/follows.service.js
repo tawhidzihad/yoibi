@@ -1,5 +1,4 @@
 const followsRepository = require('../../repositories/follows.repository');
-const notificationsService = require('../notifications.service');
 const User = require('../../models/user.model');
 
 /**
@@ -42,17 +41,6 @@ async function followUser(followerId, targetUserId) {
             User.updateOne({ _id: targetUserId }, { $inc: { followersCount: 1 } }),
             User.updateOne({ _id: followerId }, { $inc: { followingCount: 1 } })
         ]);
-
-        // Secondary side effect: Trigger notification on inactive -> active follow
-        notificationsService.createNotification({
-            actorId: followerId,
-            recipientId: targetUserId,
-            type: 'follow',
-            targetId: targetUserId,
-            targetType: 'user'
-        }).catch((err) => {
-            console.error('[Notification Trigger] follow error:', err.message);
-        });
     }
 
     return {

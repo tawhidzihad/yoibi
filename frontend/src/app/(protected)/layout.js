@@ -5,15 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
     Home,
-    FileText,
     AtSign,
     Play,
     Radio,
     Users,
-    MessageSquare,
-    Bell,
-    User,
-    Plus,
     LogOut,
     Shield,
 } from "lucide-react";
@@ -22,7 +17,6 @@ import { Dock, DockIcon } from "../../shared/ui/Dock";
 import { LoadingFallback } from "../../shared/feedback/LoadingFallback";
 import { cn } from "../../shared/utils/cn";
 import { useAuth } from "../../features/auth/context/AuthContext";
-import { NotificationBadge, useNotifications } from "../../features/notifications";
 
 const baseNavItems = [
     { href: "/feed", label: "Feed", icon: Home },
@@ -30,19 +24,14 @@ const baseNavItems = [
     { href: "/videos", label: "Videos", icon: Play },
     { href: "/streams", label: "Streams", icon: Radio },
     { href: "/meetup", label: "Meet Up", icon: Users },
-    { href: "/messages", label: "Messages", icon: MessageSquare },
-    { href: "/notifications", label: "Notifications", icon: Bell, hasBadge: true },
 ];
 
 const dockItems = [
     { icon: Home, label: "Feed", href: "/feed" },
-    { icon: FileText, label: "Posts", href: "/posts" },
     { icon: AtSign, label: "Tweets", href: "/tweets" },
     { icon: Play, label: "Videos", href: "/videos" },
     { icon: Radio, label: "Streams", href: "/streams" },
     { icon: Users, label: "Meet Up", href: "/meetup" },
-    { icon: MessageSquare, label: "Messages", href: "/messages" },
-    { icon: Bell, label: "Notifications", href: "/notifications", hasBadge: true },
 ];
 
 /**
@@ -55,7 +44,7 @@ function getSafeReturnUrl(pathname) {
     return pathname;
 }
 
-function LeftNav({ user, onLogout, unreadCount = 0 }) {
+function LeftNav({ user, onLogout }) {
     const pathname = usePathname();
     const isAdmin = user?.role === "admin";
     const navItems = isAdmin
@@ -76,7 +65,7 @@ function LeftNav({ user, onLogout, unreadCount = 0 }) {
 
             {/* Navigation */}
             <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-1">
-                {navItems.map(({ href, label, icon: Icon, hasBadge }) => {
+                {navItems.map(({ href, label, icon: Icon }) => {
                     const active = pathname === href || pathname.startsWith(href + "/");
                     return (
                         <Link
@@ -92,22 +81,10 @@ function LeftNav({ user, onLogout, unreadCount = 0 }) {
                         >
                             <Icon size={18} aria-hidden="true" />
                             <span className="flex-1">{label}</span>
-                            {hasBadge && unreadCount > 0 && (
-                                <NotificationBadge count={unreadCount} />
-                            )}
                         </Link>
                     );
                 })}
             </nav>
-
-            {/* New Post CTA */}
-            <Link
-                href="/posts/new"
-                className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-            >
-                <Plus size={16} aria-hidden="true" />
-                New Post
-            </Link>
 
             {/* Sign Out Button */}
             <button
@@ -189,7 +166,6 @@ export default function ProtectedLayout({ children }) {
     const { status, user, logout } = useAuth();
     const pathname = usePathname();
     const router = useRouter();
-    const { unreadCount } = useNotifications({ autoFetch: false });
 
     useEffect(() => {
         if (status === "unauthenticated") {
@@ -221,7 +197,7 @@ export default function ProtectedLayout({ children }) {
         <div className="relative min-h-screen bg-background">
             {/* ── DESKTOP: 3-column grid ── */}
             <div className="hidden lg:flex lg:max-w-[1152px] lg:mx-auto">
-                <LeftNav user={user} onLogout={handleLogout} unreadCount={unreadCount} />
+                <LeftNav user={user} onLogout={handleLogout} />
 
                 <main
                     id="main-content"
@@ -246,28 +222,14 @@ export default function ProtectedLayout({ children }) {
                         <YoibiLogo className="h-7 w-7 text-cyan-500" />
                         <span className="text-base font-bold tracking-tight text-foreground">Yoibi</span>
                     </Link>
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href="/notifications"
-                            className="relative flex items-center justify-center p-1 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
-                            aria-label="Notifications"
-                        >
-                            <Bell size={20} aria-hidden="true" />
-                            {unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-cyan-500 px-1 text-[10px] font-bold text-white shadow-xs">
-                                    {unreadCount > 99 ? "99+" : unreadCount}
-                                </span>
-                            )}
-                        </Link>
-                        <button
-                            type="button"
-                            onClick={handleLogout}
-                            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded cursor-pointer"
-                        >
-                            <LogOut size={16} aria-hidden="true" />
-                            Sign Out
-                        </button>
-                    </div>
+                    <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded cursor-pointer"
+                    >
+                        <LogOut size={16} aria-hidden="true" />
+                        Sign Out
+                    </button>
                 </header>
 
                 <main id="main-content" className="flex-1 pb-24" tabIndex={-1}>
@@ -277,7 +239,7 @@ export default function ProtectedLayout({ children }) {
                 {/* Mobile bottom dock */}
                 <div className="fixed bottom-4 left-0 right-0 z-40 flex justify-center px-4">
                     <Dock>
-                        {dockItems.map(({ icon: Icon, label, href, hasBadge }) => {
+                        {dockItems.map(({ icon: Icon, label, href }) => {
                             const active = pathname === href || pathname.startsWith(href + "/");
                             return (
                                 <DockIcon
@@ -286,14 +248,7 @@ export default function ProtectedLayout({ children }) {
                                     onClick={() => router.push(href)}
                                     label={label}
                                 >
-                                    <div className="relative">
-                                        <Icon size={20} aria-hidden="true" />
-                                        {hasBadge && unreadCount > 0 && (
-                                            <span className="absolute -top-1.5 -right-2 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-cyan-500 px-0.5 text-[9px] font-bold text-white shadow-xs">
-                                                {unreadCount > 9 ? "9+" : unreadCount}
-                                            </span>
-                                        )}
-                                    </div>
+                                    <Icon size={20} aria-hidden="true" />
                                 </DockIcon>
                             );
                         })}
