@@ -12,7 +12,7 @@ This file is a live task scratchpad. The active AI must update it before and dur
 - Task ID: TASK-014
 - Title: Complete User Profile System — Dynamic `/profile/[username]`, Profile Editing, Avatar & Banner, Real Content Tabs
 - Status: IMPLEMENTED — ALL QUALITY GATES PASSED
-- Completion Level: `Implementation Complete — Production Verification Pending`
+- Completion Level: `Implemented, Verified & Deployed` (profile route/API/contracts/tests live on Railway + Vercel; per-user interactive smoke still pending owner credentials)
 - Summary of this task:
   - **Sidebar cleanup**: removed the legacy "My Wall" item from the left sidebar and the mobile dock (`frontend/src/app/(protected)/layout.js`). No empty slot — items reflow naturally. The sidebar keeps the single "Sign Out".
   - **Right-side user card**: "View My Wall" → "View My Profile", which navigates to `/profile/{currentUserHandle}`. The duplicate Sign Out button was removed from the right card (one logout action only — left sidebar "Sign Out" (desktop) / mobile header).
