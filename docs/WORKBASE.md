@@ -21,6 +21,7 @@ This file is a live task scratchpad. The active AI must update it before and dur
   - **Category UI**: horizontal scrollbar removed; wrapping chip buttons with semantic lucide icons, clear active/hover/focus states, touch-friendly.
   - **Page header**: supporting text simplified to "Discover content across categories".
   - **Contracts synced**: `contracts/API-CONTRACT.md` + `contracts/openapi.yaml` document the signed-parameter rule and the `publicId` field on `POST /videos`.
+  - **Second production bug found during E2E**: video registration also failed with `Cast to ObjectId failed` — the Video Mongoose schema used the default ObjectId `_id` type while the create service generates `vid_` string ids (every production video creation was broken). Fixed by mirroring the working Tweet model (`_id: String` + `_id: false` option) in `backend/src/models/video.model.js`; schema regression test added.
   - **Stale test fix**: `frontend/tests/profile.test.js` expected the pre-TASK-015 label "View My Profile"; aligned with the intentional "My Profile" rename.
 
 ## Previous Task
