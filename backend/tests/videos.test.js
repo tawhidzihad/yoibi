@@ -275,6 +275,25 @@ async function runVideosTests() {
     assert.strictEqual(createdVideo.viewsCount, 0, "Initial viewsCount must be 0");
     console.log("✓ Service: createVideo verified provenance, consumed intent, and created video.");
 
+    // Test 11b: Video model accepts application-generated string ids (vid_...).
+    // Regression: without `_id: { type: String }` the Mongoose default ObjectId
+    // type rejected every video creation with "Cast to ObjectId failed".
+    {
+        const { Video } = require("../src/models/video.model");
+        const doc = new Video({
+            _id: "vid_schema_cast_regression",
+            authorId: userA.id,
+            title: "Schema Cast Regression",
+            videoUrl: "https://res.cloudinary.com/yoibi/video/upload/v1/x.mp4",
+            publicId: "yoibi/videos/usr_author_123/vid_schema_cast_regression"
+        });
+        const validation = doc.validateSync();
+        const idErrors = validation?.errors?._id;
+        assert.ok(!idErrors, `Video model must accept vid_ string ids: ${idErrors?.message || ""}`);
+        assert.strictEqual(doc._id, "vid_schema_cast_regression");
+        console.log("✓ Model: Video schema accepts application-generated string ids.");
+    }
+
     // Test 12: Intent replay rejection — Same intent cannot be used a second time
     let intentReplayBlocked = false;
     try {

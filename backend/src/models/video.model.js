@@ -13,6 +13,9 @@ const CANONICAL_CATEGORIES = [
 
 const videoSchema = new mongoose.Schema(
     {
+        // Application-generated string id (vid_...), mirroring the Tweet model.
+        // Mongoose's default ObjectId type rejects these string ids at write time.
+        _id: { type: String, required: true },
         authorId: {
             type: String,
             required: true,
@@ -93,7 +96,8 @@ const videoSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
-        versionKey: false
+        versionKey: false,
+        _id: false
     }
 );
 
