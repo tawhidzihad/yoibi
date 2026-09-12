@@ -75,7 +75,9 @@ export function AuthProvider({ children }) {
         const res = await authApi.getMe();
         if (res.success && res.data) {
             setUser(res.data);
+            setStatus("authenticated");
         }
+        return res;
     };
 
     const loginEmail = async ({ email, password }) => {
@@ -88,24 +90,55 @@ export function AuthProvider({ children }) {
             throw new Error(result.error.message || "Invalid credentials.");
         }
 
-        await refreshUser();
+        // Better Auth's email/password session is now active (immediate login
+        // is allowed — no verification step). Hydrate the authenticated YOIBI
+        // profile from the backend BEFORE any navigation: the backend derives
+        // identity from the verified JWT and upserts the canonical `users`
+        // profile server-side, so `/auth/me` must be 200 before feed entry.
+        try {
+            const res = await authApi.getMe();
+            if (res.success && res.data) {
+                setUser(res.data);
+                setStatus("authenticated");
+            }
+        } catch (err) {
+            console.warn("[AuthContext] Post-login hydration retry:", err?.message);
+            await refreshUser();
+        }
         return result;
     };
 
-    const signupEmail = async ({ email, password, name, handle }) => {
+    const signupEmail = async ({ email, password, name, onboarding }) => {
         const result = await signUp.email({
             email,
             password,
             name,
-            handle,
-            // Signup must NOT automatically log the user in (approved rule):
-            // account is created immediately, then the user signs in manually
-            // (no follow-up account-confirmation step).
-            autoSignIn: false,
+            // Signup creates an immediately usable authenticated account
+            // (email verification is removed): autoSignIn establishes the
+            // session so the caller can synchronize the YOIBI profile and
+            // enter the app without a separate manual login step.
+            autoSignIn: true,
         });
+        const pendingOnboarding = onboarding || null;
 
         if (result.error) {
             throw new Error(result.error.message || "Signup failed.");
+        }
+
+        // Immediately hydrate: the first authenticated request upserts the
+        // canonical `users` profile from the verified identity (idempotent —
+        // no duplicate on later re-login). Then persist the signup onboarding
+        // fields (country/age/phone/bio) through the authenticated profile
+        // endpoint so the backend stores the canonical values.
+        try {
+            await authApi.getMe();
+            if (pendingOnboarding) {
+                const { usersApi } = await import("@/features/users/api/usersApi");
+                await usersApi.updateUserProfile(pendingOnboarding);
+            }
+            await refreshUser();
+        } catch (err) {
+            console.warn("[AuthContext] Post-signup profile sync warning:", err?.message);
         }
 
         return result;

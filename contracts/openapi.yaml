@@ -74,6 +74,21 @@ paths:
                   type: string
                 avatarUrl:
                   type: string
+                country:
+                  type: string
+                  description: ISO 3166-1 alpha-2 code (uppercase, canonical). Empty string clears the field.
+                  example: US
+                age:
+                  type: integer
+                  description: YOIBI onboarding policy requires age >= 16. Null/empty clears the field (Google users start empty and complete it later).
+                  minimum: 16
+                  maximum: 120
+                  nullable: true
+                phone:
+                  type: string
+                  description: Optional telephone number. Empty string clears the field.
+                  example: "+1 555 000 1234"
+              additionalProperties: false
       responses:
         '200':
           description: Profile updated successfully
@@ -1895,15 +1910,38 @@ components:
             role:
               type: string
               example: user
-            isEmailVerified:
-              type: boolean
-              example: true
+              description: "user" | "admin" — never client-assignable
             isBlocked:
               type: boolean
               example: false
             avatarUrl:
               type: string
+              nullable: true
               example: https://res.cloudinary.com/.../avatar.jpg
+              description: Google users receive the verified provider avatar URL; email users start empty until they upload one.
+            bio:
+              type: string
+              nullable: true
+              example: Building the future of social networks.
+            country:
+              type: string
+              nullable: true
+              description: ISO 3166-1 alpha-2 canonical country code.
+              example: US
+            age:
+              type: integer
+              nullable: true
+              minimum: 16
+              example: 21
+            phone:
+              type: string
+              nullable: true
+              example: "+1 555 000 1234"
+            createdAt:
+              type: string
+              format: date-time
+              example: "2026-09-01T12:00:00.000Z"
+              description: Never exposes isEmailVerified (email verification is removed) or any credential fields.
         message:
           type: string
 

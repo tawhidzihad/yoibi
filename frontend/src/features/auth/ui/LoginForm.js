@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import { Input } from "../../../shared/ui/Input";
 import { YoibiLogo } from "../../../shared/ui/YoibiLogo";
@@ -63,6 +63,17 @@ export function LoginForm() {
 
     return (
         <div className="w-full max-w-md">
+            {/* Back to Home */}
+            <div className="mb-6">
+                <Link
+                    href="/"
+                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+                >
+                    <ArrowLeft size={16} aria-hidden="true" />
+                    Back to Home
+                </Link>
+            </div>
+
             {/* Header */}
             <div className="mb-8 text-center">
                 <Link href="/" aria-label="Back to home">

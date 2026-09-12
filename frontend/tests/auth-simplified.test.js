@@ -131,19 +131,36 @@ describe("login UI (email/password + Google, no reset entry point)", () => {
 describe("signup UI (immediate account, no confirmation step)", () => {
     const signupSource = readSrc("features/auth/ui/SignupForm.js");
 
-    it("keeps the approved minimal fields", () => {
-        for (const field of ["fullName", "email", "password", "confirmPassword", "age", "phone", "rulesAgreed"]) {
+    it("keeps the approved fields", () => {
+        for (const field of [
+            "fullName",
+            "email",
+            "phone",
+            "password",
+            "confirmPassword",
+            "age",
+            "bio",
+            "country",
+            "communityValuesAgreed",
+        ]) {
             expect(signupSource).toContain(field);
         }
     });
 
-    it("redirects to login after signup (no confirmation page)", () => {
-        expect(signupSource).toContain('router.push("/login")');
+    it("signs the user in immediately (no confirmation page)", () => {
+        // Signup auto-establishes a Better Auth session (no email gate), then
+        // navigates straight into the app after the YOIBI profile is hydrated.
+        expect(signupSource).toContain('router.push("/feed")');
         expect(signupSource).not.toContain("/verify-email");
     });
 
     it("shows no confirmation-step UI copy", () => {
         expect(signupSource).not.toMatch(/verify-email|verification|resend|countdown|confetti/i);
+    });
+
+    it("uses the community values agreement (not the legacy rules checkbox)", () => {
+        expect(signupSource).toContain("communityValuesAgreed");
+        expect(signupSource).not.toContain("rulesAgreed");
     });
 });
 
@@ -160,8 +177,9 @@ describe("auth context (simple loading/authenticated/unauthenticated states)", (
         expect(contextSource).not.toMatch(/email_not_verified|verification_pending|isEmailVerified/i);
     });
 
-    it("signup does not auto sign in and has no confirmation redirect", () => {
-        expect(contextSource).toContain("autoSignIn: false");
+    it("signup creates an immediately authenticated account (no confirmation gate)", () => {
+        expect(contextSource).toContain("autoSignIn: true");
         expect(contextSource).not.toContain("/verify-email");
+        expect(contextSource).toContain("refreshUser");
     });
 });

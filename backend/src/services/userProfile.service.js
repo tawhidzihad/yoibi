@@ -35,21 +35,48 @@ function isDuplicateKeyError(error) {
 }
 
 /**
+ * Normalizes an optional application-profile field to the canonical empty
+ * representation (""). Google/OAuth-derived values that are unavailable are
+ * never fabricated — they stay empty and the user completes them later.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+function toEmptyString(value) {
+    return typeof value === "string" ? value : "";
+}
+
+/**
  * Creates a YOIBI profile with a deterministic, collision-safe canonical handle.
  *
  * Strategy (@base, @base2, @base3, ...): each NOT-INSERTED handle advances the
  * suffix. Duplicate-key errors (race with a concurrent signup) are retried with
  * the next suffix; a concurrent winner for the same user ID is adopted.
  *
- * @param {{ userId: string, name?: string, email?: string, avatarUrl?: string }} input
+ * Application fields (email/country/age/phone/bio) come exclusively from
+ * verified server contexts: the verified Better Auth JWT `email` claim
+ * (email/password or Google identity) and the authenticated PATCH /users/me
+ * flow. The client can never set role, block state, or identity.
+ *
+ * @param {{ userId: string, name?: string, email?: string, avatarUrl?: string, country?: string, age?: number|null, phone?: string, bio?: string }} input
  * @returns {Promise<Object|null>} Lean profile document or null when DB is down.
  */
-async function createProfileWithUniqueHandle({ userId, name = "", email = "", avatarUrl = "" }) {
+async function createProfileWithUniqueHandle({ userId, name = "", email = "", avatarUrl = "", country = "", age = null, phone = "", bio = "" }) {
     if (!userId) return null;
     if (!isDatabaseConnected()) return null;
 
     const base = deriveHandleBaseFor({ name, email, userId });
     const now = new Date();
+
+    const profileFields = {
+        name: typeof name === "string" ? name : "",
+        email: toEmptyString(email),
+        avatarUrl: toEmptyString(avatarUrl),
+        country: validateCountry(country),
+        age: normalizeAge(age),
+        phone: toEmptyString(phone),
+        bio: toEmptyString(bio)
+    };
 
     // Primary deterministic collision-safe sequence: @base, @base2, @base3, ...
     for (let attempt = 0; attempt < 60; attempt += 1) {
@@ -59,9 +86,7 @@ async function createProfileWithUniqueHandle({ userId, name = "", email = "", av
             const doc = await User.create({
                 _id: userId,
                 handle: candidate,
-                name: typeof name === "string" ? name : "",
-                avatarUrl: typeof avatarUrl === "string" ? avatarUrl : "",
-                bio: "",
+                ...profileFields,
                 role: DEFAULT_ROLE,
                 createdAt: now,
                 updatedAt: now
@@ -86,9 +111,7 @@ async function createProfileWithUniqueHandle({ userId, name = "", email = "", av
             const doc = await User.create({
                 _id: userId,
                 handle: candidate,
-                name: typeof name === "string" ? name : "",
-                avatarUrl: typeof avatarUrl === "string" ? avatarUrl : "",
-                bio: "",
+                ...profileFields,
                 role: DEFAULT_ROLE,
                 createdAt: now,
                 updatedAt: now
@@ -107,20 +130,42 @@ async function createProfileWithUniqueHandle({ userId, name = "", email = "", av
 }
 
 /**
+ * Restricts country to the canonical ISO 3166-1 alpha-2 representation.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+function validateCountry(value) {
+    return typeof value === "string" && /^[A-Z]{2}$/.test(value) ? value : "";
+}
+
+/**
+ * Restricts age to the validated onboarding range (>= 16 per YOIBI policy),
+ * or null when unavailable (Google users complete it later).
+ *
+ * @param {unknown} value
+ * @returns {number|null}
+ */
+function normalizeAge(value) {
+    const parsed = typeof value === "string" ? Number(value) : value;
+    return typeof parsed === "number" && Number.isInteger(parsed) && parsed >= 16 && parsed <= 120 ? parsed : null;
+}
+
+/**
  * Returns the existing profile for a Better Auth user ID, creating it
  * (server-side, from verified JWT claims only) when it is missing.
  *
- * @param {{ userId: string, name?: string, email?: string, avatarUrl?: string }} input
+ * @param {{ userId: string, name?: string, email?: string, avatarUrl?: string, country?: string, age?: number|null, phone?: string, bio?: string }} input
  * @returns {Promise<Object|null>} Lean profile document (or null when DB is down).
  */
-async function findProfileOrCreate({ userId, name = "", email = "", avatarUrl = "" }) {
+async function findProfileOrCreate({ userId, name = "", email = "", avatarUrl = "", country = "", age = null, phone = "", bio = "" }) {
     if (!userId) return null;
     if (!isDatabaseConnected()) return null;
 
     const existing = await User.findById(userId).lean();
     if (existing) return existing;
 
-    return createProfileWithUniqueHandle({ userId, name, email, avatarUrl });
+    return createProfileWithUniqueHandle({ userId, name, email, avatarUrl, country, age, phone, bio });
 }
 
 module.exports = {

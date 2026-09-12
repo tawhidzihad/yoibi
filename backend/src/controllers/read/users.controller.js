@@ -15,24 +15,28 @@ async function getPublicProfile(req, res) {
                 error: { code: 'NOT_FOUND', message: 'User not found' }
             });
         }
-        const publicData = { ...user };
         const id = user._id ? user._id.toString() : undefined;
-        delete publicData._id;
-        delete publicData.__v;
 
         let isFollowing = false;
         if (req.user && req.user.id && id) {
             isFollowing = await followsRepository.isFollowing(req.user.id, id);
         }
 
+        // Explicit public-profile allowlist: never expose email, age, phone,
+        // role, block state, or Better Auth identity through this endpoint.
         const data = {
             id,
-            ...publicData,
+            handle: user.handle,
+            name: user.name || '',
+            bio: user.bio || '',
+            country: user.country || '',
+            avatarUrl: user.avatarUrl || '',
             followersCount: user.followersCount || 0,
             followingCount: user.followingCount || 0,
             postsCount: 0,
             tweetsCount: 0,
-            isFollowing
+            isFollowing,
+            createdAt: user.createdAt
         };
         return res.status(200).json({ success: true, data, message: '' });
     } catch (err) {

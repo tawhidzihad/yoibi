@@ -115,9 +115,12 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
           "name": "Jane Doe",
           "handle": "@janedoe",
           "role": "user",
-          "isEmailVerified": true,
           "isBlocked": false,
           "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg",
+          "bio": "Building the future of social networks.",
+          "country": "US",
+          "age": 21,
+          "phone": "+1 555 000 1234",
           "createdAt": "2026-09-01T12:00:00.000Z"
       },
       "message": ""
@@ -125,6 +128,29 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   ```
 - Error (401 `UNAUTHORIZED`): Token invalid or missing.
 - Error (403 `ACCOUNT_BLOCKED`): Account is currently blocked by administrator.
+
+### Identity & profile architecture
+
+- Authentication is owned by **Better Auth** (email + password and Google OAuth only).
+  No email verification, forgot-password, or password-reset features exist.
+- The YOIBI application profile lives in the single canonical MongoDB collection
+  `users` in `yoibi_database`, keyed by `betterAuthUserId` (the canonical Better
+  Auth user ID, shared by Email and Google identities — no provider-specific
+  identity fields). Profile upserts are idempotent, so repeat logins never
+  create duplicates. The collection never stores passwords or hashes.
+- Field classification:
+  | Field | Classification |
+  | --- | --- |
+  | `betterAuthUserId` | server-generated (from the verified Better Auth JWT) |
+  | `name`, `email` | provider-derived / Better Auth identity (server-side only) |
+  | `handle` | server-generated from the verified name, unique (`@johndoe`, `@johndoe2`, …) |
+  | `bio`, `country`, `age`, `phone` | user-submitted via `PATCH /users/me` (empty/null for Google users until completed) |
+  | `avatarUrl` | user-uploaded (Cloudinary URL) or provider-derived (verified Google avatar URL at first OAuth login) |
+  | `role` (`user` \| `admin`), `isBlocked`, `blockReason` | admin/server-managed — never accepted from signup, OAuth payload, query, or client state |
+- For Google users the server derives `name`, `email`, and the verified provider
+  avatar URL (`avatarUrl`) from the authenticated Better Auth identity — never
+  from a browser-submitted value. Missing onboarding data (age/country/phone/bio)
+  stays empty and is completed later through the profile flow.
 
 ---
 
@@ -157,15 +183,25 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ### `PATCH /api/v1/users/me`
 - Auth: Required (`Bearer <token>`)
-- Description: Update current authenticated user profile bio, display name, and avatar.
+- Description: Update the current authenticated user's application profile
+  (display name, bio, avatar, and onboarding fields: country, age, phone).
+  Identity fields (`betterAuthUserId`, `email`) and managed fields (`role`,
+  `isBlocked`) are never accepted from the client. Password credentials are
+  owned exclusively by Better Auth.
 - Request Body:
   ```json
   {
       "name": "Jane D.",
       "bio": "Designer & Developer",
-      "avatarUrl": "https://res.cloudinary.com/yoibi/image/upload/v12345/avatar.jpg"
+      "avatarUrl": "https://res.cloudinary.com/yoibi/image/upload/v12345/avatar.jpg",
+      "country": "US",
+      "age": 21,
+      "phone": "+1 555 000 1234"
   }
   ```
+  - `country`: ISO 3166-1 alpha-2 canonical code (uppercase, server-normalized); empty string clears it.
+  - `age`: integer >= 16 (YOIBI onboarding policy); null/empty clears it.
+  - `phone`: optional; empty string clears it.
 - Response (200): Updated user profile object.
 - Error (422 `VALIDATION_ERROR`): Invalid format (e.g. bio exceeds 280 characters).
 

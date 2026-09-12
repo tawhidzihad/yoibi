@@ -10,10 +10,13 @@ async function updateMe(req, res) {
     const userHandle = req.user.handle;
     const updates = { updatedAt: new Date() };
 
-    const { name, bio, avatarUrl } = req.body;
+    const { name, bio, avatarUrl, country, age, phone } = req.body;
     if (name !== undefined) updates.name = name;
     if (bio !== undefined) updates.bio = bio;
     if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+    if (country !== undefined) updates.country = country;
+    if (age !== undefined) updates.age = age;
+    if (phone !== undefined) updates.phone = phone;
 
     try {
         let updatedUser = await User.findOneAndUpdate(

@@ -6,9 +6,17 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Eye, EyeOff, Upload, X, User, Mail, Lock, Phone } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { Button } from "../../../shared/ui/Button";
 import { Input } from "../../../shared/ui/Input";
+import { Select } from "../../../shared/ui/Select";
+import { Textarea } from "../../../shared/ui/Textarea";
+import { GlowBorderCard } from "../../../shared/ui/GlowBorderCard";
+import { COUNTRIES } from "../../../shared/constants/countries";
+import {
+    COMMUNITY_VALUES,
+    COMMUNITY_VALUES_AGREEMENT_LABEL,
+} from "../../../shared/constants/communityValues";
 import { YoibiLogo } from "../../../shared/ui/YoibiLogo";
 import { useAuth } from "../context/AuthContext";
 
@@ -23,21 +31,32 @@ const signupSchema = z
             .string()
             .min(8, "Password must be at least 8 characters")
             .max(128, "Password is too long"),
-        confirmPassword: z.string(),
+        confirmPassword: z.string().min(1, "Confirm your password"),
         age: z
-            .coerce.number({ invalid_type_error: "Age must be a number" })
-            .int("Age must be a whole number")
-            .min(16, "You must be at least 16 years old to sign up")
-            .max(120, "Enter a valid age"),
-        phone: z
             .string()
-            .optional()
+            .min(1, "Age is required")
             .refine(
-                (val) => !val || /^\+?[\d\s\-().]{7,20}$/.test(val),
-                { message: "Enter a valid phone number" }
+                (val) => {
+                    const n = Number(val);
+                    return Number.isInteger(n) && n >= 16 && n <= 120;
+                },
+                { message: "You must be at least 16 years old to sign up" }
             ),
-        rulesAgreed: z.literal(true, {
-            errorMap: () => ({ message: "You must agree to the community rules" }),
+        bio: z
+            .string()
+            .max(280, "Say About You must be 280 characters or fewer")
+            .optional(),
+        country: z
+            .string()
+            .min(1, "Please select your country")
+            .refine(
+                (val) => COUNTRIES.some((c) => c.code === val),
+                { message: "Please select a valid country" }
+            ),
+        communityValuesAgreed: z.literal(true, {
+            errorMap: () => ({
+                message: "You must agree to the community values to sign up",
+            }),
         }),
     })
     .refine((data) => data.password === data.confirmPassword, {
@@ -48,8 +67,6 @@ const signupSchema = z
 export function SignupForm() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
-    const [photoPreview, setPhotoPreview] = useState(null);
-    const [photoFile, setPhotoFile] = useState(null);
     const [signupError, setSignupError] = useState("");
     const router = useRouter();
     const { signupEmail } = useAuth();
@@ -63,45 +80,55 @@ export function SignupForm() {
         defaultValues: {
             fullName: "",
             email: "",
+            phone: "",
             password: "",
             confirmPassword: "",
             age: "",
-            phone: "",
-            rulesAgreed: false,
+            bio: "",
+            country: "",
+            communityValuesAgreed: false,
         },
     });
-
-    function handlePhotoChange(e) {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setPhotoFile(file);
-        const url = URL.createObjectURL(file);
-        setPhotoPreview(url);
-    }
-
-    function clearPhoto() {
-        setPhotoFile(null);
-        setPhotoPreview(null);
-    }
 
     async function onSubmit(data) {
         setSignupError("");
         try {
-            const derivedHandle = `@${data.fullName.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
             await signupEmail({
                 email: data.email,
                 password: data.password,
                 name: data.fullName,
-                handle: derivedHandle,
+                // The YOIBI handle is generated server-side from the verified
+                // name — the client never submits it. avatarUrl stays null
+                // until the user uploads one from their profile page.
+                onboarding: {
+                    country: data.country,
+                    age: Number(data.age),
+                    phone: data.phone || "",
+                    bio: data.bio || "",
+                },
             });
-            router.push("/login");
+            // Signup signs the user in immediately; AuthContext
+            // hydrates the canonical users profile before navigation.
+            router.push("/feed");
+            router.refresh();
         } catch (err) {
             setSignupError(err?.message || "Signup failed. Please try again.");
         }
     }
 
     return (
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-lg">
+            {/* Back to Home */}
+            <div className="mb-6">
+                <Link
+                    href="/"
+                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+                >
+                    <ArrowLeft size={16} aria-hidden="true" />
+                    Back to Home
+                </Link>
+            </div>
+
             {/* Header */}
             <div className="mb-8 text-center">
                 <Link href="/" aria-label="Back to home">
@@ -114,7 +141,7 @@ export function SignupForm() {
                         href="/login"
                         className="font-medium text-cyan-600 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
                     >
-                        Sign in
+                        Log in
                     </Link>
                 </p>
             </div>
@@ -123,260 +150,192 @@ export function SignupForm() {
                 id="signup-form"
                 onSubmit={handleSubmit(onSubmit)}
                 noValidate
-                className="flex flex-col gap-4"
+                className="flex flex-col gap-6"
             >
-                {/* Full Name */}
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="signup-fullName" className="text-sm font-medium text-foreground">
-                        Full Name <span className="text-destructive" aria-hidden="true">*</span>
-                    </label>
-                    <div className="relative">
-                        <User
-                            size={16}
-                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                            aria-hidden="true"
-                        />
+                {/* ——— Account section (legacy-inspired hover border) ——— */}
+                <GlowBorderCard>
+                    <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        Account
+                    </h2>
+                    <div className="flex flex-col gap-4">
                         <Input
                             id="signup-fullName"
-                            type="text"
+                            label="Full Name"
+                            required
                             autoComplete="name"
-                            placeholder="Jane Doe"
-                            className="pl-9"
+                            placeholder="John Doe"
+                            error={errors.fullName?.message}
                             aria-invalid={!!errors.fullName}
-                            aria-describedby={errors.fullName ? "signup-fullName-error" : undefined}
                             {...register("fullName")}
-                        />
-                    </div>
-                    {errors.fullName && (
-                        <p id="signup-fullName-error" role="alert" className="text-xs text-destructive">
-                            {errors.fullName.message}
-                        </p>
-                    )}
-                </div>
-
-                {/* Email */}
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="signup-email" className="text-sm font-medium text-foreground">
-                        Email Address <span className="text-destructive" aria-hidden="true">*</span>
-                    </label>
-                    <div className="relative">
-                        <Mail
-                            size={16}
-                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                            aria-hidden="true"
                         />
                         <Input
                             id="signup-email"
+                            label="Email Address"
                             type="email"
+                            required
                             autoComplete="email"
-                            placeholder="jane@example.com"
-                            className="pl-9"
+                            placeholder="you@example.com"
+                            error={errors.email?.message}
                             aria-invalid={!!errors.email}
-                            aria-describedby={errors.email ? "signup-email-error" : undefined}
                             {...register("email")}
-                        />
-                    </div>
-                    {errors.email && (
-                        <p id="signup-email-error" role="alert" className="text-xs text-destructive">
-                            {errors.email.message}
-                        </p>
-                    )}
-                </div>
-
-                {/* Password */}
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="signup-password" className="text-sm font-medium text-foreground">
-                        Password <span className="text-destructive" aria-hidden="true">*</span>
-                    </label>
-                    <div className="relative">
-                        <Lock
-                            size={16}
-                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                            aria-hidden="true"
-                        />
-                        <Input
-                            id="signup-password"
-                            type={showPassword ? "text" : "password"}
-                            autoComplete="new-password"
-                            placeholder="At least 8 characters"
-                            className="pl-9 pr-10"
-                            aria-invalid={!!errors.password}
-                            aria-describedby={errors.password ? "signup-password-error" : undefined}
-                            {...register("password")}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowPassword((v) => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
-                            aria-label={showPassword ? "Hide password" : "Show password"}
-                        >
-                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                    </div>
-                    {errors.password && (
-                        <p id="signup-password-error" role="alert" className="text-xs text-destructive">
-                            {errors.password.message}
-                        </p>
-                    )}
-                </div>
-
-                {/* Confirm Password */}
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="signup-confirmPassword" className="text-sm font-medium text-foreground">
-                        Confirm Password <span className="text-destructive" aria-hidden="true">*</span>
-                    </label>
-                    <div className="relative">
-                        <Lock
-                            size={16}
-                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                            aria-hidden="true"
-                        />
-                        <Input
-                            id="signup-confirmPassword"
-                            type={showConfirm ? "text" : "password"}
-                            autoComplete="new-password"
-                            placeholder="Repeat your password"
-                            className="pl-9 pr-10"
-                            aria-invalid={!!errors.confirmPassword}
-                            aria-describedby={errors.confirmPassword ? "signup-confirmPassword-error" : undefined}
-                            {...register("confirmPassword")}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowConfirm((v) => !v)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
-                            aria-label={showConfirm ? "Hide confirm password" : "Show confirm password"}
-                        >
-                            {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
-                        </button>
-                    </div>
-                    {errors.confirmPassword && (
-                        <p id="signup-confirmPassword-error" role="alert" className="text-xs text-destructive">
-                            {errors.confirmPassword.message}
-                        </p>
-                    )}
-                </div>
-
-                {/* Age */}
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="signup-age" className="text-sm font-medium text-foreground">
-                        Age <span className="text-destructive" aria-hidden="true">*</span>
-                    </label>
-                    <Input
-                        id="signup-age"
-                        type="number"
-                        min={16}
-                        max={120}
-                        placeholder="Must be 16 or older"
-                        aria-invalid={!!errors.age}
-                        aria-describedby={errors.age ? "signup-age-error" : undefined}
-                        {...register("age")}
-                    />
-                    {errors.age && (
-                        <p id="signup-age-error" role="alert" className="text-xs text-destructive">
-                            {errors.age.message}
-                        </p>
-                    )}
-                </div>
-
-                {/* Phone (optional) */}
-                <div className="flex flex-col gap-1.5">
-                    <label htmlFor="signup-phone" className="text-sm font-medium text-foreground">
-                        Phone Number{" "}
-                        <span className="text-muted-foreground font-normal">(optional)</span>
-                    </label>
-                    <div className="relative">
-                        <Phone
-                            size={16}
-                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                            aria-hidden="true"
                         />
                         <Input
                             id="signup-phone"
+                            label="Telephone Number"
                             type="tel"
                             autoComplete="tel"
-                            placeholder="+1 555 000 0000"
-                            className="pl-9"
+                            placeholder="+1 555 000 1234 (optional)"
+                            error={errors.phone?.message}
                             aria-invalid={!!errors.phone}
-                            aria-describedby={errors.phone ? "signup-phone-error" : undefined}
                             {...register("phone")}
                         />
                     </div>
-                    {errors.phone && (
-                        <p id="signup-phone-error" role="alert" className="text-xs text-destructive">
-                            {errors.phone.message}
-                        </p>
-                    )}
-                </div>
+                </GlowBorderCard>
 
-                {/* Profile Photo (optional) */}
-                <div className="flex flex-col gap-1.5">
-                    <span className="text-sm font-medium text-foreground">
-                        Profile Photo{" "}
-                        <span className="text-muted-foreground font-normal">(optional)</span>
-                    </span>
-                    {photoPreview ? (
-                        <div className="flex items-center gap-3">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={photoPreview}
-                                alt="Profile photo preview"
-                                className="h-14 w-14 rounded-full object-cover border border-border/60"
+                {/* ——— Security section ——— */}
+                <GlowBorderCard>
+                    <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        Security
+                    </h2>
+                    <div className="flex flex-col gap-4">
+                        <div className="relative">
+                            <Input
+                                id="signup-password"
+                                label="Password"
+                                type={showPassword ? "text" : "password"}
+                                required
+                                autoComplete="new-password"
+                                placeholder="At least 8 characters"
+                                error={errors.password?.message}
+                                aria-invalid={!!errors.password}
+                                className="pr-10"
+                                {...register("password")}
                             />
                             <button
                                 type="button"
-                                onClick={clearPhoto}
-                                className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                                onClick={() => setShowPassword((v) => !v)}
+                                className="absolute right-3 top-[38px] cursor-pointer text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+                                aria-label={showPassword ? "Hide password" : "Show password"}
                             >
-                                <X size={12} aria-hidden="true" /> Remove
+                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                             </button>
                         </div>
-                    ) : (
-                        <label
-                            htmlFor="signup-photo"
-                            className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-border/70 bg-secondary/40 px-4 py-3 text-sm text-muted-foreground transition-colors hover:border-cyan-500/50 hover:bg-secondary/60 focus-within:ring-2 focus-within:ring-cyan-500 focus-within:ring-offset-1"
-                        >
-                            <Upload size={16} aria-hidden="true" />
-                            <span>Click to upload a photo</span>
-                            <input
-                                id="signup-photo"
-                                type="file"
-                                accept="image/*"
-                                className="sr-only"
-                                onChange={handlePhotoChange}
+                        <div className="relative">
+                            <Input
+                                id="signup-confirmPassword"
+                                label="Confirm Password"
+                                type={showConfirm ? "text" : "password"}
+                                required
+                                autoComplete="new-password"
+                                placeholder="Re-enter your password"
+                                error={errors.confirmPassword?.message}
+                                aria-invalid={!!errors.confirmPassword}
+                                className="pr-10"
+                                {...register("confirmPassword")}
                             />
-                        </label>
-                    )}
-                </div>
-
-                {/* Community Rules Agreement */}
-                <div className="flex flex-col gap-1.5">
-                    <label className="flex items-start gap-3 cursor-pointer select-none">
-                        <input
-                            id="signup-rulesAgreed"
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-cyan-600 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                            aria-invalid={!!errors.rulesAgreed}
-                            aria-describedby={errors.rulesAgreed ? "signup-rulesAgreed-error" : undefined}
-                            {...register("rulesAgreed")}
-                        />
-                        <span className="text-sm text-muted-foreground leading-relaxed">
-                            I have read and agree to the{" "}
-                            <Link
-                                href="/#community-rules"
-                                className="font-medium text-cyan-600 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirm((v) => !v)}
+                                className="absolute right-3 top-[38px] cursor-pointer text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+                                aria-label={showConfirm ? "Hide password" : "Show password"}
                             >
-                                Yoibi Community Rules
-                            </Link>
-                            . I understand I must be at least 16 years old to use this platform.
-                        </span>
-                    </label>
-                    {errors.rulesAgreed && (
-                        <p id="signup-rulesAgreed-error" role="alert" className="text-xs text-destructive">
-                            {errors.rulesAgreed.message}
-                        </p>
-                    )}
-                </div>
+                                {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
+                    </div>
+                </GlowBorderCard>
+
+                {/* ——— About You section ——— */}
+                <GlowBorderCard>
+                    <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        About You
+                    </h2>
+                    <div className="flex flex-col gap-4">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <Input
+                                id="signup-age"
+                                label="Age"
+                                type="number"
+                                inputMode="numeric"
+                                min={16}
+                                max={120}
+                                required
+                                placeholder="16+"
+                                error={errors.age?.message}
+                                aria-invalid={!!errors.age}
+                                {...register("age")}
+                            />
+                            <Select
+                                id="signup-country"
+                                label="Country"
+                                required
+                                error={errors.country?.message}
+                                {...register("country")}
+                            >
+                                <option value="">Select a country…</option>
+                                {COUNTRIES.map((c) => (
+                                    <option key={c.code} value={c.code}>
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </Select>
+                        </div>
+                        <Textarea
+                            id="signup-bio"
+                            label="Say About You"
+                            rows={3}
+                            maxLength={280}
+                            placeholder="A few words about you (optional)"
+                            error={errors.bio?.message}
+                            aria-invalid={!!errors.bio}
+                            {...register("bio")}
+                        />
+                    </div>
+                </GlowBorderCard>
+
+                {/* ——— Community Values section ——— */}
+                <GlowBorderCard>
+                    <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        Community Values
+                    </h2>
+                    <ol className="mb-5 flex list-decimal flex-col gap-2.5 pl-5 text-sm leading-relaxed text-muted-foreground">
+                        {COMMUNITY_VALUES.map((value, index) => (
+                            <li key={index} className="pl-1">
+                                {value}
+                            </li>
+                        ))}
+                    </ol>
+                    <div className="flex flex-col gap-1.5">
+                        <label className="flex cursor-pointer select-none items-start gap-3">
+                            <input
+                                id="signup-communityValuesAgreed"
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded accent-cyan-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                                aria-invalid={!!errors.communityValuesAgreed}
+                                aria-describedby={
+                                    errors.communityValuesAgreed
+                                        ? "signup-communityValuesAgreed-error"
+                                        : undefined
+                                }
+                                {...register("communityValuesAgreed")}
+                            />
+                            <span className="text-sm leading-relaxed text-muted-foreground">
+                                <span className="font-medium text-foreground">
+                                    {COMMUNITY_VALUES_AGREEMENT_LABEL}
+                                </span>
+                            </span>
+                        </label>
+                        {errors.communityValuesAgreed && (
+                            <p
+                                id="signup-communityValuesAgreed-error"
+                                role="alert"
+                                className="text-xs text-destructive"
+                            >
+                                {errors.communityValuesAgreed.message}
+                            </p>
+                        )}
+                    </div>
+                </GlowBorderCard>
 
                 {/* Root / Signup error */}
                 {signupError && (
@@ -391,7 +350,7 @@ export function SignupForm() {
                     variant="primary"
                     size="lg"
                     loading={isSubmitting}
-                    className="mt-2 w-full"
+                    className="mt-1 w-full"
                 >
                     Create Account
                 </Button>

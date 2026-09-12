@@ -66,6 +66,8 @@ async function getLiveUserModeration(userId, payload = null) {
                 blockedReason: userDoc.blockedReason || null,
                 role: normalizeRole(userDoc.role) || null,
                 handle: userDoc.handle || null,
+                name: typeof userDoc.name === 'string' ? userDoc.name : null,
+                avatarUrl: typeof userDoc.avatarUrl === 'string' ? userDoc.avatarUrl : null,
                 expiresAt: now + 30000
             }
             : {
@@ -74,6 +76,8 @@ async function getLiveUserModeration(userId, payload = null) {
                 blockedReason: null,
                 role: null,
                 handle: null,
+                name: null,
+                avatarUrl: null,
                 expiresAt: now + 30000
             };
         userModerationCache.set(userId, entry);
@@ -189,8 +193,12 @@ async function verifyJwt(req, res, next) {
             }
         }
 
-        // Attach server-verified identity only. Email is exposed ONLY through
-        // the authenticated /auth/me flow — never through public APIs.
+        // req.user carries the server-verified identity plus the canonical
+        // application profile truth (handle, name, avatarUrl) so downstream
+        // writes (ownership, mentions) stay consistent without extra lookups.
+        // The avatar always prefers the DB profile truth (which stores the
+        // trusted Google provider image URL at creation) over the raw JWT
+        // claim; the client never influences these values.
         const handleBase = deriveHandleBaseFor({
             name: payload.name,
             email: payload.email,
@@ -199,11 +207,13 @@ async function verifyJwt(req, res, next) {
         req.user = {
             id: userId,
             email: payload.email,
-            name: payload.name || '',
+            name: (liveUser && liveUser.name) || payload.name || '',
             handle: (liveUser && liveUser.handle) || `${HANDLE_PREFIX}${handleBase}`,
             username: payload.username || handleBase,
             role: normalizeRole((liveUser && liveUser.role) || payload.role || 'user'),
-            isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked)
+            isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked),
+            avatarUrl: (liveUser && liveUser.avatarUrl) || payload.avatarUrl || payload.image || '',
+            createdAt: payload.createdAt
         };
 
         return next();
@@ -296,11 +306,13 @@ async function verifyJwtToken(token) {
         return {
             id: userId,
             email: payload.email,
-            name: payload.name || '',
+            name: (liveUser && liveUser.name) || payload.name || '',
             handle: (liveUser && liveUser.handle) || `${HANDLE_PREFIX}${handleBase}`,
             username: payload.username || handleBase,
             role: normalizeRole((liveUser && liveUser.role) || payload.role || 'user'),
-            isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked)
+            isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked),
+            avatarUrl: (liveUser && liveUser.avatarUrl) || payload.avatarUrl || payload.image || '',
+            createdAt: payload.createdAt
         };
     } catch (error) {
         // Keep the explicit error shape above as-is; normalize raw jose errors
