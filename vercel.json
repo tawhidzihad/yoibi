@@ -1,0 +1,17 @@
+{
+  "services": {
+    "backend": {
+      "root": "backend",
+      "entrypoint": "src/app.js"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": {
+        "type": "service",
+        "service": "backend"
+      }
+    }
+  ]
+}
