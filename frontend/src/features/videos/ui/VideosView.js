@@ -137,7 +137,7 @@ export function VideosView() {
                 <div>
                     <h1 className="text-lg font-bold text-foreground">Videos</h1>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                        8 categories · No algorithm · Real community content
+                        Discover content across categories
                     </p>
                 </div>
 

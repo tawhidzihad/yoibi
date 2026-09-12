@@ -3,7 +3,12 @@ const mongoose = require("mongoose");
 const mediaAttachmentSchema = new mongoose.Schema({
     url: { type: String, required: true },
     type: { type: String, default: "image" },
-    publicId: { type: String, default: "" }
+    publicId: { type: String, default: "" },
+    // Optional Cloudinary delivery metadata captured at upload time.
+    width: { type: Number },
+    height: { type: Number },
+    bytes: { type: Number },
+    format: { type: String }
 }, { _id: false });
 
 const tweetSchema = new mongoose.Schema({

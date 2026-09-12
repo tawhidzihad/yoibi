@@ -7,6 +7,7 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 import { tweetsApi } from "../api/tweetsApi";
 import { emitProfileChanged } from "@/lib/profileSync";
 import { TweetReplySection } from "./TweetReplySection";
+import { TweetMediaGallery } from "./TweetMediaGallery";
 import { Modal } from "@/shared/ui/Modal";
 import { Button } from "@/shared/ui/Button";
 import { cn } from "@/shared/utils/cn";
@@ -166,9 +167,6 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
         }
     };
 
-    // Normalize media URLs (could be string URLs or objects)
-    const mediaItems = Array.isArray(tweet.mediaUrls) ? tweet.mediaUrls : [];
-
     return (
         <article
             id={`tweet-${tweet.id}`}
@@ -228,39 +226,8 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
                         {tweet.content}
                     </p>
 
-                    {/* Media Attachments */}
-                    {mediaItems.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                            {mediaItems.map((item, index) => {
-                                const url = typeof item === "string" ? item : item.url;
-                                const isVideo = url && url.match(/\.(mp4|webm|mov)$/i);
-
-                                return (
-                                    <div
-                                        key={index}
-                                        className="overflow-hidden rounded-xl border border-border/80 bg-secondary/20"
-                                    >
-                                        {isVideo ? (
-                                            <video
-                                                src={url}
-                                                controls
-                                                className="max-h-96 w-full object-cover"
-                                                preload="metadata"
-                                            />
-                                        ) : (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img
-                                                src={url}
-                                                alt="Tweet media attachment"
-                                                className="max-h-96 w-full object-cover"
-                                                loading="lazy"
-                                            />
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                    {/* Media Attachments (single image / carousel / viewer) */}
+                    <TweetMediaGallery mediaUrls={tweet.mediaUrls} tweetId={tweet.id} />
 
                     {/* Action Bar */}
                     <div className="mt-3 flex items-center gap-6 text-muted-foreground">

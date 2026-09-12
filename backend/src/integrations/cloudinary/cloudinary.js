@@ -85,11 +85,11 @@ function createUploadIntent(userId) {
 /**
  * Verifies asset provenance against a previously issued upload intent and consumes it.
  */
-function verifyAndConsumeIntent({ uploadIntentId, userId, publicId, videoUrl }) {
+function verifyAndConsumeIntent({ uploadIntentId, userId, publicId, videoUrl, url }) {
     if (!uploadIntentId) {
         return {
             valid: false,
-            error: "uploadIntentId is required for video registration."
+            error: "uploadIntentId is required for media registration."
         };
     }
 
@@ -97,7 +97,7 @@ function verifyAndConsumeIntent({ uploadIntentId, userId, publicId, videoUrl }) 
     if (!intent) {
         return {
             valid: false,
-            error: "Upload intent not found or expired. Please re-upload the video."
+            error: "Upload intent not found or expired. Please re-upload your file."
         };
     }
 
@@ -112,7 +112,7 @@ function verifyAndConsumeIntent({ uploadIntentId, userId, publicId, videoUrl }) 
         uploadIntents.delete(uploadIntentId);
         return {
             valid: false,
-            error: "Upload intent has expired. Please re-upload the video."
+            error: "Upload intent has expired. Please re-upload your file."
         };
     }
 
@@ -130,10 +130,14 @@ function verifyAndConsumeIntent({ uploadIntentId, userId, publicId, videoUrl }) 
         };
     }
 
-    if (videoUrl && !videoUrl.includes(intent.publicId)) {
+    // The returned asset URL must correspond to the server-authorized asset
+    // path (single canonical representation — see above). Accepts either the
+    // legacy `videoUrl` parameter name or the media-agnostic `url` alias.
+    const providedUrl = videoUrl || url;
+    if (providedUrl && !providedUrl.includes(intent.publicId)) {
         return {
             valid: false,
-            error: "Provided videoUrl does not correspond to the server-authorized asset path."
+            error: "Provided asset URL does not correspond to the server-authorized asset path."
         };
     }
 
@@ -209,9 +213,99 @@ function createImageUploadIntent(userId, kind) {
 }
 
 /**
- * Destroys a video asset in Cloudinary using the Admin/REST API.
+ * Creates a server-controlled TWEET IMAGE upload intent and generates
+ * Cloudinary signed upload parameters.
+ *
+ * Security rules (identical to the other intent factories — no credentials
+ * ever reach the browser):
+ *   - The signature is generated server-side with CLOUDINARY_API_SECRET.
+ *   - The folder (`yoibi/tweets/{userId}`) is derived EXCLUSIVELY from the
+ *     verified JWT identity — clients cannot choose or override it.
+ *   - The exact `publicId` is server-assigned (`folder/intentTweetImg_...`);
+ *     tweet registration later consumes this intent and rejects any publicId
+ *     or asset URL that does not match it byte-for-byte.
+ *
+ * Signed-parameter rule (same provenance fix as videos/profile images):
+ * signs ONLY `public_id` + `timestamp` — `public_id` already embeds the
+ * server-controlled folder path. Clients MUST NOT send a separate `folder`
+ * param or Cloudinary doubles the asset path, failing verification.
+ *
+ * @param {string} userId Authenticated identity from the verified JWT
  */
-async function deleteCloudinaryAsset(publicId) {
+function createTweetImageUploadIntent(userId) {
+    const hasConfig = Boolean(
+        env.CLOUDINARY_CLOUD_NAME &&
+        env.CLOUDINARY_API_KEY &&
+        env.CLOUDINARY_API_SECRET
+    );
+
+    // In production, Cloudinary credentials are strictly mandatory
+    if (env.NODE_ENV === "production" && !hasConfig) {
+        const error = new Error("Cloudinary media service is not configured on the server.");
+        error.statusCode = 503;
+        error.code = "SERVICE_UNCONFIGURED";
+        throw error;
+    }
+
+    if (!userId || typeof userId !== "string") {
+        const error = new Error("Authentication required to generate upload signature.");
+        error.statusCode = 401;
+        error.code = "UNAUTHORIZED";
+        throw error;
+    }
+
+    const intentId = `intent_tweetimg_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    const folder = `yoibi/tweets/${userId}`;
+    const publicId = `${folder}/${intentId}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    // Sign ONLY `public_id` + `timestamp` (alphabetical order) — see note above.
+    const paramsToSign = `public_id=${publicId}&timestamp=${timestamp}`;
+
+    let signature = "";
+    if (hasConfig) {
+        signature = crypto
+            .createHash("sha1")
+            .update(`${paramsToSign}${env.CLOUDINARY_API_SECRET}`)
+            .digest("hex");
+    } else {
+        // Safe mock signature strictly for test/dev environment
+        signature = `mock_sig_${crypto.randomBytes(8).toString("hex")}`;
+    }
+
+    const intent = {
+        intentId,
+        userId,
+        publicId,
+        folder,
+        timestamp,
+        kind: "tweet-image",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 30 * 60 * 1000,
+        consumed: false
+    };
+
+    uploadIntents.set(intentId, intent);
+
+    return {
+        uploadIntentId: intentId,
+        publicId,
+        folder,
+        timestamp,
+        signature,
+        apiKey: env.CLOUDINARY_API_KEY || "mock_api_key",
+        cloudName: env.CLOUDINARY_CLOUD_NAME || "mock_cloud_name"
+    };
+}
+
+/**
+ * Destroys a media asset in Cloudinary using the Admin/REST API.
+ *
+ * @param {string} publicId Server-authorized canonical asset public ID.
+ * @param {'video'|'image'} [resourceType='video'] Cloudinary resource type of
+ * the asset (tweet media and profile images are `image`; videos are `video`).
+ */
+async function deleteCloudinaryAsset(publicId, resourceType = "video") {
     if (!publicId) return { success: true };
 
     const hasConfig = Boolean(
@@ -225,6 +319,7 @@ async function deleteCloudinaryAsset(publicId) {
         return { success: true, mock: true };
     }
 
+    const normalizedResourceType = resourceType === "image" ? "image" : "video";
     const timestamp = Math.floor(Date.now() / 1000);
     const paramsToSign = `public_id=${publicId}&timestamp=${timestamp}`;
     const signature = crypto
@@ -233,7 +328,7 @@ async function deleteCloudinaryAsset(publicId) {
         .digest("hex");
 
     try {
-        const url = `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/video/destroy`;
+        const url = `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/${normalizedResourceType}/destroy`;
         const response = await fetch(url, {
             method: "POST",
             headers: {
@@ -265,6 +360,7 @@ async function deleteCloudinaryAsset(publicId) {
 module.exports = {
     createUploadIntent,
     createImageUploadIntent,
+    createTweetImageUploadIntent,
     verifyAndConsumeIntent,
     deleteCloudinaryAsset,
     _uploadIntents: uploadIntents // Exposed for tests

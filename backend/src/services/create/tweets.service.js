@@ -1,10 +1,22 @@
 const tweetsRepository = require("../../repositories/tweets.repository");
+const {
+    verifyAndConsumeIntent,
+    createTweetImageUploadIntent
+} = require("../../integrations/cloudinary/cloudinary");
 
 /**
  * Service: Create a new Tweet
  * Author ID is always taken from the verified JWT user — never trusted from client.
+ *
+ * Media provenance: every media item must reference a server-issued tweet-image
+ * upload intent. Each intent is verified (existence, expiry, ownership by the
+ * authenticated user, exact publicId match, URL correspondence) and consumed
+ * exactly once. The stored record uses the server-authorized canonical identity
+ * (intent.publicId) — never a raw client-supplied public ID — so:
+ *   server-authorized asset identity === Cloudinary uploaded asset identity
+ *   === stored Tweet media record.
  */
-async function createTweet({ user, content, mediaUrls = [], replyToId = null }) {
+async function createTweet({ user, content, media = [], replyToId = null }) {
     if (!user || !user.id) {
         throw { statusCode: 401, code: "UNAUTHORIZED", message: "Authentication required" };
     }
@@ -22,13 +34,44 @@ async function createTweet({ user, content, mediaUrls = [], replyToId = null }) 
         }
     }
 
+    // Strict asset-provenance verification for every attached image.
+    // All-or-nothing: a single invalid attachment rejects the whole tweet so
+    // no partial/unverified media is ever stored. Security is never weakened
+    // to make uploads succeed.
+    const mediaList = Array.isArray(media) ? media : [];
+    const verifiedMedia = [];
+    for (const item of mediaList) {
+        const verification = verifyAndConsumeIntent({
+            uploadIntentId: item && item.uploadIntentId,
+            userId: user.id,
+            publicId: item && item.publicId,
+            url: item && item.url
+        });
+
+        if (!verification.valid) {
+            throw { statusCode: 403, code: "FORBIDDEN", message: verification.error };
+        }
+
+        verifiedMedia.push({
+            url: String(item.url).trim(),
+            type: "image",
+            // Canonical identity comes from the server intent — never from the
+            // raw client-supplied publicId string.
+            publicId: verification.intent.publicId,
+            ...(Number.isInteger(item.width) && item.width > 0 ? { width: item.width } : {}),
+            ...(Number.isInteger(item.height) && item.height > 0 ? { height: item.height } : {}),
+            ...(Number.isInteger(item.bytes) && item.bytes > 0 ? { bytes: item.bytes } : {}),
+            ...(typeof item.format === "string" && item.format.length > 0 ? { format: item.format } : {})
+        });
+    }
+
     const tweetId = `tweet_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     const tweetDoc = {
         _id: tweetId,
         authorId: user.id,
         content: content.trim(),
-        mediaUrls: Array.isArray(mediaUrls) ? mediaUrls : [],
+        mediaUrls: verifiedMedia,
         likes: [],
         likesCount: 0,
         retweets: [],
@@ -57,4 +100,17 @@ async function createTweet({ user, content, mediaUrls = [], replyToId = null }) 
     };
 }
 
-module.exports = { createTweet };
+/**
+ * Service: Generate a server-signed Cloudinary upload authorization for ONE
+ * tweet image of the authenticated user. The folder and exact publicId are
+ * server-controlled per user; CLOUDINARY_API_SECRET never leaves the server.
+ */
+async function generateTweetImageSignature(user) {
+    if (!user || !user.id) {
+        throw { statusCode: 401, code: "UNAUTHORIZED", message: "Authentication required" };
+    }
+
+    return createTweetImageUploadIntent(user.id);
+}
+
+module.exports = { createTweet, generateTweetImageSignature };

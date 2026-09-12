@@ -328,6 +328,24 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   - `filter`: `all` | `following`
 - Response (200): Paginated list of tweets with author details, media URLs, like count, retweet count, and reply count.
 
+### `POST /api/v1/tweets/media-signature`
+- Auth: Required (`Bearer <token>`)
+- Description: Issue a server-signed Cloudinary upload authorization for **one** tweet image of the authenticated user. The folder (`yoibi/tweets/{userId}`) and exact `publicId` are server-controlled per user; the Cloudinary API secret never leaves the browser.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "uploadIntentId": "intent_tweetimg_...",
+          "cloudName": "yoibi",
+          "apiKey": "<cloudinary-api-key>",
+          "timestamp": 1700000000,
+          "signature": "<sha1(public_id=...&timestamp=...+SECRET)>",
+          "publicId": "yoibi/tweets/<userId>/intent_tweetimg_..."
+      }
+  }
+  ```
+
 ### `POST /api/v1/tweets`
 - Auth: Required (`Bearer <token>`)
 - Description: Create a new tweet.
@@ -335,11 +353,28 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   ```json
   {
       "content": "Launching YOIBI Phase 4. Clean, typed micro-posts! #dev #web",
-      "mediaUrls": []
+      "media": [
+          {
+              "uploadIntentId": "intent_tweetimg_...",
+              "publicId": "yoibi/tweets/<userId>/intent_tweetimg_...",
+              "url": "https://res.cloudinary.com/yoibi/image/upload/v.../yoibi/tweets/<userId>/intent_tweetimg_...",
+              "type": "image",
+              "width": 1920,
+              "height": 1080,
+              "bytes": 245100,
+              "format": "webp"
+          }
+      ],
+      "replyToId": null
   }
   ```
+- Constraints:
+  - `content`: 1–280 characters (trimmed).
+  - `media`: max **5** server-authorized image attachments. Each entry references a server-issued upload intent and is strictly verified (existence, expiry, ownership, exact publicId match, URL correspondence) before the intent is consumed exactly once.
+  - Supported image formats: `image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/gif`. Max size: 10 MB per image.
 - Response (201): Created tweet object.
-- Error (422 `VALIDATION_ERROR`): Content exceeds 280 characters or is empty.
+- Error (422 `VALIDATION_ERROR`): Content exceeds 280 characters or is empty; more than 5 media items.
+- Error (403 `FORBIDDEN`): A media attachment failed intent verification (invalid/expired intent, ownership mismatch, or asset identity mismatch).
 
 ### `GET /api/v1/tweets/:id`
 - Auth: Optional (marks `liked` and `retweeted` if authenticated)
@@ -387,7 +422,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   ```json
   {
       "content": "Exciting update!",
-      "mediaUrls": []
+      "media": []
   }
   ```
 - Response (201): Created reply tweet object linked via `replyToId`.
@@ -405,7 +440,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   - `file`: Binary file (image or video)
   - `folder`: string (`posts` | `tweets` | `avatars` | `videos`)
 - Constraints:
-  - Image MIME types: `image/jpeg`, `image/png`, `image/webp`, `image/gif`. Max size: 10 MB.
+  - Image MIME types: `image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/gif`. Max size: 10 MB.
   - Video MIME types: `video/mp4`, `video/webm`, `video/quicktime`. Max size: 100 MB.
 - Response (201):
   ```json

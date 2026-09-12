@@ -224,13 +224,89 @@ paths:
                 content:
                   type: string
                   maxLength: 280
-                mediaUrls:
+                media:
                   type: array
+                  maxItems: 5
+                  description: Server-authorized image attachments (max 5). Each entry references a server-issued upload intent.
                   items:
-                    type: string
+                    type: object
+                    required: [uploadIntentId, publicId, url]
+                    properties:
+                      uploadIntentId:
+                        type: string
+                      publicId:
+                        type: string
+                        description: yoibi/tweets/{userId}/intent_tweetimg_...
+                      url:
+                        type: string
+                        format: uri
+                      type:
+                        type: string
+                        enum: [image]
+                        default: image
+                      width:
+                        type: integer
+                      height:
+                        type: integer
+                      bytes:
+                        type: integer
+                      format:
+                        type: string
+                        enum: [jpg, jpeg, png, webp, avif, gif]
+                replyToId:
+                  type: string
+                  nullable: true
       responses:
         '201':
           description: Tweet published
+
+  /tweets/media-signature:
+    post:
+      summary: Request server-signed Cloudinary upload parameters for one tweet image
+      description: >
+        Returns server-signed upload parameters for ONE image of the authenticated user.
+        The signature covers public_id + timestamp only; publicId already embeds the
+        server-controlled folder. Clients must NOT send `folder` as a separate upload
+        parameter — Cloudinary prepends `folder` to `public_id` when both are sent,
+        doubling the asset path and failing strict provenance verification. The `folder`
+        field is informational only. NEVER contains the Cloudinary API secret.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Signed upload parameters generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      uploadIntentId:
+                        type: string
+                        example: "intent_tweetimg_1726000000_a1b2c3d4"
+                      publicId:
+                        type: string
+                        example: "yoibi/tweets/usr_65e1a2b3/intent_tweetimg_1726000000_a1b2c3d4"
+                      folder:
+                        type: string
+                        example: "yoibi/tweets/usr_65e1a2b3"
+                      timestamp:
+                        type: integer
+                        example: 1726000000
+                      signature:
+                        type: string
+                        example: "3f8b8..."
+                      apiKey:
+                        type: string
+                        example: "123456789"
+                      cloudName:
+                        type: string
+                        example: "yoibi"
 
   /tweets/{id}:
     get:
@@ -347,10 +423,33 @@ paths:
                 content:
                   type: string
                   maxLength: 280
-                mediaUrls:
+                media:
                   type: array
+                  maxItems: 5
                   items:
-                    type: string
+                    type: object
+                    required: [uploadIntentId, publicId, url]
+                    properties:
+                      uploadIntentId:
+                        type: string
+                      publicId:
+                        type: string
+                      url:
+                        type: string
+                        format: uri
+                      type:
+                        type: string
+                        enum: [image]
+                        default: image
+                      width:
+                        type: integer
+                      height:
+                        type: integer
+                      bytes:
+                        type: integer
+                      format:
+                        type: string
+                        enum: [jpg, jpeg, png, webp, avif, gif]
       responses:
         '201':
           description: Reply tweet created

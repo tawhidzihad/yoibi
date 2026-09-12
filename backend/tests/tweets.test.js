@@ -3,6 +3,7 @@ const http = require("http");
 const app = require("../src/app");
 const tweetsRepository = require("../src/repositories/tweets.repository");
 const { createTweet } = require("../src/services/create/tweets.service");
+const { runTweetMediaContractTests } = require("./tweet-media-contract.test");
 const { listTweets, getTweetById, getReplies } = require("../src/services/read/tweets.service");
 const { likeTweet, unlikeTweet, retweetTweet, undoRetweet } = require("../src/services/update/tweets.service");
 const { deleteTweet } = require("../src/services/delete/tweets.service");
@@ -212,7 +213,7 @@ async function runTweetsTests() {
         const createdTweet = await createTweet({
             user: userA,
             content: "Hello from the Yoibi tweet test suite! 🐦",
-            mediaUrls: []
+            media: []
         });
         assert.strictEqual(createdTweet.authorId, "usr_alice");
         assert.strictEqual(createdTweet.content, "Hello from the Yoibi tweet test suite! 🐦");
@@ -323,6 +324,8 @@ async function runTweetsTests() {
         const adminDeleteRes = await deleteTweet({ tweetId: tweetForAdmin.id, user: admin });
         assert.strictEqual(adminDeleteRes.deletedId, tweetForAdmin.id);
         console.log("✓ Service: deleteTweet allowed admin to delete any tweet.");
+
+        await runTweetMediaContractTests({ createTweet });
 
     } finally {
         // Restore repository methods

@@ -8,13 +8,19 @@ const {
     createReplySchema
 } = require("../validators/tweets.validator");
 
-const { handleCreateTweet } = require("../controllers/create/tweets.controller");
+const { handleCreateTweet, handleGetTweetImageSignature } = require("../controllers/create/tweets.controller");
 const { handleListTweets, handleGetTweetById, handleGetReplies } = require("../controllers/read/tweets.controller");
 const { handleLikeTweet, handleUnlikeTweet, handleRetweetTweet, handleUndoRetweet } = require("../controllers/update/tweets.controller");
 const { handleDeleteTweet } = require("../controllers/delete/tweets.controller");
-const { writeLimiter } = require("../middleware/rate-limiter");
+const { writeLimiter, expensiveLimiter } = require("../middleware/rate-limiter");
 
 const router = Router();
+
+// Tweet image upload authorization (ONE image) — server-issued Cloudinary
+// signature bound to the authenticated user (folder yoibi/tweets/{userId}).
+// Clients request one signature per selected image, upload directly to
+// Cloudinary with it, then register the tweet with the verified media items.
+router.post("/tweets/media-signature", expensiveLimiter, verifyJwt, handleGetTweetImageSignature);
 
 // Feed & Tweet Listing
 router.get("/tweets", optionalAuth, validate(listTweetsQuerySchema, "query"), handleListTweets);

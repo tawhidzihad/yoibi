@@ -6,11 +6,11 @@ This file prevents a new AI model from restarting work from zero.
 At the end of every meaningful session/task, the active model must update this file. A new model must read it before changing code.
 
 ## Current Snapshot
-- Last updated: 2026-09-12
-- Active task: TASK-014 — Complete User Profile System (`/profile/[username]`, editing, avatar + banner, real content tabs)
-- Overall phase: Phase 5 — Levels 1–2 passed; TASK-014 implemented and quality-gated (production verification pending)
-- Completion status: `Implemented, Verified & Deployed` (profile UI + API live; interactive login/datastore assertions still pending owner credentials)
-- Git repository status: Working tree clean at feature commit; see latest commits
+- Last updated: 2026-09-13
+- Active task: TASK-017 — Tweet Media Upload Redesign & Fix (direct device upload, secure Cloudinary pipeline, full-screen viewer + carousel); includes Task 1 /videos page-text update
+- Overall phase: Phase 5 — TASK-017 implemented & quality-gated (backend 100%, frontend 75/75, lint 0/0, build clean; real Cloudinary E2E verified for JPEG/PNG/WEBP/AVIF/GIF)
+- Completion status: `Implemented & Verified` (production deployment verification pending)
+- Git repository status: Uncommitted working tree at TASK-017 implementation; see latest commits
 - Current branch: `main`
 
 ## Session Recovery Entry (2026-09-11)

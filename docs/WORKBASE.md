@@ -8,6 +8,22 @@ This file is a live task scratchpad. The active AI must update it before and dur
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Task
+- Task ID: TASK-017
+- Title: Tweet Media Upload Redesign & Fix — Direct Device Upload, Secure Cloudinary Pipeline
+- Status: IMPLEMENTED — ALL QUALITY GATES PASSED (backend 100%, frontend 75/75, lint 0/0, build clean; real Cloudinary E2E verified for all 5 image formats)
+- Completion Level: `Implemented & Verified` (production deployment verification pending)
+- Summary of this task:
+  - **Task 1 — /videos text update**: replaced "8 categories · No algorithm · Real community content" with "Discover content across categories" in `frontend/src/features/videos/ui/VideosView.js`.
+  - **Task 2 — Root cause (tweet image)**: the Tweet composer required users to paste an image URL — a free-form URL with no server authorization, arbitrary asset identity, and no provenance verification.
+  - **Backend changes**: new `POST /api/v1/tweets/media-signature` (server-issued Cloudinary upload intent, folder `yoibi/tweets/{userId}` + exact publicId, API secret never exposed); `createTweet` now verifies and single-use consumes every media item via `verifyAndConsumeIntent` (existence, expiry, ownership, exact publicId match, URL correspondence); validated `media: [{uploadIntentId, publicId, url, ...}]` contract; max 5 items; all-or-nothing rejection on any invalid attachment.
+  - **Data architecture**: `Tweet.mediaUrls` is now an array of structured `mediaAttachmentSchema` ({url, type, publicId, width?, height?, bytes?, format?}); legacy string items and existing image-less tweets remain compatible.
+  - **Cloudinary flow (secure, mirrors provenance fix)**: signature signs `public_id` + `timestamp` only (folder stays embedded in publicId); browser never sends a separate `folder` param; returned public_id must exactly equal intent publicId or upload is rejected.
+  - **Image formats verified against real Cloudinary**: JPEG, PNG, WEBP, AVIF, GIF — all 5 pass (intent sigMatch, idMatch, urlMatch, singleUse enforcement, live HEAD 200, cleanup). AVIF uses real libavif-encoded bytes; JPEG uses a real JPEG (hand-written stubs for those containers are rejected as corrupt — that is a fixture artifact, not a pipeline limitation).
+  - **Frontend/UI**: `CreateTweetCard` uses a native hidden file input (no modal); 5-image limit enforced; adaptive preview grid (1/2/3/4/5); per-tile remove; user-facing states ("Uploading..."/"Posting..."), no infrastructure naming. `TweetMediaViewer` (full-screen, Escape/backdrop/prev-next), `TweetMediaGallery` (single-image framed preview or swipeable carousel with dots/counter), wired through `TweetCard`.
+  - **Contracts synced**: `contracts/API-CONTRACT.md` + `contracts/openapi.yaml` document the new signature endpoint and the structured `media` body (both create and reply); AVIF added to supported formats.
+  - **Existing tweet features preserved**: create/delete/listing/likes/replies/repost/sharing/auth/counts untouched.
+
+## Previous Task
 - Task ID: TASK-016
 - Title: Fix Video Upload Provenance Failure + Inline Upload Composer & Category Redesign
 - Status: IMPLEMENTED — ALL QUALITY GATES PASSED (see task log below)

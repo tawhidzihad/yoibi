@@ -1,22 +1,36 @@
 const { z } = require("zod");
 
-const mediaItemSchema = z.object({
+// Tweet images are server-authorized direct Cloudinary uploads (never
+// free-form URLs). Each entry must reference a server-issued upload intent:
+//  - uploadIntentId: the server intent that authorized this asset
+//  - publicId: the exact server-assigned canonical asset path
+//    (yoibi/tweets/{userId}/intent_tweetimg_...)
+//  - url: the Cloudinary secure_url returned for that exact asset
+//  - width/height/bytes/format: optional delivery metadata from the upload
+// The service strictly verifies intent ownership, expiry, publicId and URL
+// correspondence before consuming the intent and storing the media record.
+const tweetMediaItemSchema = z.object({
+    uploadIntentId: z.string().min(1, "uploadIntentId is required"),
+    publicId: z.string().min(1, "publicId is required"),
     url: z.string().url("Media URL must be a valid URL"),
-    type: z.enum(["image", "video"]).default("image"),
-    publicId: z.string().optional()
+    type: z.literal("image").default("image"),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional(),
+    bytes: z.number().int().positive().optional(),
+    format: z.string().max(10).optional()
 });
 
 /**
  * Schema for creating a tweet.
  * Content: 1–280 characters (trimmed).
- * MediaUrls: optional, up to 4 attachments.
+ * Media: optional, up to 5 server-authorized Cloudinary image attachments.
  */
 const createTweetSchema = z.object({
     content: z.string()
         .min(1, "Tweet cannot be empty")
         .max(280, "Tweet cannot exceed 280 characters")
         .transform((s) => s.trim()),
-    mediaUrls: z.array(mediaItemSchema).max(4, "Cannot attach more than 4 media items").optional().default([]),
+    media: z.array(tweetMediaItemSchema).max(5, "Cannot attach more than 5 media items").optional().default([]),
     replyToId: z.string().optional().nullable().default(null)
 }).refine(
     (data) => data.content.length >= 1,
@@ -62,6 +76,7 @@ const createReplySchema = z.object({
 
 module.exports = {
     createTweetSchema,
+    tweetMediaItemSchema,
     listTweetsQuerySchema,
     tweetIdParamSchema,
     createReplySchema
