@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { UploadCloud } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { videosApi } from "../api/videosApi";
 import { CANONICAL_CATEGORIES } from "../constants/categories";
+import { CATEGORY_ICONS } from "../constants/categoryIcons";
 import { VideoList } from "./VideoList";
-import { UploadVideoModal } from "./UploadVideoModal";
+import { UploadVideoComposer } from "./UploadVideoComposer";
 import { VideoPlayerModal } from "./VideoPlayerModal";
 import { Button } from "@/shared/ui/Button";
 import { cn } from "@/shared/utils/cn";
@@ -143,15 +144,24 @@ export function VideosView() {
                 {status === "authenticated" && user && (
                     <Button
                         size="sm"
-                        onClick={() => setIsUploadOpen(true)}
+                        onClick={() => setIsUploadOpen((v) => !v)}
                         id="open-upload-video-btn"
                         className="gap-1.5"
+                        aria-expanded={isUploadOpen}
                     >
-                        <UploadCloud size={14} aria-hidden="true" />
-                        Upload
+                        <Plus size={14} aria-hidden="true" />
+                        Upload Video
                     </Button>
                 )}
             </div>
+
+            {/* Inline Upload Composer (expands in place — no modal) */}
+            {isUploadOpen && (
+                <UploadVideoComposer
+                    onClose={() => setIsUploadOpen(false)}
+                    onVideoUploaded={handleVideoUploaded}
+                />
+            )}
 
             {/* Category Filter Toolbar */}
             <div
@@ -159,40 +169,44 @@ export function VideosView() {
                 role="toolbar"
                 aria-label="Filter videos by category"
             >
-                <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+                <div className="flex flex-wrap gap-2">
                     {/* All Button */}
                     <button
                         type="button"
                         id="category-pill-all"
                         onClick={() => handleCategoryChange(null)}
                         className={cn(
-                            "shrink-0 cursor-pointer rounded-full px-4 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                            "cursor-pointer rounded-full border px-3.5 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
                             !activeCategory
-                                ? "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400"
-                                : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                                ? "border-cyan-500/60 bg-cyan-500/15 font-semibold text-cyan-600 dark:text-cyan-400"
+                                : "border-border/50 bg-secondary/40 text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
                         )}
                         aria-pressed={!activeCategory}
                     >
                         All
                     </button>
 
-                    {CANONICAL_CATEGORIES.map((cat) => (
-                        <button
-                            type="button"
-                            key={cat.id}
-                            id={`category-pill-${cat.id}`}
-                            onClick={() => handleCategoryChange(cat.id)}
-                            className={cn(
-                                "shrink-0 cursor-pointer whitespace-nowrap rounded-full px-4 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
-                                activeCategory === cat.id
-                                    ? "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400"
-                                    : "bg-secondary text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
-                            )}
-                            aria-pressed={activeCategory === cat.id}
-                        >
-                            {cat.label}
-                        </button>
-                    ))}
+                    {CANONICAL_CATEGORIES.map((cat) => {
+                        const Icon = CATEGORY_ICONS[cat.icon];
+                        return (
+                            <button
+                                type="button"
+                                key={cat.id}
+                                id={`category-pill-${cat.id}`}
+                                onClick={() => handleCategoryChange(cat.id)}
+                                className={cn(
+                                    "flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                                    activeCategory === cat.id
+                                        ? "border-cyan-500/60 bg-cyan-500/15 font-semibold text-cyan-600 dark:text-cyan-400"
+                                        : "border-border/50 bg-secondary/40 text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                                )}
+                                aria-pressed={activeCategory === cat.id}
+                            >
+                                {Icon && <Icon size={13} aria-hidden="true" className="shrink-0" />}
+                                {cat.label}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -206,13 +220,6 @@ export function VideosView() {
                 onVideoDeleted={handleVideoDeleted}
                 pagination={pagination}
                 onLoadMore={handleLoadMore}
-            />
-
-            {/* Upload Video Modal */}
-            <UploadVideoModal
-                isOpen={isUploadOpen}
-                onClose={() => setIsUploadOpen(false)}
-                onVideoUploaded={handleVideoUploaded}
             />
 
             {/* Video Player Modal — keyed by video id so state resets per video */}

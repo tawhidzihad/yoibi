@@ -8,6 +8,22 @@ This file is a live task scratchpad. The active AI must update it before and dur
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Task
+- Task ID: TASK-016
+- Title: Fix Video Upload Provenance Failure + Inline Upload Composer & Category Redesign
+- Status: IMPLEMENTED — ALL QUALITY GATES PASSED (see task log below)
+- Completion Level: `Implemented & Verified` (Cloudinary upload verified against the real provider; production deployment verification in progress)
+- Summary of this task:
+  - **Root cause (video upload 403)**: Backend signed BOTH `folder` and `public_id`, and the browser sent both to Cloudinary. Cloudinary treats `public_id` as RELATIVE to `folder` when both are provided → stored asset path became `yoibi/videos/{userId}/yoibi/videos/{userId}/intent_vid_...`. The returned `public_id` then did not match the server-authorized one, and the strict provenance check correctly rejected registration with 403 "Provided asset publicId does not match the server-authorized upload intent."
+  - **Fix (no security weakened)**: `createUploadIntent` / `createImageUploadIntent` now sign `public_id` + `timestamp` ONLY (folder stays embedded inside `public_id`, so folders remain fully server-controlled). Browser upload no longer sends a separate `folder` param (`videosApi.uploadToCloudinary`, `profileApi` image upload). `folder` in the signature response is informational only.
+  - **Verification against real Cloudinary**: real `.mp4` upload with the fixed flow → returned `public_id` exactly equals intent `publicId`; `verifyAndConsumeIntent` → `{ valid: true }`. Same verified for the image flow.
+  - **New regression test** (`backend/tests/videos.test.js` Test 8b): signature must equal sha1(`public_id=...&timestamp=...` + secret) and must NOT include a separate folder param.
+  - **UX**: removed the upload modal; new inline expandable `UploadVideoComposer` on the Videos page (file picker + local preview, title, category chips, description, progress with "Uploading video..."/"Processing video...", cancel/reset, success state). User-facing messages never mention infrastructure ("Cloudinary", intents, signatures).
+  - **Category UI**: horizontal scrollbar removed; wrapping chip buttons with semantic lucide icons, clear active/hover/focus states, touch-friendly.
+  - **Page header**: supporting text simplified to "Discover content across categories".
+  - **Contracts synced**: `contracts/API-CONTRACT.md` + `contracts/openapi.yaml` document the signed-parameter rule and the `publicId` field on `POST /videos`.
+  - **Stale test fix**: `frontend/tests/profile.test.js` expected the pre-TASK-015 label "View My Profile"; aligned with the intentional "My Profile" rename.
+
+## Previous Task
 - Task ID: TASK-014
 - Title: Complete User Profile System — Dynamic `/profile/[username]`, Profile Editing, Avatar & Banner, Real Content Tabs
 - Status: IMPLEMENTED — ALL QUALITY GATES PASSED

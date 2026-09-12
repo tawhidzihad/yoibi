@@ -52,7 +52,9 @@ export function uploadProfileImage(file, signatureData, onProgress) {
         formData.append("api_key", signatureData.apiKey);
         formData.append("timestamp", String(signatureData.timestamp));
         formData.append("signature", signatureData.signature);
-        formData.append("folder", signatureData.folder);
+        // NOTE: Do NOT send a separate `folder` param. `public_id` already embeds the
+        // server-authorized folder path; Cloudinary prepends `folder` to `public_id`
+        // when both are sent, doubling the asset path.
         if (signatureData.publicId) {
             formData.append("public_id", signatureData.publicId);
         }

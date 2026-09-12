@@ -216,6 +216,10 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   authenticated user's profile image. `CLOUDINARY_API_SECRET` never leaves the
   server; the signed folder is server-controlled per user and per image kind
   (`yoibi/profiles/{userId}/avatars` | `yoibi/profiles/{userId}/banners`).
+- **Signed-parameter rule (critical):** The signature covers `public_id` + `timestamp` ONLY;
+  `publicId` already embeds the server-controlled folder. Clients MUST NOT send `folder` as a
+  separate upload parameter (Cloudinary would prepend `folder` to `public_id`, doubling the
+  asset path). The `folder` field in the response is informational only.
 - Request Body:
   ```json
   { "kind": "avatar" }
@@ -439,6 +443,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 ### `POST /api/v1/videos/upload-signature`
 - Auth: Required (`Bearer <token>`)
 - Description: Generates signed upload parameters and an `uploadIntentId` bound to the authenticated user and a server-controlled folder/public ID.
+- **Signed-parameter rule (critical):** The signature covers `public_id` + `timestamp` ONLY. `publicId` already embeds the server-controlled folder (`yoibi/videos/{userId}`). Clients MUST NOT send `folder` as a separate upload parameter — Cloudinary treats `public_id` as RELATIVE to `folder` when both are provided (resulting asset path: `folder/public_id`), which doubles the path and fails strict asset-provenance verification on metadata registration. The `folder` field in the response is informational only.
 - Response (200):
   ```json
   {

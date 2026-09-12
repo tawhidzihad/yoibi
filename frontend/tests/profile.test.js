@@ -35,8 +35,8 @@ describe("sidebar & navigation cleanup", () => {
         expect(layoutSource).toContain("Sign Out");
     });
 
-    it("right-side card shows 'View My Profile' linked to /profile/{handle}", () => {
-        expect(layoutSource).toContain("View My Profile");
+    it("right-side card shows 'My Profile' linked to /profile/{handle}", () => {
+        expect(layoutSource).toContain("My Profile");
         expect(layoutSource).toMatch(/`\/profile\/\$\{profileHandle\}`/);
     });
 

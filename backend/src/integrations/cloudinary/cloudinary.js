@@ -39,8 +39,13 @@ function createUploadIntent(userId) {
     const publicId = `${folder}/${intentId}`;
     const timestamp = Math.floor(Date.now() / 1000);
 
-    // Parameters to sign in alphabetical order
-    const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
+    // Parameters to sign in alphabetical order.
+    // IMPORTANT: sign ONLY `public_id` + `timestamp`. `public_id` already embeds the
+    // server-controlled folder path. Cloudinary treats `public_id` as RELATIVE to the
+    // `folder` parameter when both are provided (result: folder + '/' + public_id),
+    // which would double the path and break strict asset-provenance verification.
+    // The folder structure remains fully server-controlled via public_id.
+    const paramsToSign = `public_id=${publicId}&timestamp=${timestamp}`;
 
     let signature = "";
     if (hasConfig) {
@@ -173,8 +178,13 @@ function createImageUploadIntent(userId, kind) {
     const publicId = `${folder}/${intentId}`;
     const timestamp = Math.floor(Date.now() / 1000);
 
-    // Parameters to sign in alphabetical order
-    const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
+    // Parameters to sign in alphabetical order.
+    // IMPORTANT: sign ONLY `public_id` + `timestamp`. `public_id` already embeds the
+    // server-controlled folder path. Cloudinary treats `public_id` as RELATIVE to the
+    // `folder` parameter when both are provided (result: folder + '/' + public_id),
+    // which would double the asset path. Folder structure stays server-controlled
+    // via public_id. See createUploadIntent for the same rationale on videos.
+    const paramsToSign = `public_id=${publicId}&timestamp=${timestamp}`;
 
     let signature = "";
     if (hasConfig) {

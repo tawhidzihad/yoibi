@@ -390,6 +390,12 @@ paths:
   /videos/upload-signature:
     post:
       summary: Request signed Cloudinary upload parameters and server upload intent
+      description: >
+        Returns server-signed upload parameters. The signature covers public_id + timestamp only;
+        publicId already embeds the server-controlled folder. Clients must NOT send `folder` as a
+        separate upload parameter — Cloudinary prepends `folder` to `public_id` when both are sent,
+        doubling the asset path and failing strict provenance verification. The `folder` field is
+        informational only. NEVER contains the Cloudinary API secret.
       security:
         - bearerAuth: []
       responses:
@@ -472,6 +478,9 @@ paths:
               properties:
                 uploadIntentId:
                   type: string
+                publicId:
+                  type: string
+                  description: Exact Cloudinary public_id returned by the upload; must match the server-issued intent.
                 title:
                   type: string
                   minLength: 3

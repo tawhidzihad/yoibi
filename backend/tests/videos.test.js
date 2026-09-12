@@ -185,6 +185,43 @@ async function runVideosTests() {
     assert(sig.publicId.startsWith(`yoibi/videos/${userA.id}/`), "Public ID must start with user's folder");
     console.log("✓ Service: generateUploadSignature produced server-controlled folder & intent.");
 
+    // Test 8b: Signed-parameter contract — signature covers public_id + timestamp ONLY.
+    // Cloudinary treats a separate `folder` param as RELATIVE to `public_id`, doubling
+    // the asset path when both are signed/sent. The signature must therefore never
+    // include `folder`; the folder path is embedded inside `public_id` itself.
+    {
+        const crypto = require("crypto");
+        const FAKE = { cloud: "test_cloud", key: "test_key", secret: "test_secret_abc" };
+        process.env.CLOUDINARY_CLOUD_NAME = FAKE.cloud;
+        process.env.CLOUDINARY_API_KEY = FAKE.key;
+        process.env.CLOUDINARY_API_SECRET = FAKE.secret;
+        delete require.cache[require.resolve("../src/config/env")];
+        delete require.cache[require.resolve("../src/integrations/cloudinary/cloudinary")];
+        const cloudinaryModule = require("../src/integrations/cloudinary/cloudinary");
+        const signedIntent = cloudinaryModule.createUploadIntent(userA.id);
+        const expected = crypto
+            .createHash("sha1")
+            .update(`public_id=${signedIntent.publicId}&timestamp=${signedIntent.timestamp}${FAKE.secret}`)
+            .digest("hex");
+        const legacyWithFolder = crypto
+            .createHash("sha1")
+            .update(`folder=${signedIntent.folder}&public_id=${signedIntent.publicId}&timestamp=${signedIntent.timestamp}${FAKE.secret}`)
+            .digest("hex");
+        assert.strictEqual(signedIntent.signature, expected, "Signature must cover public_id + timestamp only");
+        assert.notStrictEqual(signedIntent.signature, legacyWithFolder, "Signature must NOT include a separate folder param");
+        assert(signedIntent.publicId.startsWith(`yoibi/videos/${userA.id}/`), "public_id must embed the server-controlled folder");
+        cloudinaryModule._uploadIntents.delete(signedIntent.uploadIntentId);
+        // Restore cached modules to the unconfigured test state
+        delete process.env.CLOUDINARY_CLOUD_NAME;
+        delete process.env.CLOUDINARY_API_KEY;
+        delete process.env.CLOUDINARY_API_SECRET;
+        delete require.cache[require.resolve("../src/config/env")];
+        delete require.cache[require.resolve("../src/integrations/cloudinary/cloudinary")];
+        require("../src/config/env");
+        require("../src/integrations/cloudinary/cloudinary");
+        console.log("✓ Signing: signature covers public_id + timestamp only (folder embedded in public_id).");
+    }
+
     // Test 9: Asset Provenance — User B attempting to register User A's upload intent rejected with 403
     let provenanceMismatch = false;
     try {
