@@ -1,3 +1,4 @@
+const User = require('../../models/user.model');
 const { findProfileOrCreate } = require('../../services/userProfile.service');
 const { HANDLE_PREFIX, deriveHandleBaseFor } = require('../../utils/handles');
 
@@ -37,10 +38,30 @@ async function getMe(req, res) {
                 userId: id,
                 name: jwtName,
                 email: email || '',
-                avatarUrl: jwtAvatar
+                avatarUrl: jwtAvatar,
+                // Google/OAuth JWT claims are unreliable server-side — the
+                // service derives the canonical handle from name/email only.
             });
             if (profileDoc) {
                 profile = profileDoc && typeof profileDoc.toObject === 'function' ? profileDoc.toObject() : profileDoc;
+                // Defensive repair for legacy rows: if a profile exists but its
+                // handle carries a literal "@" prefix, the public lookup (which
+                // queries the bare normalized form) can never match it. Repair
+                // the row to its canonical bare form (best-effort).
+                if (profile && typeof profile.handle === 'string' && profile.handle.startsWith('@')) {
+                    try {
+                        const bare = profile.handle.replace(/^@+/, '').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 24);
+                        if (bare && bare.length >= 3) {
+                            const collision = await User.findOne({ handle: bare, _id: { $ne: profile._id } }).lean().catch(() => null);
+                            if (!collision) {
+                                await User.updateOne({ _id: profile._id }, { $set: { handle: bare, updatedAt: new Date() } }).catch(() => {});
+                                profile.handle = bare;
+                            }
+                        }
+                    } catch {
+                        // Best-effort only — never fail /auth/me on repair.
+                    }
+                }
             }
         }
     } catch (err) {

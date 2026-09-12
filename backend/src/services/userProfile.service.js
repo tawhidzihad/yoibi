@@ -1,8 +1,8 @@
 const User = require("../models/user.model");
 const {
-    HANDLE_PREFIX,
     MAX_HANDLE_LENGTH,
-    deriveHandleBaseFor
+    deriveHandleBaseFor,
+    normalizeHandleParam
 } = require("../utils/handles");
 
 /**
@@ -49,7 +49,12 @@ function toEmptyString(value) {
 /**
  * Creates a YOIBI profile with a deterministic, collision-safe canonical handle.
  *
- * Strategy (@base, @base2, @base3, ...): each NOT-INSERTED handle advances the
+ * CANONICAL STORAGE: the stored handle NEVER carries the "@" prefix
+ * ("garrisonhester", not "@garrisonhester"). The "@" is display-only. Every
+ * reader (profile lookup, tweets authorHandle filter, frontend URLs) queries
+ * the bare normalized form, so storing the prefix breaks all lookups.
+ *
+ * Strategy (base, base2, base3, ...): each NOT-INSERTED handle advances the
  * suffix. Duplicate-key errors (race with a concurrent signup) are retried with
  * the next suffix; a concurrent winner for the same user ID is adopted.
  *
@@ -68,20 +73,31 @@ async function createProfileWithUniqueHandle({ userId, name = "", email = "", av
     const base = deriveHandleBaseFor({ name, email, userId });
     const now = new Date();
 
+    // CANONICAL STORAGE RULE: handles are stored WITHOUT the "@" prefix
+    // (normalizeHandleParam strips it). The "@" lives only in the UI
+    // (`@${handle}`) and in URL display — never in the database.
+
+    // Defensive normalization: every candidate is re-normalized through
+    // normalizeHandleParam so a bare canonical handle is ALWAYS stored
+    // (no "@"), even if a caller passes a prefixed value. Any legacy "@..."
+    // rows are repaired by the one-time normalizeLegacyHandles() migration,
+    // not trusted here.
+    const toCanonicalCandidate = (value) => normalizeHandleParam(value);
+
     const profileFields = {
         name: typeof name === "string" ? name : "",
-        email: toEmptyString(email),
+        email: typeof email === "string" ? email : "",
         avatarUrl: toEmptyString(avatarUrl),
         country: validateCountry(country),
         age: normalizeAge(age),
-        phone: toEmptyString(phone),
-        bio: toEmptyString(bio)
+        phone: typeof phone === "string" ? phone : "",
+        bio: typeof bio === "string" ? bio : ""
     };
 
-    // Primary deterministic collision-safe sequence: @base, @base2, @base3, ...
-    for (let attempt = 0; attempt < 60; attempt += 1) {
-        const suffix = attempt === 0 ? "" : String(attempt + 1);
-        const candidate = `${HANDLE_PREFIX}${base}${suffix}`.substring(0, HANDLE_PREFIX.length + MAX_HANDLE_LENGTH);
+    for (let suffix = 0; suffix < 25; suffix += 1) {
+        const rawCandidate = suffix === 0 ? `${base}` : `${base}${suffix + 1}`;
+        const candidate = toCanonicalCandidate(rawCandidate).substring(0, MAX_HANDLE_LENGTH);
+        if (!candidate) break;
         try {
             const doc = await User.create({
                 _id: userId,
@@ -103,10 +119,11 @@ async function createProfileWithUniqueHandle({ userId, name = "", email = "", av
         }
     }
 
-    // Pathologically crowded base: fall back to short timestamp suffixes.
+    // NOTE: the primary sequence above is authoritative. What follows is the
+    // pathological-crowding fallback (short timestamp suffixes, bare form).
     for (let attempt = 0; attempt < 3; attempt += 1) {
         const stamp = (Date.now() + attempt).toString(36);
-        const candidate = `${HANDLE_PREFIX}${base.substring(0, Math.max(1, MAX_HANDLE_LENGTH - stamp.length - 1))}_${stamp}`;
+        const candidate = toCanonicalCandidate(`${base.substring(0, Math.max(1, MAX_HANDLE_LENGTH - stamp.length - 1))}_${stamp}`);
         try {
             const doc = await User.create({
                 _id: userId,

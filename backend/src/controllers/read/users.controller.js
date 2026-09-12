@@ -56,7 +56,7 @@ async function collectProfileCounts(userId) {
  * identity (for isFollowing/isOwner) comes only from the verified JWT.
  */
 async function getPublicProfile(req, res) {
-    const handle = normalizeHandleParam(req.params.handle);
+    const handle = normalizeHandleParam((req.validatedParams && req.validatedParams.handle) || req.params.handle);
     try {
         if (!handle) {
             return res.status(404).json({
@@ -64,12 +64,27 @@ async function getPublicProfile(req, res) {
                 error: { code: 'NOT_FOUND', message: 'User not found' }
             });
         }
-        const user = await User.findOne({ handle }).lean();
+        // Legacy tolerance: rows written before the canonical bare-handle rule
+        // carry a literal "@" prefix ("@garrisonhester"). Match either form so
+        // those profiles resolve while the one-time repair below runs.
+        // The bare form is always preferred when both exist.
+        const [bareUser, legacyUser] = await Promise.all([
+            User.findOne({ handle }).lean(),
+            User.findOne({ handle: `@${handle}` }).lean()
+        ]);
+        const user = bareUser || legacyUser;
         if (!user) {
             return res.status(404).json({
                 success: false,
                 error: { code: 'NOT_FOUND', message: 'User not found' }
             });
+        }
+        // One-time self-repair: migrate a legacy "@..." handle to the canonical
+        // bare form on read. Best-effort (never fails the lookup); if the bare
+        // handle was claimed concurrently, the legacy row is left untouched.
+        if (!bareUser && legacyUser && legacyUser.handle && legacyUser.handle.startsWith('@')) {
+            User.updateOne({ _id: legacyUser._id }, { $set: { handle, updatedAt: new Date() } }).catch(() => {});
+            user.handle = handle;
         }
         const id = user._id ? user._id.toString() : '';
         const isOwner = Boolean(req.user && req.user.id && req.user.id === id);

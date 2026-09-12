@@ -3,7 +3,7 @@ const { getPublicProfile } = require('../controllers/read/users.controller');
 const { updateMe, handleGetProfileMediaSignature } = require('../controllers/update/users.controller');
 const { handleFollowUser } = require('../controllers/create/follows.controller');
 const { handleUnfollowUser } = require('../controllers/delete/follows.controller');
-const { verifyJwt } = require('../middleware/auth');
+const { verifyJwt, optionalAuth } = require('../middleware/auth');
 const { requireAuth } = require('../middleware/authorize');
 const { validate } = require('../middleware/validate');
 const {
@@ -23,7 +23,7 @@ router.post('/users/me/upload-signature', expensiveLimiter, verifyJwt, requireAu
 // Route order: /users/me (PATCH) before /users/:handle (GET) — different HTTP
 // methods, but explicit ordering keeps "me" reserved for the self endpoints.
 router.patch('/users/me', writeLimiter, verifyJwt, requireAuth, validate(updateUserBodySchema, 'body'), updateMe);
-router.get('/users/:handle', verifyJwt, validate(userHandleParamSchema, 'params'), getPublicProfile);
+router.get('/users/:handle', optionalAuth, validate(userHandleParamSchema, 'params'), getPublicProfile);
 router.post('/users/:id/follow', writeLimiter, verifyJwt, requireAuth, validate(userIdParamSchema, 'params'), handleFollowUser);
 router.delete('/users/:id/follow', writeLimiter, verifyJwt, requireAuth, validate(userIdParamSchema, 'params'), handleUnfollowUser);
 

@@ -92,6 +92,8 @@ async function runTests() {
             User.db = { readyState: 1 }; // simulate connected application database
 
             // Case A: first candidate is free -> canonical base used.
+            // CANONICAL STORAGE: handles are stored WITHOUT the "@".
+            // normalizeHandleParam strips any prefix, so the stored value is bare.
             User.findById = () => queryResult(null);
             User.create = async (doc) => {
                 const copy = { ...doc, role: "user" };
@@ -103,13 +105,14 @@ async function runTests() {
                 name: "John Doe",
                 email: "john@example.com"
             });
-            assert.strictEqual(created.handle, "@johndoe", "First handle must be the canonical base");
+            assert.strictEqual(created.handle, "johndoe", "First handle must be the canonical bare base");
             assert.strictEqual(created.role, "user", "New profiles always default to role=user");
             assert.strictEqual(created._id, "usr_john_1", "_id must be the Better Auth user ID");
             assert.ok(!("password" in created) && !("passwordHash" in created), "No credential fields in profile");
 
             // Case B: collision -> deterministic suffix strategy.
-            const taken = new Set(["@janedoe"]);
+            // CANONICAL STORAGE: collisions are tracked on bare handles.
+            const taken = new Set(["janedoe"]);
             User.findById = () => queryResult(null);
             User.create = async (doc) => {
                 if (taken.has(doc.handle)) {
@@ -126,10 +129,11 @@ async function runTests() {
                 name: "Jane Doe",
                 email: "jane@example.com"
             });
-            assert.strictEqual(createdB.handle, "@janedoe2", "Collision must advance deterministically to @janedoe2");
+            assert.strictEqual(createdB.handle, "janedoe2", "Collision must advance deterministically to janedoe2");
 
             // Case C: concurrent winner for the same Better Auth user ID is adopted.
-            const raceWinner = { _id: "usr_racy_1", handle: "@racyuser", name: "Racy User", role: "user" };
+            // CANONICAL STORAGE: the adopted winner's handle is stored bare.
+            const raceWinner = { _id: "usr_racy_1", handle: "racyuser", name: "Racy User", role: "user" };
             let firstAttempt = true;
             User.findById = () => queryResult(firstAttempt ? null : raceWinner);
             User.create = async () => {
@@ -145,7 +149,7 @@ async function runTests() {
                 userId: "usr_racy_1",
                 name: "Racy User"
             });
-            assert.strictEqual(adopted.handle, "@racyuser", "Concurrent provisioned profile must be adopted");
+            assert.strictEqual(adopted.handle, "racyuser", "Concurrent provisioned profile must be adopted (bare handle)");
         } finally {
             User.db = originalDb;
             User.create = originalCreate;

@@ -71,6 +71,12 @@ function deriveHandleBaseFor({ name, email, userId }) {
  *   - removes every character outside [a-z0-9] (URL-safe)
  *   - clamps to MAX_HANDLE_LENGTH
  *
+ * CANONICAL STORAGE RULE (incident fix 2026-09-12): handles are stored WITHOUT
+ * the "@" prefix. A legacy writer once stored "@garrisonhester" while every
+ * reader normalizes to "garrisonhester", producing a permanent 404. The "@" is
+ * display-only (the UI renders `@${handle}`); the database, URLs, and API
+ * queries all use the bare form.
+ *
  * Returns the normalized handle, or "" when nothing usable remains.
  *
  * @param {unknown} raw
