@@ -1981,6 +1981,33 @@ components:
               nullable: true
               example: https://res.cloudinary.com/.../avatar.jpg
               description: Google users receive the verified provider avatar URL; email users start empty until they upload one.
+            bannerUrl:
+              type: string
+              nullable: true
+              example: https://res.cloudinary.com/.../banner.jpg
+              description: Profile banner (Cloudinary URL, server-issued signed upload); empty when not set.
+            followersCount:
+              type: integer
+              example: 420
+              description: Live follower count from the canonical users document.
+            followingCount:
+              type: integer
+              example: 180
+              description: Live following count from the canonical users document.
+            tweetsCount:
+              type: integer
+              example: 112
+              description: Real authorId-based tweet count (canonical source shared with the public profile).
+            videosCount:
+              type: integer
+              example: 7
+            streamsCount:
+              type: integer
+              example: 3
+            postsCount:
+              type: integer
+              example: 112
+              description: Legacy alias of tweetsCount (Tweet = YOIBI post type).
             bio:
               type: string
               nullable: true

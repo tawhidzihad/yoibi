@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Image as ImageIcon, Send, X, AlertCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { tweetsApi } from "../api/tweetsApi";
+import { emitProfileChanged } from "@/lib/profileSync";
 import { Button } from "@/shared/ui/Button";
 import { cn } from "@/shared/utils/cn";
 
@@ -97,6 +98,8 @@ export function CreateTweetCard({ onTweetCreated, placeholder = "What's happenin
 
             reset();
             setShowMediaInput(false);
+            // Keep the sidebar/right-side user card tweet count in sync.
+            emitProfileChanged();
             if (onTweetCreated && res.data) {
                 onTweetCreated(res.data);
             }

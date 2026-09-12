@@ -1,17 +1,24 @@
 import { apiClient } from "@/lib/api/client";
+import { emitProfileChanged } from "@/lib/profileSync";
 
 /**
- * Follow a user by ID.
+ * Follow a user by ID. Emits the profile-changed event on success so the
+ * sidebar's Following count (fed by /auth/me) refreshes without a page reload.
  * @param {string} userId
  */
 export async function followUser(userId) {
-    return apiClient.post(`/users/${userId}/follow`, {});
+    const res = await apiClient.post(`/users/${userId}/follow`, {});
+    if (res?.success) emitProfileChanged();
+    return res;
 }
 
 /**
- * Unfollow a user by ID.
+ * Unfollow a user by ID. Emits the profile-changed event on success so the
+ * sidebar's Following count (fed by /auth/me) refreshes without a page reload.
  * @param {string} userId
  */
 export async function unfollowUser(userId) {
-    return apiClient.delete(`/users/${userId}/follow`);
+    const res = await apiClient.delete(`/users/${userId}/follow`);
+    if (res?.success) emitProfileChanged();
+    return res;
 }

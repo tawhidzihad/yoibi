@@ -1,5 +1,8 @@
 const User = require('../../models/user.model');
 const { findProfileOrCreate } = require('../../services/userProfile.service');
+// Same canonical count helper the profile page uses — the sidebar/right-side
+// user card must never compute its own duplicated statistics.
+const { collectProfileCounts } = require('./users.controller');
 const { HANDLE_PREFIX, deriveHandleBaseFor } = require('../../utils/handles');
 
 /**
@@ -74,18 +77,40 @@ async function getMe(req, res) {
         userId: id
     })}`;
 
+    // Canonical DB-backed counts — the SAME source the profile page uses, so
+    // the right-side user card / sidebar can never show stale duplicated stats
+    // (tweet create/delete, follow/unfollow all land here on refresh).
+    let counts = { tweetsCount: 0, videosCount: 0, streamsCount: 0 };
+    try {
+        counts = await collectProfileCounts(id);
+    } catch (err) {
+        console.warn('[getMe] profile counts warning:', err.message);
+    }
+
+    const tweetsCount = Number(counts.tweetsCount) || 0;
+
     const data = {
         id,
         email,
         name: profile?.name || jwtName || '',
         handle: profile?.handle || jwtHandle || fallbackHandle,
         avatarUrl: profile?.avatarUrl || jwtAvatar || '',
+        bannerUrl: profile?.bannerUrl || '',
         bio: profile?.bio || '',
         country: profile?.country || '',
         age: profile?.age ?? null,
         phone: profile?.phone || '',
         role: normalizeMeRole((profile?.role || jwtRole || 'user')),
         isBlocked: profile ? Boolean(profile.isBlocked) : Boolean(isBlocked),
+        // Live follower/following counts from the canonical users document
+        followersCount: profile?.followersCount || 0,
+        followingCount: profile?.followingCount || 0,
+        // Real content counts (authorId-based) + legacy postsCount alias
+        // (posts === tweets in YOIBI, per the API contract).
+        tweetsCount,
+        postsCount: tweetsCount,
+        videosCount: Number(counts.videosCount) || 0,
+        streamsCount: Number(counts.streamsCount) || 0,
         createdAt: profile?.createdAt || jwtCreatedAt || new Date().toISOString(),
         updatedAt: profile?.updatedAt || new Date().toISOString()
     };

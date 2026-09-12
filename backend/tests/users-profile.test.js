@@ -222,6 +222,41 @@ async function runTests() {
         console.log("✓ upload-signature body validation: only avatar|banner kinds are accepted.");
     }
 
+    // ------------------------------------------------------------------
+    // 12. /auth/me returns canonical DB-backed counts (sidebar sync source)
+    // ------------------------------------------------------------------
+    {
+        const { getMe } = require("../src/controllers/read/auth.controller");
+        let captured = null;
+        let statusCode = 0;
+        const res = {
+            status(code) { statusCode = code; return this; },
+            json(body) { captured = body; return this; }
+        };
+        await getMe(
+            {
+                user: {
+                    id: "usr_123",
+                    email: "user@example.com",
+                    name: "Test User",
+                    handle: "testuser",
+                    role: "user",
+                    avatarUrl: "",
+                    isBlocked: false
+                }
+            },
+            res
+        );
+        assert.strictEqual(statusCode, 200);
+        assert.strictEqual(captured.success, true);
+        assert.strictEqual(captured.data.tweetsCount, 0);
+        assert.strictEqual(captured.data.postsCount, 0, "postsCount aliases tweetsCount");
+        assert.strictEqual(captured.data.followersCount, 0);
+        assert.strictEqual(captured.data.followingCount, 0);
+        assert.ok("bannerUrl" in captured.data, "getMe must carry bannerUrl");
+        console.log("✓ /auth/me returns canonical DB-backed counts (single source for the sidebar).");
+    }
+
     console.log("\nAll user profile system tests passed!");
 }
 

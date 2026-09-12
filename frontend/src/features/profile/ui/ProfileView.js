@@ -6,7 +6,6 @@ import { useAuth } from "@/features/auth/context/AuthContext";
 import { profileApi } from "../api/profileApi";
 import { ProfileHeader } from "./ProfileHeader";
 import { ProfileContent } from "./ProfileContent";
-import { EditProfileModal } from "./EditProfileModal";
 import { ErrorState } from "@/shared/feedback/ErrorState";
 
 function ProfileSkeleton() {
@@ -59,7 +58,7 @@ function ProfileNotFound({ username }) {
 export function ProfileView() {
     const params = useParams();
     const router = useRouter();
-    const { user: currentUser, refreshUser } = useAuth();
+    const { user: currentUser } = useAuth();
     const username = params?.username ? String(Array.isArray(params.username) ? params.username[0] : params.username).replace(/^@/, "").trim() : "";
 
     const [profile, setProfile] = useState(null);
@@ -67,7 +66,6 @@ export function ProfileView() {
     const [error, setError] = useState(null);
     const [notFound, setNotFound] = useState(false);
     const [reloadToken, setReloadToken] = useState(0);
-    const [isEditOpen, setIsEditOpen] = useState(false);
 
     useEffect(() => {
         if (!username) return;
@@ -102,14 +100,9 @@ export function ProfileView() {
         (currentUser?.handle && currentUser.handle.replace(/^@/, "") === username)
     );
 
-    const handleProfileSaved = async (updated) => {
-        setProfile((prev) => ({ ...(prev || {}), ...(updated || {}) }));
-        await refreshUser();
-        // Keep the URL in sync after a username (handle) change — never leave
-        // the user on a stale profile URL.
-        if (updated?.handle && String(updated.handle).replace(/^@/, "") !== username) {
-            router.replace(`/profile/${String(updated.handle).replace(/^@/, "")}`);
-        }
+    // Editing lives on its own dedicated, responsive route — no modal.
+    const handleEditClick = () => {
+        router.push("/settings/profile");
     };
 
     if (loading) {
@@ -139,19 +132,9 @@ export function ProfileView() {
                 profile={profile}
                 isOwner={isOwner}
                 currentUser={currentUser}
-                onEditClick={() => setIsEditOpen(true)}
+                onEditClick={handleEditClick}
             />
             <ProfileContent key={profile.id} profile={profile} isOwner={isOwner} />
-
-            {isOwner && (
-                <EditProfileModal
-                    key={`edit-${isEditOpen ? "open" : "closed"}-${profile.id}`}
-                    profile={profile}
-                    isOpen={isEditOpen}
-                    onClose={() => setIsEditOpen(false)}
-                    onSaveSuccess={handleProfileSaved}
-                />
-            )}
         </div>
     );
 }

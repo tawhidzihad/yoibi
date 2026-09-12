@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useSession, signIn, signUp, signOut } from "@/lib/auth-client";
 import { authApi } from "@/lib/api/authApi";
+import { PROFILE_CHANGED_EVENT } from "@/lib/profileSync";
 
 const AuthContext = createContext({
     status: "loading", // "loading" | "authenticated" | "unauthenticated"
@@ -71,14 +72,26 @@ export function AuthProvider({ children }) {
         };
     }, [sessionData, isSessionPending]);
 
-    const refreshUser = async () => {
+    const refreshUser = useCallback(async () => {
         const res = await authApi.getMe();
         if (res.success && res.data) {
             setUser(res.data);
             setStatus("authenticated");
         }
         return res;
-    };
+    }, []);
+
+    // Sidebar / right-side user card synchronization: features that change the
+    // authenticated user's canonical data (tweet create/delete, follow/unfollow,
+    // profile update) emit `yoibi:profile-changed` and AuthContext refetches
+    // /auth/me — no duplicated count state anywhere in the app.
+    useEffect(() => {
+        const handler = () => {
+            refreshUser().catch(() => {});
+        };
+        window.addEventListener(PROFILE_CHANGED_EVENT, handler);
+        return () => window.removeEventListener(PROFILE_CHANGED_EVENT, handler);
+    }, [refreshUser]);
 
     const loginEmail = async ({ email, password }) => {
         const result = await signIn.email({

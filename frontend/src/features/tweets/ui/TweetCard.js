@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Heart, Repeat2, MessageCircle, Share2, Trash2, Check, FileText } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { tweetsApi } from "../api/tweetsApi";
+import { emitProfileChanged } from "@/lib/profileSync";
 import { TweetReplySection } from "./TweetReplySection";
 import { Modal } from "@/shared/ui/Modal";
 import { Button } from "@/shared/ui/Button";
@@ -154,6 +155,8 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
                 return;
             }
             setShowDeleteModal(false);
+            // Keep the sidebar/right-side user card tweet count in sync.
+            emitProfileChanged();
             if (onTweetDeleted) {
                 onTweetDeleted(tweet.id);
             }

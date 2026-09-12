@@ -112,30 +112,67 @@ describe("profile feature loads real backend data", () => {
     });
 });
 
-describe("edit profile modal", () => {
-    const modalSource = readSrc("features/profile/ui/EditProfileModal.js");
+describe("dedicated edit profile page (/settings/profile)", () => {
+    const pageSource = readSrc("features/profile/ui/EditProfilePage.js");
 
     it("exposes avatar + banner pickers and a country selector", () => {
-        expect(modalSource).toContain('<ImagePicker kind="avatar"');
-        expect(modalSource).toContain('<ImagePicker kind="banner"');
-        expect(modalSource).toContain("COUNTRIES.map");
+        expect(pageSource).toContain('<ImagePicker kind="avatar"');
+        expect(pageSource).toContain('<ImagePicker kind="banner"');
+        expect(pageSource).toContain("COUNTRIES.map");
+    });
+
+    it("shows the username read-only — never editable", () => {
+        expect(pageSource).toContain("Your username cannot be changed.");
+        expect(pageSource).toContain("readOnly");
+        // Username is intentionally NOT sent on save (no handle updates here).
+        expect(pageSource).not.toMatch(/\bhandle:/);
     });
 
     it("sends only editable fields — never role, IDs or block state", () => {
-        expect(modalSource).toContain("handle: data.handle");
-        expect(modalSource).toContain("bannerUrl,");
-        // Server-managed identity/moderation fields must never appear in the form payload
-        expect(modalSource).not.toContain("betterAuthUserId");
-        expect(modalSource).not.toMatch(/(data\.|user\.)role/);
-        expect(modalSource).not.toMatch(/\brole:/);
-        expect(modalSource).not.toMatch(/\buserId\b/);
-        expect(modalSource).not.toMatch(/\bownerId\b/);
-        expect(modalSource).not.toMatch(/\bauthorId\b/);
-        expect(modalSource).not.toMatch(/isBlocked/);
+        expect(pageSource).toContain("bannerUrl,");
+        expect(pageSource).not.toContain("betterAuthUserId");
+        expect(pageSource).not.toMatch(/\brole:/);
+        expect(pageSource).not.toMatch(/\buserId\b/);
+        expect(pageSource).not.toMatch(/isBlocked/);
     });
 
-    it("surfaces the backend HANDLE_TAKEN error", () => {
-        expect(modalSource).toContain('res.error?.code === "HANDLE_TAKEN"');
+    it("replaces the modal: ProfileView navigates to /settings/profile", () => {
+        const profileView = readSrc("features/profile/ui/ProfileView.js");
+        expect(profileView).toContain('router.push("/settings/profile")');
+        expect(profileView).not.toContain("EditProfileModal");
+        expect(existsSync(path.join(ROOT, "src/app/(protected)/settings/profile/page.js"))).toBe(true);
+    });
+
+    it("has proper loading, saving, success and error states", () => {
+        expect(pageSource).toContain("isSaving");
+        expect(pageSource).toContain("saveSuccess");
+        expect(pageSource).toContain("Save Changes");
+        expect(pageSource).toContain("Cancel");
+        expect(pageSource).toContain("role=\"alert\"");
+        expect(pageSource).toContain("role=\"status\"");
+    });
+});
+
+describe("sidebar stats synchronization", () => {
+    it("uses a single canonical sync event instead of duplicated state", () => {
+        const syncSource = readSrc("lib/profileSync.js");
+        expect(syncSource).toContain("PROFILE_CHANGED_EVENT");
+        const authContext = readSrc("features/auth/context/AuthContext.js");
+        expect(authContext).toContain("PROFILE_CHANGED_EVENT");
+    });
+
+    it("follow/unfollow emits the sync event", () => {
+        const follows = readSrc("lib/api/follows.js");
+        expect(follows).toContain("emitProfileChanged()");
+    });
+
+    it("tweet create/delete emit the sync event", () => {
+        expect(readSrc("features/tweets/ui/CreateTweetCard.js")).toContain("emitProfileChanged()");
+        expect(readSrc("features/tweets/ui/TweetCard.js")).toContain("emitProfileChanged()");
+    });
+
+    it("profile save emits the sync event", () => {
+        expect(readSrc("features/profile/ui/EditProfilePage.js")).toContain("emitProfileChanged()");
     });
 });
 

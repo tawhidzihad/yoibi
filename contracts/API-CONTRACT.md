@@ -104,7 +104,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ### `GET /api/v1/auth/me`
 - Auth: Required (`Bearer <token>`)
-- Description: Retrieves current authenticated user context, permissions, and moderation status.
+- Description: Retrieves current authenticated user context, permissions, moderation status, and the canonical DB-backed profile statistics (the single source of truth for the right-side user card / sidebar).
 - Response (200):
   ```json
   {
@@ -117,15 +117,31 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
           "role": "user",
           "isBlocked": false,
           "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg",
+          "bannerUrl": "https://res.cloudinary.com/.../banner.jpg",
           "bio": "Building the future of social networks.",
           "country": "US",
           "age": 21,
           "phone": "+1 555 000 1234",
+          "followersCount": 420,
+          "followingCount": 180,
+          "tweetsCount": 112,
+          "videosCount": 7,
+          "streamsCount": 3,
+          "postsCount": 112,
           "createdAt": "2026-09-01T12:00:00.000Z"
       },
       "message": ""
   }
   ```
+- Statistics notes:
+  - `tweetsCount` / `videosCount` / `streamsCount` are real authorId-based counts
+    from the canonical repositories (the same `collectProfileCounts` source the
+    public profile uses) — never client-fabricated.
+  - `postsCount` is the legacy alias of `tweetsCount` (Tweet = YOIBI post type).
+  - `followersCount` / `followingCount` come from the canonical `users` document.
+  - After tweet create/delete, follow/unfollow, or profile updates, the frontend
+    refetches this endpoint (via the `yoibi:profile-changed` sync event) so the
+    sidebar stays in sync without a page reload.
 - Error (401 `UNAUTHORIZED`): Token invalid or missing.
 - Error (403 `ACCOUNT_BLOCKED`): Account is currently blocked by administrator.
 
