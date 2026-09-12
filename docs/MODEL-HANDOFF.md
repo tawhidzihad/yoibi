@@ -6,11 +6,11 @@ This file prevents a new AI model from restarting work from zero.
 At the end of every meaningful session/task, the active model must update this file. A new model must read it before changing code.
 
 ## Current Snapshot
-- Last updated: 2026-09-11
-- Active task: Phase 5 — TASK-012 Level 2 (Production Verification) — persistent Better Auth storage LIVE and verified end-to-end
-- Overall phase: Phase 5 — Level 1 Passed 100%; Level 2 persistent-storage verification PASSED; Socket.IO browser check remaining
-- Completion status: `Both deployments LIVE; signup/login persistence verified against production MongoDB; Socket.IO browser check remaining`
-- Git repository status: Working tree clean; commit `3e06f69` (persistent Better Auth storage + role/profile architecture)
+- Last updated: 2026-09-12
+- Active task: TASK-014 — Complete User Profile System (`/profile/[username]`, editing, avatar + banner, real content tabs)
+- Overall phase: Phase 5 — Levels 1–2 passed; TASK-014 implemented and quality-gated (production verification pending)
+- Completion status: `Implementation Complete — Production Verification Pending` (deployments in progress)
+- Git repository status: Working tree clean at feature commit; see latest commits
 - Current branch: `main`
 
 ## Session Recovery Entry (2026-09-11)
@@ -113,4 +113,20 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 7. **Contracts**: `API-CONTRACT.md` + `openapi.yaml` synchronized (no `isEmailVerified`; `bio/country/age/phone` on `/auth/me`; PATCH body documented; field classification table). Frontend tests updated (`auth-simplified.test.js`).
 8. **Tests/gates**: backend `npm test` 100%, lint clean, audit 0 vulns; frontend vitest 37/37, lint clean, build success.
 9. **Deployment**: DONE — Railway backend (`https://yoibi-backend-production.up.railway.app`) and Vercel frontend (`https://yoibi-frontend.vercel.app`) redeployed with this architecture; health 200 `database: connected`; removed routes 404. Production Email-user smoke PASSED (signup → JWT → `/auth/me` 200 → Tweet 201 → Video upload-signature 200 → role/ID spoof rejected 422 → re-login same profile). Remaining: live Google OAuth browser smoke (needs a real Google test account + owner go-ahead); disposable smoke account `yoibi-smoke-20260912@example.com` left for audit.
+
+## User Profile System Architecture (TASK-014, 2026-09-12)
+
+1. **Profile route**: `frontend/src/app/(protected)/profile/[username]/page.js` renders `ProfileView`, which loads the profile from the backend by the URL handle (`GET /users/:handle`, handle normalized server-side — lowercase, `@` stripped). The app profile data source is ALWAYS the backend; `AuthContext` is used only to compare identity for owner detection.
+2. **Sidebar/right-card cleanup**: `layout.js` no longer contains `/wall` items; the right-side user card shows "View My Profile" → `/profile/{currentUserHandle}` and the duplicate Sign Out was removed (only the left sidebar keeps Sign Out on desktop; mobile keeps its header Sign Out).
+3. **Backend profile API**:
+   - `GET /api/v1/users/:handle` (verifyJwt): explicit public allowlist + real counts (`tweetsCount`, `videosCount`, `streamsCount`, `postsCount` alias) computed via the tweets/videos/streams repositories by canonical `authorId`; `isOwner` + `isFollowing` from the verified token.
+   - `PATCH /api/v1/users/me` (verifyJwt + requireAuth): strict Zod allowlist (`name`, `bio`, `avatarUrl`, `bannerUrl`, `country`, `age`, `phone`, `handle`); updates keyed exclusively by `_id` (verified `req.user.id`); duplicate handle → `422 HANDLE_TAKEN`; response sanitized (no moderation internals).
+   - `POST /api/v1/users/me/upload-signature` (expensiveLimiter + auth): server-signed Cloudinary image upload intent (`yoibi/profiles/{userId}/avatars|banners`); `CLOUDINARY_API_SECRET` never leaves the server. Client uploads via `https://api.cloudinary.com/v1_1/{cloud}/image/upload` then persists `secure_url` via PATCH.
+4. **Data model**: `users` (canonical) gained `bannerUrl` (Cloudinary URL string, default `''`); no separate profile collections; avatars/banners are URLs, never MongoDB binaries. `handle` remains the canonical username field (no duplicate `username` field) and is now user-editable with server-side normalization + DB-enforced uniqueness.
+5. **Content tabs** (server-side filtered, paginated):
+   - Tweets: `GET /tweets?authorHandle={handle}` — resolved to a canonical `authorId` in the service.
+   - Videos: `GET /videos?authorId={id}` (existing filter).
+   - Streams: `GET /streams?authorId={id}&status=all` — new `status=all` lifecycle filter (ready/live/ended).
+6. **Author identity links**: TweetCard, VideoCard, StreamCard, and follow notifications link to `/profile/{handle}` (dead `/wall/{handle}` links fixed). Videos/streams author enrichment bug fixed (`User.findOne({ id })` → `{ _id }` — authors now resolve real handles/avatars).
+7. **Tests**: `backend/tests/users-profile.test.js` (11 sections) and `frontend/tests/profile.test.js` (12 tests). Backend: npm test 100% (9 suites), lint clean, audit 0. Frontend: vitest 55/55, lint clean, build OK (`/profile/[username]` dynamic).
 

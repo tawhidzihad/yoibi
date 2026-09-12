@@ -132,7 +132,9 @@ async function enrichAuthor(stream) {
     }
 
     try {
-        const user = await User.findOne({ id: stream.authorId }).lean();
+        // The canonical user identity field is `_id` (String = Better Auth
+        // user ID); `authorId` on every content domain equals users._id.
+        const user = await User.findOne({ _id: stream.authorId }).lean();
         return {
             ...stream,
             id: stream.id || stream._id?.toString(),
@@ -176,9 +178,11 @@ async function enrichAuthors(streams) {
     }
 
     try {
+        // The canonical user identity field is `_id` (String = Better Auth
+        // user ID); `authorId` on every content domain equals users._id.
         const authorIds = [...new Set(streams.map((s) => s.authorId).filter(Boolean))];
-        const users = await User.find({ id: { $in: authorIds } }).lean();
-        const userMap = new Map(users.map((u) => [u.id, u]));
+        const users = await User.find({ _id: { $in: authorIds } }).lean();
+        const userMap = new Map(users.map((u) => [u._id ? u._id.toString() : "", u]));
 
         return streams.map((s) => {
             const user = userMap.get(s.authorId);

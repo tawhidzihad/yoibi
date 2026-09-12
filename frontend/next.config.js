@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     reactStrictMode: true,
+    images: {
+        remotePatterns: [
+            // Cloudinary — all YOIBI media (avatars, banners, thumbnails, videos)
+            { protocol: "https", hostname: "res.cloudinary.com" },
+            // Google OAuth avatars (provider-derived profile pictures)
+            { protocol: "https", hostname: "lh3.googleusercontent.com" },
+        ],
+    },
     async headers() {
         return [
             {

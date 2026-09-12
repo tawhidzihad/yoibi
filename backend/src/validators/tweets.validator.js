@@ -28,11 +28,19 @@ const createTweetSchema = z.object({
 
 /**
  * Schema for listing / paginating tweets.
+ * `authorHandle`: optional server-side ownership filter — resolves the handle
+ * to the canonical user ID in the service and filters by `authorId` (never by
+ * display-name comparison). Used by the profile Tweets tab.
  */
 const listTweetsQuerySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(50).default(20),
-    filter: z.enum(["all", "following"]).default("all")
+    filter: z.enum(["all", "following"]).default("all"),
+    authorHandle: z
+        .string()
+        .max(30)
+        .optional()
+        .transform((value) => (value ? value.trim().replace(/^@+/, "").toLowerCase() : undefined))
 });
 
 /**

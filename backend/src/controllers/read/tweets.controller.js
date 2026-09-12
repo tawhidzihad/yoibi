@@ -6,11 +6,12 @@ const { listTweets, getTweetById, getReplies } = require("../../services/read/tw
  */
 async function handleListTweets(req, res, next) {
     try {
-        const { page, limit, filter } = req.query;
+        const { page, limit, filter, authorHandle } = req.validatedQuery || req.query;
         const result = await listTweets({
             page: Number(page) || 1,
             limit: Number(limit) || 20,
             filter: filter || "all",
+            authorHandle: authorHandle || null,
             currentUserId: req.user ? req.user.id : null
         });
 

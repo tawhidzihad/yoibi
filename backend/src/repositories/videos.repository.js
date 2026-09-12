@@ -147,7 +147,9 @@ async function enrichAuthor(video) {
     }
 
     try {
-        const user = await User.findOne({ id: video.authorId }).lean();
+        // The canonical user identity field is `_id` (String = Better Auth
+        // user ID); `authorId` on every content domain equals users._id.
+        const user = await User.findOne({ _id: video.authorId }).lean();
         return {
             ...video,
             id: video.id || video._id,
@@ -191,9 +193,11 @@ async function enrichAuthors(videos) {
     }
 
     try {
+        // The canonical user identity field is `_id` (String = Better Auth
+        // user ID); `authorId` on every content domain equals users._id.
         const authorIds = [...new Set(videos.map((v) => v.authorId).filter(Boolean))];
-        const users = await User.find({ id: { $in: authorIds } }).lean();
-        const userMap = new Map(users.map((u) => [u.id, u]));
+        const users = await User.find({ _id: { $in: authorIds } }).lean();
+        const userMap = new Map(users.map((u) => [u._id ? u._id.toString() : "", u]));
 
         return videos.map((v) => {
             const user = userMap.get(v.authorId);

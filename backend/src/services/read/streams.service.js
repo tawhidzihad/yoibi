@@ -4,20 +4,23 @@ const { STREAM_STATUS } = require("../../models/stream.model");
 
 /**
  * Lists broadcast streams by lifecycle status with pagination.
+ * `status` accepts any canonical lifecycle value or "all" (every lifecycle
+ * state — used by the profile Streams tab).
  */
 async function listStreams({ page = 1, limit = 20, status = STREAM_STATUS.LIVE, category = null, authorId = null }) {
     const skip = (page - 1) * limit;
+    const statusFilter = status === "all" ? null : status;
 
     const [streams, totalItems] = await Promise.all([
         streamsRepository.findPaginated({
-            status,
+            status: statusFilter,
             category,
             authorId,
             skip,
             limit
         }),
         streamsRepository.count({
-            status,
+            status: statusFilter,
             category,
             authorId
         })

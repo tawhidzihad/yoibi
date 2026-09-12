@@ -63,11 +63,11 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
     const isAdmin = user?.role === "admin";
     const canDelete = isAuthor || isAdmin;
 
-    const handleNavigateToWall = (e) => {
+    const handleNavigateToProfile = (e) => {
         e.stopPropagation();
         const rawHandle = tweet.author?.handle || "user";
         const cleanHandle = rawHandle.startsWith("@") ? rawHandle.slice(1) : rawHandle;
-        router.push(`/wall/${cleanHandle}`);
+        router.push(`/profile/${cleanHandle}`);
     };
 
     const handleLikeToggle = async () => {
@@ -176,7 +176,7 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
                 <div className="flex flex-col items-center">
                     <button
                         type="button"
-                        onClick={handleNavigateToWall}
+                        onClick={handleNavigateToProfile}
                         className="cursor-pointer transition-opacity hover:opacity-85 focus:outline-none"
                         aria-label={`View ${tweet.author?.name || "user"}'s profile`}
                     >
@@ -193,7 +193,7 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
                         <div className="flex items-center gap-1.5 flex-wrap">
                             <button
                                 type="button"
-                                onClick={handleNavigateToWall}
+                                onClick={handleNavigateToProfile}
                                 className="cursor-pointer text-sm font-semibold text-foreground hover:underline focus:outline-none"
                             >
                                 {tweet.author?.name || "Yoibi Member"}

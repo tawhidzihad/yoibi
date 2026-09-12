@@ -1,14 +1,33 @@
 const tweetsRepository = require("../../repositories/tweets.repository");
+const User = require("../../models/user.model");
 
 /**
  * Service: List paginated top-level feed tweets
+ *
+ * `authorHandle` (optional): server-side ownership filter for the profile
+ * Tweets tab. The handle is resolved to the canonical user ID and filtering
+ * happens in the database query (authorId) — never by fetching the full feed
+ * and filtering in the browser, and never by comparing display names.
  */
-async function listTweets({ page = 1, limit = 20, _filter = "all", currentUserId = null }) {
+async function listTweets({ page = 1, limit = 20, _filter = "all", authorHandle = null, currentUserId = null }) {
     const skip = (page - 1) * limit;
 
+    let authorIds = null;
+    if (authorHandle) {
+        const author = await User.findOne({ handle: authorHandle }).lean();
+        if (!author || !author._id) {
+            // Unknown author — an empty, well-formed page (never an error).
+            return {
+                items: [],
+                pagination: { page, limit, totalItems: 0, totalPages: 1, hasNextPage: false }
+            };
+        }
+        authorIds = [author._id.toString()];
+    }
+
     const [rawTweets, totalItems] = await Promise.all([
-        tweetsRepository.findPaginated({ skip, limit }),
-        tweetsRepository.count({})
+        tweetsRepository.findPaginated({ authorIds, skip, limit }),
+        tweetsRepository.count({ authorIds })
     ]);
 
     const enrichedTweets = await tweetsRepository.attachAuthors(rawTweets);

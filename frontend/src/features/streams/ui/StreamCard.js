@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { Radio, Users, Clock, ArrowRight } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
-
 function Avatar({ author }) {
     if (author?.avatarUrl) {
         return (
@@ -105,15 +104,29 @@ export function StreamCard({ stream }) {
             <div className="p-4 flex flex-col justify-between">
                 <div>
                     <div className="mb-2.5 flex items-center gap-2.5">
-                        <Avatar author={stream.author} />
-                        <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-semibold text-foreground">
-                                {stream.author?.name || "Broadcaster"}
-                            </p>
-                            <p className="truncate text-[11px] text-muted-foreground">
-                                @{stream.author?.handle || "broadcaster"}
-                            </p>
-                        </div>
+                        {/* Author identity links to the broadcaster's profile.
+                            preventDefault/stopPropagation keep the outer stream
+                            Link from navigating. */}
+                        <Link
+                            href={`/profile/${(stream.author?.handle || "broadcaster").replace(/^@/, "")}`}
+                            onClick={(e) => {
+                                // Stop bubbling so the outer stream Link does not
+                                // navigate; the inner Link handles the profile nav.
+                                e.stopPropagation();
+                            }}
+                            className="flex min-w-0 flex-1 items-center gap-2.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                            aria-label={`View ${(stream.author?.name || "broadcaster")}'s profile`}
+                        >
+                            <Avatar author={stream.author} />
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-xs font-semibold text-foreground">
+                                    {stream.author?.name || "Broadcaster"}
+                                </p>
+                                <p className="truncate text-[11px] text-muted-foreground">
+                                    @{stream.author?.handle || "broadcaster"}
+                                </p>
+                            </div>
+                        </Link>
                     </div>
 
                     <h3 className="line-clamp-2 text-sm font-semibold text-foreground leading-snug group-hover:text-cyan-400 transition-colors">

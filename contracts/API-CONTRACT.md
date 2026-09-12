@@ -141,11 +141,12 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 - Field classification:
   | Field | Classification |
   | --- | --- |
-  | `betterAuthUserId` | server-generated (from the verified Better Auth JWT) |
+  | `betterAuthUserId` (`_id`) | server-generated (from the verified Better Auth JWT) |
   | `name`, `email` | provider-derived / Better Auth identity (server-side only) |
-  | `handle` | server-generated from the verified name, unique (`@johndoe`, `@johndoe2`, …) |
+  | `handle` | canonical username — server-generated on first login (unique); user-editable via `PATCH /users/me` (normalized lowercase, URL-safe `[a-z0-9]`, 3–24 chars, DB-unique → collision returns `422 HANDLE_TAKEN`) |
   | `bio`, `country`, `age`, `phone` | user-submitted via `PATCH /users/me` (empty/null for Google users until completed) |
   | `avatarUrl` | user-uploaded (Cloudinary URL) or provider-derived (verified Google avatar URL at first OAuth login) |
+  | `bannerUrl` | user-uploaded (Cloudinary URL, server-issued signed upload via `POST /users/me/upload-signature`); default empty |
   | `role` (`user` \| `admin`), `isBlocked`, `blockReason` | admin/server-managed — never accepted from signup, OAuth payload, query, or client state |
 - For Google users the server derives `name`, `email`, and the verified provider
   avatar URL (`avatarUrl`) from the authenticated Better Auth identity — never
@@ -157,9 +158,11 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 ## 4. Users & Follows
 
 ### `GET /api/v1/users/:handle`
-- Auth: Optional (if authenticated, returns `isFollowing` and relationship status)
-- Description: Fetch public user profile and follow counts by user handle (e.g. `@janedoe` or `janedoe`).
-- Response (200):
+- Auth: Required (`Bearer <token>`). Profile pages live inside the protected area.
+- Description: Fetch a public user profile **by canonical handle** (e.g. `janedoe`,
+  `@janedoe`, or any casing — the server normalizes it). Identity (`isOwner`,
+  `isFollowing`) is derived from the authenticated token only.
+- Response (200) — explicit public allowlist (never email/age/phone/role/block state):
   ```json
   {
       "success": true,
@@ -168,42 +171,97 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
           "handle": "@janedoe",
           "name": "Jane Doe",
           "bio": "Building the future of social networks.",
+          "country": "GB",
           "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg",
+          "bannerUrl": "https://res.cloudinary.com/.../banner.jpg",
           "followersCount": 420,
           "followingCount": 180,
-          "postsCount": 35,
           "tweetsCount": 112,
+          "videosCount": 7,
+          "streamsCount": 3,
+          "postsCount": 112,
           "isFollowing": false,
+          "isOwner": false,
           "createdAt": "2026-09-01T12:00:00.000Z"
       },
       "message": ""
   }
   ```
+  - Counts are **real application counts** computed server-side by canonical
+    `authorId` ownership across the tweets/videos/streams collections.
+    `postsCount` is the legacy alias of `tweetsCount` (Tweet = YOIBI post type).
+  - `country` is the canonical ISO 3166-1 alpha-2 code (the UI maps it to the
+    display name).
 - Error (404 `NOT_FOUND`): User not found.
+- Error (401 `UNAUTHORIZED`): Token missing, malformed, or expired.
+
+### `POST /api/v1/users/me/upload-signature`
+- Auth: Required (`Bearer <token>`)
+- Description: Issues a **server-signed Cloudinary upload authorization** for the
+  authenticated user's profile image. `CLOUDINARY_API_SECRET` never leaves the
+  server; the signed folder is server-controlled per user and per image kind
+  (`yoibi/profiles/{userId}/avatars` | `yoibi/profiles/{userId}/banners`).
+- Request Body:
+  ```json
+  { "kind": "avatar" }
+  ```
+  - `kind`: `avatar` | `banner` (required).
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "uploadIntentId": "intent_img_...",
+          "publicId": "yoibi/profiles/usr_65e1a2b3/avatars/intent_img_...",
+          "folder": "yoibi/profiles/usr_65e1a2b3/avatars",
+          "timestamp": 1730000000,
+          "signature": "<server-signed-sha1>",
+          "apiKey": "<cloudinary-api-key>",
+          "cloudName": "yoibi"
+      },
+      "message": "Profile image upload signature generated successfully"
+  }
+  ```
+  The client uploads the file to `https://api.cloudinary.com/v1_1/{cloudName}/image/upload`
+  with the signature fields, then persists the returned `secure_url` via
+  `PATCH /users/me` (`avatarUrl` / `bannerUrl`).
+- Error (503 `SERVICE_UNCONFIGURED`): Cloudinary not configured on the server.
 
 ### `PATCH /api/v1/users/me`
-- Auth: Required (`Bearer <token>`)
-- Description: Update the current authenticated user's application profile
-  (display name, bio, avatar, and onboarding fields: country, age, phone).
-  Identity fields (`betterAuthUserId`, `email`) and managed fields (`role`,
-  `isBlocked`) are never accepted from the client. Password credentials are
-  owned exclusively by Better Auth.
-- Request Body:
+- Auth: Required (`Bearer <token>`); authorization is **always the verified
+  `req.user.id`** — client-submitted `userId`/`betterAuthUserId`/`role`/
+  `ownerId` are structurally impossible (Zod `.strict()` allowlist) and ignored.
+- Description: Update the current authenticated user's application profile:
+  display name, username/handle, bio, avatar, banner, and onboarding fields
+  (country, age, phone). Identity fields (`id`, `email`) and managed fields
+  (`role`, `isBlocked`, timestamps) are never accepted. Password credentials
+  are owned exclusively by Better Auth.
+- Request Body (all fields optional; server-normalized):
   ```json
   {
       "name": "Jane D.",
+      "handle": "janedoe",
       "bio": "Designer & Developer",
       "avatarUrl": "https://res.cloudinary.com/yoibi/image/upload/v12345/avatar.jpg",
+      "bannerUrl": "https://res.cloudinary.com/yoibi/image/upload/v12345/banner.jpg",
       "country": "US",
       "age": 21,
       "phone": "+1 555 000 1234"
   }
   ```
+  - `handle`: normalized server-side (lowercase, `@` stripped, URL-safe
+    `[a-z0-9]`); 3–24 characters post-normalization; unique database index.
+    A collision returns `422 HANDLE_TAKEN`. After a handle change the client
+    must navigate to `/profile/{newHandle}` (never a stale URL).
+  - `avatarUrl` / `bannerUrl`: http(s) Cloudinary URLs; empty string clears.
   - `country`: ISO 3166-1 alpha-2 canonical code (uppercase, server-normalized); empty string clears it.
   - `age`: integer >= 16 (YOIBI onboarding policy); null/empty clears it.
   - `phone`: optional; empty string clears it.
-- Response (200): Updated user profile object.
-- Error (422 `VALIDATION_ERROR`): Invalid format (e.g. bio exceeds 280 characters).
+- Response (200): Updated own-profile object (sanitized — moderation internals
+  such as `blockedReason`/`blockedAt`/`blockedBy` omitted).
+- Error (422 `VALIDATION_ERROR`): Invalid format (e.g. bio exceeds 280 chars, invalid handle).
+- Error (422 `HANDLE_TAKEN`): The requested username is already in use.
+- Error (401 `UNAUTHORIZED`): Token missing, malformed, or expired.
 
 ### `POST /api/v1/users/:id/follow`
 - Auth: Required (`Bearer <token>`)

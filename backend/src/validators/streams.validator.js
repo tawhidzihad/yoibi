@@ -26,7 +26,9 @@ const createStreamSchema = z.object({
 const listStreamsQuerySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(50).default(20),
-    status: z.enum(Object.values(STREAM_STATUS)).optional().default(STREAM_STATUS.LIVE),
+    // "all" spans every lifecycle state (ready/live/ended) — used by the
+    // profile Streams tab; the service translates it to no status filter.
+    status: z.enum([...Object.values(STREAM_STATUS), "all"]).optional().default(STREAM_STATUS.LIVE),
     category: z.enum(CANONICAL_CATEGORIES).optional(),
     authorId: z.string().optional()
 });

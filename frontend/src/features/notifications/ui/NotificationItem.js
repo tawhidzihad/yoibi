@@ -84,7 +84,7 @@ function getNavigationRoute(notification) {
             return `/videos/${targetId}`;
         case "follow": {
             const rawHandle = actor?.handle ? actor.handle.replace(/^@/, "") : "";
-            return rawHandle ? `/wall/${rawHandle}` : "/wall";
+            return rawHandle ? `/profile/${rawHandle}` : "/notifications";
         }
         default:
             return "/feed";

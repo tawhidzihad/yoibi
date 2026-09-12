@@ -25,6 +25,8 @@ const userSchema = new mongoose.Schema({
     // Better Auth remains the sole login authority — this is display/sync data.
     email: { type: String, default: '', index: true },
     avatarUrl: { type: String, default: '' },
+    // Profile banner/cover image (Cloudinary URL, server-issued signed upload).
+    bannerUrl: { type: String, default: '' },
     bio: { type: String, default: '' },
     country: {
         type: String,

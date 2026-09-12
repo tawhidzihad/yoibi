@@ -32,7 +32,6 @@ const baseNavItems = [
     { href: "/meetup", label: "Meet Up", icon: Users },
     { href: "/messages", label: "Messages", icon: MessageSquare },
     { href: "/notifications", label: "Notifications", icon: Bell, hasBadge: true },
-    { href: "/wall", label: "My Wall", icon: User },
 ];
 
 const dockItems = [
@@ -44,7 +43,6 @@ const dockItems = [
     { icon: Users, label: "Meet Up", href: "/meetup" },
     { icon: MessageSquare, label: "Messages", href: "/messages" },
     { icon: Bell, label: "Notifications", href: "/notifications", hasBadge: true },
-    { icon: User, label: "Wall", href: "/wall" },
 ];
 
 /**
@@ -124,7 +122,8 @@ function LeftNav({ user, onLogout, unreadCount = 0 }) {
     );
 }
 
-function RightPanel({ user, onLogout }) {
+function RightPanel({ user }) {
+    const profileHandle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
     return (
         <aside className="sticky top-0 h-screen w-[260px] shrink-0 overflow-y-auto border-l border-border/50 bg-background px-4 py-6">
             {user ? (
@@ -163,7 +162,7 @@ function RightPanel({ user, onLogout }) {
                         ))}
                     </div>
 
-                    {/* Profile & Logout links */}
+                    {/* Profile links — sign-out lives ONLY in the left sidebar */}
                     <div className="mt-3 flex flex-col gap-2">
                         {user.role === "admin" && (
                             <Link
@@ -174,18 +173,11 @@ function RightPanel({ user, onLogout }) {
                             </Link>
                         )}
                         <Link
-                            href="/wall"
+                            href={profileHandle ? `/profile/${profileHandle}` : "/feed"}
                             className="block rounded-lg border border-border/60 bg-secondary py-1.5 text-center text-xs font-medium text-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                         >
-                            View My Wall
+                            View My Profile
                         </Link>
-                        <button
-                            type="button"
-                            onClick={onLogout}
-                            className="block w-full rounded-lg border border-destructive/30 bg-destructive/5 py-1.5 text-center text-xs font-medium text-destructive transition-colors hover:bg-destructive/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive cursor-pointer"
-                        >
-                            Sign Out
-                        </button>
                     </div>
                 </div>
             ) : null}
@@ -239,7 +231,7 @@ export default function ProtectedLayout({ children }) {
                     {children}
                 </main>
 
-                <RightPanel user={user} onLogout={handleLogout} />
+                <RightPanel user={user} />
             </div>
 
             {/* ── MOBILE / TABLET: header + dock ── */}

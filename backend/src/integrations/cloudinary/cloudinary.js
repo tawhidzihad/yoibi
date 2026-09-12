@@ -142,6 +142,63 @@ function verifyAndConsumeIntent({ uploadIntentId, userId, publicId, videoUrl }) 
 }
 
 /**
+ * Creates a server-controlled IMAGE upload intent (profile avatar / banner)
+ * and generates Cloudinary signed upload parameters.
+ *
+ * Security: the signature is issued server-side only (CLOUDINARY_API_SECRET
+ * never reaches the browser), the folder is server-controlled per user and
+ * per image kind, and the intent is single-user.
+ *
+ * @param {string} userId
+ * @param {'avatar'|'banner'} kind
+ */
+function createImageUploadIntent(userId, kind) {
+    const hasConfig = Boolean(
+        env.CLOUDINARY_CLOUD_NAME &&
+        env.CLOUDINARY_API_KEY &&
+        env.CLOUDINARY_API_SECRET
+    );
+
+    // In production, Cloudinary credentials are strictly mandatory
+    if (env.NODE_ENV === "production" && !hasConfig) {
+        const error = new Error("Cloudinary media service is not configured on the server.");
+        error.statusCode = 503;
+        error.code = "SERVICE_UNCONFIGURED";
+        throw error;
+    }
+
+    const normalizedKind = kind === "banner" ? "banners" : "avatars";
+    const intentId = `intent_img_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    const folder = `yoibi/profiles/${userId}/${normalizedKind}`;
+    const publicId = `${folder}/${intentId}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    // Parameters to sign in alphabetical order
+    const paramsToSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}`;
+
+    let signature = "";
+    if (hasConfig) {
+        signature = crypto
+            .createHash("sha1")
+            .update(`${paramsToSign}${env.CLOUDINARY_API_SECRET}`)
+            .digest("hex");
+    } else {
+        // Safe mock signature strictly for test/dev environment
+        signature = `mock_sig_${crypto.randomBytes(8).toString("hex")}`;
+    }
+
+    return {
+        uploadIntentId: intentId,
+        publicId,
+        folder,
+        timestamp,
+        signature,
+        apiKey: env.CLOUDINARY_API_KEY || "mock_api_key",
+        cloudName: env.CLOUDINARY_CLOUD_NAME || "mock_cloud_name"
+    };
+}
+
+/**
  * Destroys a video asset in Cloudinary using the Admin/REST API.
  */
 async function deleteCloudinaryAsset(publicId) {
@@ -197,6 +254,7 @@ async function deleteCloudinaryAsset(publicId) {
 
 module.exports = {
     createUploadIntent,
+    createImageUploadIntent,
     verifyAndConsumeIntent,
     deleteCloudinaryAsset,
     _uploadIntents: uploadIntents // Exposed for tests

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Play, Eye, Heart, Trash2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { videosApi } from "../api/videosApi";
@@ -134,8 +135,12 @@ export function VideoCard({ video, onPlay, onDeleted }) {
                         {video.title}
                     </h3>
 
-                    {/* Author Row */}
-                    <div className="flex items-center gap-2">
+                    {/* Author Row — identity links to the author's profile */}
+                    <Link
+                        href={`/profile/${(video.author?.handle || "member").replace(/^@/, "")}`}
+                        className="flex w-fit items-center gap-2 rounded transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        aria-label={`View ${(video.author?.name || "author")}'s profile`}
+                    >
                         <AuthorAvatar
                             name={video.author?.name}
                             avatarUrl={video.author?.avatarUrl}
@@ -143,7 +148,7 @@ export function VideoCard({ video, onPlay, onDeleted }) {
                         <span className="truncate text-[11px] text-muted-foreground">
                             @{video.author?.handle || "member"}
                         </span>
-                    </div>
+                    </Link>
 
                     {/* Stats Row */}
                     <div className="flex items-center justify-between">

@@ -2,13 +2,15 @@ import { apiClient } from "@/lib/api/client";
 
 /**
  * Fetch paginated tweets for the feed or user profile.
+ * `authorHandle` filters server-side to a single author (profile Tweets tab).
  */
-export async function getTweets({ page = 1, limit = 20, filter = "all", authorId } = {}) {
+export async function getTweets({ page = 1, limit = 20, filter = "all", authorId, authorHandle } = {}) {
     const params = new URLSearchParams();
     if (page) params.set("page", String(page));
     if (limit) params.set("limit", String(limit));
     if (filter) params.set("filter", filter);
     if (authorId) params.set("authorId", authorId);
+    if (authorHandle) params.set("authorHandle", String(authorHandle).replace(/^@/, ""));
 
     const res = await apiClient.get(`/tweets?${params.toString()}`);
     return res;

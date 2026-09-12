@@ -43,22 +43,71 @@ paths:
   /users/{handle}:
     get:
       summary: Get user public profile by handle
+      description: Returns the public profile with real content counts. The handle is normalized server-side (lowercase, @-stripped). Sensitive fields (email, age, phone, role, block moderation state) are never returned.
+      security:
+        - bearerAuth: []
       parameters:
         - name: handle
           in: path
           required: true
           schema:
             type: string
-            example: "@janedoe"
+            example: "janedoe"
       responses:
         '200':
           description: Public user profile
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/UserPublicProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+
+  /users/me/upload-signature:
+    post:
+      summary: Request server-signed profile-image upload authorization (avatar/banner)
+      description: Issues a server-signed Cloudinary upload intent for the authenticated user's avatar or banner. The Cloudinary API secret never leaves the server.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                kind:
+                  type: string
+                  enum: [avatar, banner]
+      responses:
+        '200':
+          description: Signed upload parameters (folder-scoped to the user and image kind)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/ProfileImageUploadSignature'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '503':
+          description: Cloudinary media service is not configured on the server
 
   /users/me:
     patch:
       summary: Update authenticated user profile
+      description: Updates the authenticated user's editable profile fields only. Identity is always the verified req.user.id; role, block state, timestamps and IDs are structurally rejected (Zod strict allowlist).
       security:
         - bearerAuth: []
       requestBody:
@@ -70,10 +119,21 @@ paths:
               properties:
                 name:
                   type: string
+                  minLength: 1
+                  maxLength: 50
+                handle:
+                  type: string
+                  description: Username. Normalized server-side (lowercase, @-stripped, URL-safe [a-z0-9], 3-24 chars). Database-unique; a collision returns 422 HANDLE_TAKEN.
+                  example: janedoe
                 bio:
                   type: string
+                  maxLength: 280
                 avatarUrl:
                   type: string
+                  description: Cloudinary avatar URL. Empty string clears it.
+                bannerUrl:
+                  type: string
+                  description: Cloudinary banner/cover URL. Empty string clears it.
                 country:
                   type: string
                   description: ISO 3166-1 alpha-2 code (uppercase, canonical). Empty string clears the field.
@@ -94,6 +154,8 @@ paths:
           description: Profile updated successfully
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          description: Validation error or username already taken (code HANDLE_TAKEN)
 
   /users/{id}/follow:
     post:
@@ -1943,6 +2005,88 @@ components:
               example: "2026-09-01T12:00:00.000Z"
               description: Never exposes isEmailVerified (email verification is removed) or any credential fields.
         message:
+          type: string
+
+    UserPublicProfile:
+      type: object
+      description: Public profile allowlist. Never exposes email, age, phone, role, block state, or authentication data.
+      properties:
+        id:
+          type: string
+          example: usr_65e1a2b3
+        handle:
+          type: string
+          example: "@janedoe"
+        name:
+          type: string
+          example: Jane Doe
+        bio:
+          type: string
+          example: Building the future of social networks.
+        country:
+          type: string
+          description: ISO 3166-1 alpha-2 code (the UI maps codes to display names).
+          example: GB
+        avatarUrl:
+          type: string
+          description: Cloudinary avatar URL or verified Google avatar URL.
+        bannerUrl:
+          type: string
+          description: Cloudinary banner/cover URL; empty when the user has no banner.
+        followersCount:
+          type: integer
+          example: 420
+        followingCount:
+          type: integer
+          example: 180
+        tweetsCount:
+          type: integer
+          description: Real count of the user's top-level tweets (canonical authorId ownership).
+          example: 112
+        videosCount:
+          type: integer
+          description: Real count of the user's videos.
+          example: 7
+        streamsCount:
+          type: integer
+          description: Real count of the user's streams across all lifecycle states.
+          example: 3
+        postsCount:
+          type: integer
+          description: Legacy alias of tweetsCount (Tweet is YOIBI's post type).
+          example: 112
+        isFollowing:
+          type: boolean
+          example: false
+        isOwner:
+          type: boolean
+          description: True when the authenticated viewer IS this profile's owner.
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-01T12:00:00.000Z"
+
+    ProfileImageUploadSignature:
+      type: object
+      description: Server-signed Cloudinary upload authorization for a profile image. NEVER contains the Cloudinary API secret.
+      properties:
+        uploadIntentId:
+          type: string
+        publicId:
+          type: string
+          example: yoibi/profiles/usr_65e1a2b3/avatars/intent_img_1234_abcd
+        folder:
+          type: string
+          example: yoibi/profiles/usr_65e1a2b3/avatars
+        timestamp:
+          type: number
+        signature:
+          type: string
+          description: SHA-1 signature computed server-side with the Cloudinary API secret.
+        apiKey:
+          type: string
+        cloudName:
           type: string
 
     MediaUploadResponse:

@@ -63,10 +63,30 @@ function deriveHandleBaseFor({ name, email, userId }) {
     return "user";
 }
 
+/**
+ * Normalizes a user-facing handle value (profile lookup parameter or an edit
+ * submission) into the canonical stored form:
+ *   - strips the "@" prefix ("@tawhid" -> "tawhid")
+ *   - lowercases
+ *   - removes every character outside [a-z0-9] (URL-safe)
+ *   - clamps to MAX_HANDLE_LENGTH
+ *
+ * Returns the normalized handle, or "" when nothing usable remains.
+ *
+ * @param {unknown} raw
+ * @returns {string}
+ */
+function normalizeHandleParam(raw) {
+    if (typeof raw !== "string") return "";
+    const stripped = raw.trim().replace(/^@+/, "").toLowerCase();
+    return stripped.replace(/[^a-z0-9]/g, "").substring(0, MAX_HANDLE_LENGTH);
+}
+
 module.exports = {
     HANDLE_PREFIX,
     MAX_HANDLE_LENGTH,
     MIN_HANDLE_LENGTH,
     deriveHandleBase,
-    deriveHandleBaseFor
+    deriveHandleBaseFor,
+    normalizeHandleParam
 };
