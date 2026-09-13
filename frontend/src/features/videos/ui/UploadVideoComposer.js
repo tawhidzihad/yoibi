@@ -49,7 +49,7 @@ function toUserMessage(rawMessage) {
     return msg || "We couldn't save your video. Please try again.";
 }
 
-export function UploadVideoComposer({ onClose, onVideoUploaded }) {
+export function UploadVideoComposer({ onClose, onVideoUploaded, isOpen }) {
     const router = useRouter();
     const { user, status } = useAuth();
     const fileInputRef = useRef(null);
@@ -224,6 +224,8 @@ export function UploadVideoComposer({ onClose, onVideoUploaded }) {
                 onVideoUploaded(createRes.data);
             }
             resetAll();
+            // Collapse the form automatically after a successful upload
+            onClose?.();
         } catch (err) {
             console.warn("[Videos] Upload failed:", err.message);
             setServerError(toUserMessage(err.message));

@@ -22,6 +22,8 @@ export function VideosView() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
+    // Track whether the CSS expand animation has settled (for inert attr delay)
+    const composerRef = useRef(null);
     const [activeVideo, setActiveVideo] = useState(null);
 
     // Prevent double-fetch on category change
@@ -116,6 +118,8 @@ export function VideosView() {
 
     const handleVideoUploaded = (newVideo) => {
         setVideos((prev) => [newVideo, ...prev]);
+        // Auto-collapse the form after a successful upload
+        setIsUploadOpen(false);
     };
 
     const handleVideoDeleted = (deletedId) => {
@@ -155,13 +159,31 @@ export function VideosView() {
                 )}
             </div>
 
-            {/* Inline Upload Composer (expands in place — no modal) */}
-            {isUploadOpen && (
-                <UploadVideoComposer
-                    onClose={() => setIsUploadOpen(false)}
-                    onVideoUploaded={handleVideoUploaded}
-                />
-            )}
+            {/* Inline Upload Composer — always mounted; height-animated via CSS Grid rows */}
+            {/*
+             * CSS Grid row-height animation:
+             *   collapsed: grid-template-rows: 0fr  (inner overflow:hidden → 0 height)
+             *   expanded:  grid-template-rows: 1fr  (inner grows to natural height)
+             * Transition on grid-template-rows gives a smooth, jump-free slide.
+             * prefers-reduced-motion: transition is suppressed via the media query
+             * in globals.css (.upload-composer-shell).
+             */}
+            <div
+                ref={composerRef}
+                data-open={isUploadOpen ? "true" : "false"}
+                aria-hidden={!isUploadOpen}
+                {...(!isUploadOpen ? { inert: "" } : {})}
+                className="upload-composer-shell"
+                id="upload-composer-region"
+            >
+                <div className="min-h-0 overflow-hidden">
+                    <UploadVideoComposer
+                        isOpen={isUploadOpen}
+                        onClose={() => setIsUploadOpen(false)}
+                        onVideoUploaded={handleVideoUploaded}
+                    />
+                </div>
+            </div>
 
             {/* Category Filter Toolbar */}
             <div

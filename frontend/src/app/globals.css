@@ -228,3 +228,25 @@
     );
 }
 
+/* ============================================================
+ * Video upload composer — smooth expand/collapse
+ * Uses CSS Grid row-height animation (no JS height measurement).
+ * Collapsed: grid-template-rows: 0fr  → inner overflow:hidden = 0px
+ * Expanded:  grid-template-rows: 1fr  → inner grows to natural height
+ * ============================================================ */
+.upload-composer-shell {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 250ms ease;
+}
+
+.upload-composer-shell[data-open="true"] {
+    grid-template-rows: 1fr;
+}
+
+/* Remove animation for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .upload-composer-shell {
+        transition: none;
+    }
+}
