@@ -6,6 +6,10 @@ const apiRouter = require("./routes");
 
 const app = express();
 
+// Trust the first proxy (Railway's load balancer) so X-Forwarded-For is honored
+// and express-rate-limit correctly identifies client IPs behind the proxy.
+app.set('trust proxy', 1);
+
 // Security headers
 app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
