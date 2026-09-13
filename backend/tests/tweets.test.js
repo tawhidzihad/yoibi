@@ -97,6 +97,144 @@ async function runTweetsTests() {
         assert.strictEqual(notFoundRes.body.error.code, "NOT_FOUND");
         console.log("✓ GET /api/v1/tweets/:id with non-existent ID returned 404 NOT_FOUND.");
 
+        // Test 8 (ROOT-CAUSE REGRESSION): an authenticated reply sent via
+        // POST /api/v1/tweets/:id/replies MUST be stored with its parent
+        // relationship (replyToId) and increment the parent repliesCount —
+        // never saved as a standalone top-level tweet.
+        const { generateKeyPair, exportJWK, SignJWT } = require("jose");
+        const crypto = require("crypto");
+        const { env } = require("../src/config/env");
+        const { invalidateJWKS } = require("../src/middleware/auth");
+
+        const { publicKey, privateKey } = await generateKeyPair("RS256", { modulusLength: 2048 });
+        const publicJwk = await exportJWK(publicKey);
+        publicJwk.kid = crypto.randomUUID();
+        publicJwk.alg = "RS256";
+        publicJwk.use = "sig";
+
+        const jwksServer = http.createServer((req, res) => {
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ keys: [publicJwk] }));
+        });
+        await new Promise((resolve) => jwksServer.listen(0, "127.0.0.1", resolve));
+        const { port: jwksPort } = jwksServer.address();
+
+        const originalJwksUrl = env.BETTER_AUTH_JWKS_URL;
+        const originalBaseUrl = env.BETTER_AUTH_BASE_URL;
+        const ISSUER = "https://auth.test.yoibi.example";
+        env.BETTER_AUTH_JWKS_URL = `http://127.0.0.1:${jwksPort}/api/auth/jwks`;
+        env.BETTER_AUTH_BASE_URL = ISSUER;
+        invalidateJWKS();
+
+        const httpRepliesStore = new Map();
+        const httpOriginalFindById = tweetsRepository.findById;
+        const httpOriginalCreate = tweetsRepository.create;
+        const httpOriginalIncrementRepliesCount = tweetsRepository.incrementRepliesCount;
+        const httpOriginalFindReplies = tweetsRepository.findReplies;
+        const httpOriginalAttachAuthors = tweetsRepository.attachAuthors;
+
+        tweetsRepository.findById = async (id) => httpRepliesStore.get(id) || null;
+        tweetsRepository.create = async (doc) => {
+            httpRepliesStore.set(doc._id, doc);
+            return doc;
+        };
+        tweetsRepository.incrementRepliesCount = async (tweetId) => {
+            const parent = httpRepliesStore.get(tweetId);
+            if (parent) parent.repliesCount = (parent.repliesCount || 0) + 1;
+            return parent || null;
+        };
+        tweetsRepository.findReplies = async (tweetId) => {
+            return Array.from(httpRepliesStore.values()).filter((t) => t.replyToId === tweetId);
+        };
+        tweetsRepository.attachAuthors = async (tweets) => {
+            const isArray = Array.isArray(tweets);
+            const list = isArray ? tweets : [tweets];
+            const enriched = list.map((t) => ({
+                ...t,
+                id: t._id,
+                author: { id: t.authorId, name: "HTTP Test Author", handle: "httptester", avatarUrl: null }
+            }));
+            return isArray ? enriched : enriched[0];
+        };
+
+        try {
+            const now = Math.floor(Date.now() / 1000);
+            const replyerToken = await new SignJWT({
+                email: "replyer@example.com",
+                name: "Reply Tester",
+                emailVerified: true
+            })
+                .setProtectedHeader({ alg: "RS256", kid: publicJwk.kid })
+                .setIssuer(ISSUER)
+                .setAudience(ISSUER)
+                .setExpirationTime(now + 3600)
+                .setIssuedAt(now)
+                .setSubject("usr_reply_tester")
+                .sign(privateKey);
+
+            // Seed the parent tweet directly into the mock repository.
+            httpRepliesStore.set("tweet_parent_http", {
+                _id: "tweet_parent_http",
+                authorId: "usr_parent_author",
+                content: "Original tweet",
+                mediaUrls: [],
+                likes: [],
+                likesCount: 0,
+                retweets: [],
+                retweetCount: 0,
+                repliesCount: 0,
+                replyToId: null,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
+
+            const replyRes = await request("/api/v1/tweets/tweet_parent_http/replies", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: "Hello from User B!" }
+            });
+
+            assert.strictEqual(
+                replyRes.status,
+                201,
+                `Reply must be created, got ${replyRes.status}: ${JSON.stringify(replyRes.body)}`
+            );
+            assert.strictEqual(replyRes.body.success, true);
+            assert.strictEqual(
+                replyRes.body.data.replyToId,
+                "tweet_parent_http",
+                "Reply must carry its parent relationship (replyToId)"
+            );
+            assert.strictEqual(
+                httpRepliesStore.get("tweet_parent_http").repliesCount,
+                1,
+                "Parent repliesCount must be incremented by the reply"
+            );
+            console.log("✓ POST /api/v1/tweets/:id/replies stored the reply WITH replyToId and incremented parent repliesCount.");
+
+            // The reply must be retrievable under the parent via GET replies.
+            const repliesListRes = await request("/api/v1/tweets/tweet_parent_http/replies");
+            assert.strictEqual(repliesListRes.status, 200);
+            const replyItems = (repliesListRes.body.data && repliesListRes.body.data.items) || [];
+            assert.strictEqual(replyItems.length, 1);
+            assert.strictEqual(replyItems[0].replyToId, "tweet_parent_http");
+            console.log("✓ GET /api/v1/tweets/:id/replies returned the reply under its parent tweet.");
+        } finally {
+            // Restore repository methods and auth environment for later suites.
+            tweetsRepository.findById = httpOriginalFindById;
+            tweetsRepository.create = httpOriginalCreate;
+            tweetsRepository.incrementRepliesCount = httpOriginalIncrementRepliesCount;
+            tweetsRepository.findReplies = httpOriginalFindReplies;
+            tweetsRepository.attachAuthors = httpOriginalAttachAuthors;
+            env.BETTER_AUTH_JWKS_URL = originalJwksUrl;
+            env.BETTER_AUTH_BASE_URL = originalBaseUrl;
+            invalidateJWKS();
+            jwksServer.close();
+        }
+
     } finally {
         await new Promise((resolve) => server.close(resolve));
     }
@@ -280,6 +418,54 @@ async function runTweetsTests() {
         assert.strictEqual(repliesResult.items.length, 1);
         assert.strictEqual(repliesResult.items[0].id, reply.id);
         console.log("✓ Service: getReplies returned the reply tweet.");
+
+        // Test G2 (REGRESSION): replies are NOT top-level tweets — they must
+        // be excluded from the feed AND from the profile Tweet list/count.
+        const feedAfterReply = await listTweets({ page: 1, limit: 10, currentUserId: null });
+        assert.strictEqual(feedAfterReply.pagination.totalItems, 1, "Only the parent tweet is top-level");
+        assert.strictEqual(
+            feedAfterReply.items.every((t) => t.id !== reply.id),
+            true,
+            "Reply must not appear in the top-level feed/profile listing"
+        );
+        console.log("✓ Service: reply excluded from top-level feed & profile Tweet list (not a standalone tweet).");
+
+        // Test G3: multiple replies increment the parent repliesCount to 2.
+        const replyA = await createTweet({
+            user: userA,
+            content: "Reply from Alice",
+            replyToId: createdTweet.id
+        });
+        assert.strictEqual(replyA.replyToId, createdTweet.id);
+        assert.strictEqual(inMemoryTweets.get(createdTweet.id).repliesCount, 2);
+        const repliesAfterTwo = await getReplies({ tweetId: createdTweet.id, currentUserId: null });
+        assert.strictEqual(repliesAfterTwo.items.length, 2);
+        console.log("✓ Service: multiple replies tracked — parent repliesCount = 2.");
+
+        // Test G4: the reply thread is embedded under the parent tweet.
+        const thread = await getTweetById({ id: createdTweet.id, currentUserId: null });
+        assert.strictEqual(thread.repliesCount, 2);
+        assert.strictEqual(thread.replies.length, 2);
+        assert.strictEqual(thread.replies.every((r) => r.replyToId === createdTweet.id), true);
+        console.log("✓ Service: getTweetById returns the reply thread under the parent tweet.");
+
+        // Test G5: replying to a non-existent parent → 404 (never stored as a
+        // standalone tweet as a side effect).
+        let orphanReplyFailed = false;
+        try {
+            await createTweet({ user: userB, content: "Orphan reply", replyToId: "tweet_missing" });
+        } catch (err) {
+            orphanReplyFailed = err.statusCode === 404;
+        }
+        assert.strictEqual(orphanReplyFailed, true, "Reply to a missing parent must fail with 404");
+        console.log("✓ Service: reply to a non-existent parent rejected with 404 NOT_FOUND.");
+
+        // Test G6: deleting a reply decrements the parent repliesCount.
+        await deleteTweet({ tweetId: reply.id, user: userB });
+        assert.strictEqual(inMemoryTweets.get(createdTweet.id).repliesCount, 1);
+        const repliesAfterDelete = await getReplies({ tweetId: createdTweet.id, currentUserId: null });
+        assert.strictEqual(repliesAfterDelete.items.length, 1);
+        console.log("✓ Service: deleting a reply decremented the parent repliesCount (server-computed count stays correct).");
 
         // Test H: Delete tweet authorization
         let unauthorizedDeleteFailed = false;

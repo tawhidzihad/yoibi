@@ -418,6 +418,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ### `POST /api/v1/tweets/:id/replies`
 - Auth: Required (`Bearer <token>`)
+- Note: the parent tweet relationship (`replyToId`) is derived SERVER-SIDE from the URL `:id` parameter and is never taken from the client request body. A reply is always persisted as a child of its parent tweet (never as a standalone top-level tweet); replying to a non-existent parent returns 404 `NOT_FOUND`.
 - Request Body:
   ```json
   {

@@ -143,10 +143,13 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
             }
 
             reset();
+            // Server confirmed the reply (source of truth) — only now update
+            // the visible reply list and the parent tweet's reply count.
             const newReply = res.data;
-            setReplies((prev) => [...prev, newReply]);
+            const nextReplies = [...replies, newReply];
+            setReplies(nextReplies);
             if (onRepliesCountChange) {
-                onRepliesCountChange(replies.length + 1);
+                onRepliesCountChange(nextReplies.length);
             }
         } catch (err) {
             setError(err.message || "An unexpected error occurred.");
@@ -164,9 +167,10 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
                 return;
             }
 
-            setReplies((prev) => prev.filter((r) => r.id !== deleteTargetId));
+            const nextReplies = replies.filter((r) => r.id !== deleteTargetId);
+            setReplies(nextReplies);
             if (onRepliesCountChange) {
-                onRepliesCountChange(Math.max(0, replies.length - 1));
+                onRepliesCountChange(Math.max(0, nextReplies.length));
             }
             setDeleteTargetId(null);
         } catch (err) {

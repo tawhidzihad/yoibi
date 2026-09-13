@@ -7,10 +7,10 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-13
-- Active task: TASK-017 — Tweet Media Upload Redesign & Fix (direct device upload, secure Cloudinary pipeline, full-screen viewer + carousel); includes Task 1 /videos page-text update
-- Overall phase: Phase 5 — TASK-017 implemented & quality-gated (backend 100%, frontend 75/75, lint 0/0, build clean; real Cloudinary E2E verified for JPEG/PNG/WEBP/AVIF/GIF)
-- Completion status: `Implemented & Verified` (production deployment verification pending)
-- Git repository status: Uncommitted working tree at TASK-017 implementation; see latest commits
+- Active task: TASK-018 — Fix Tweet Reply/Comment Flow (reply belongs to its parent tweet, correct server-side reply counts)
+- Overall phase: Phase 5 — TASK-018 implemented & quality-gated (backend tests 100% incl. new reply regression suite, frontend 75/75, lint 0/0, build clean)
+- Completion status: `Implemented & Verified` (local); production deployment in progress
+- Git repository status: Uncommitted working tree at TASK-018 implementation; see latest commits
 - Current branch: `main`
 
 ## Session Recovery Entry (2026-09-11)
@@ -146,3 +146,13 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 6. **Page header**: supporting text simplified to "Discover content across categories".
 7. **Contracts**: `API-CONTRACT.md` and `openapi.yaml` now document the signed-parameter rule (public_id + timestamp only, `folder` informational) and the `publicId` field on `POST /videos`.
 8. **Tests**: new backend regression test (Test 8b: signature must cover public_id + timestamp only); stale frontend test assertion ("View My Profile") aligned with the intentional TASK-015 rename. Backend npm test 100% + lint clean; frontend vitest 60/60 + lint clean + build OK.
+
+## Tweet Reply/Comment Flow Architecture (TASK-018, 2026-09-13)
+
+1. **Data relationship (unchanged, now used correctly)**: a reply IS a `Tweet` document with `replyToId` set to its parent tweet's `_id` (indexed, with `{ replyToId: 1, createdAt: 1 }`). Parent tweets carry a server-maintained `repliesCount`. Top-level queries (`findPaginated`, `count`) already filter `{ replyToId: null }` — the feed and profile tweet list/count were correct by design; they were only fed bad data.
+2. **Root cause of the bug**: on `POST /api/v1/tweets/:id/replies`, the route injected `req.body.replyToId = req.params.id` AFTER the body `validate()` middleware had already produced `req.validatedBody`. `handleCreateTweet` reads from `req.validatedBody`, so the injected parent id was shadowed and every reply was persisted with `replyToId: null` — a standalone top-level tweet: parent `repliesCount` never moved, replies polluted the feed AND the replier's profile list, and profile tweet counts were inflated.
+3. **Fix**: `req.body.replyToId` is now injected BEFORE `validate(createReplySchema, "body")` in `backend/src/routes/tweets.routes.js`, and `createReplySchema` (`backend/src/validators/tweets.validator.js`) REQUIRES `replyToId` — fail-safe, a reply without a resolvable parent is rejected 422 instead of silently becoming a standalone tweet. Replying to a non-existent parent returns 404 `NOT_FOUND`.
+4. **Client contract unchanged**: the reply request body remains `{ content, media? }`; `replyToId` is server-derived from the URL and never trusted from the client. `contracts/API-CONTRACT.md` documents this; `openapi.yaml` needed no change.
+5. **Frontend** (`frontend/src/features/tweets/ui/TweetReplySection.js`): the visible reply count is derived from the computed next replies array and is updated only AFTER the server confirms the reply/deletion. The server response is the source of truth — a rejected reply never changes the count.
+6. **Regression tests** (`backend/tests/tweets.test.js`): HTTP-level root-cause test (real Better-Auth-style JWT → reply persisted WITH `replyToId` and parent `repliesCount` incremented) plus service-level tests for feed/profile exclusion of replies, multi-reply counts, embedded reply thread, orphan-reply 404, and reply-deletion count decrement.
+7. **Historical data note**: tweets created BEFORE this fix that were intended as replies may exist with `replyToId: null` in production. They are indistinguishable from genuine standalone tweets (no deterministic migration), so NO data migration was performed — existing data was deliberately left untouched per the database-safety rule. All NEW replies are stored correctly.

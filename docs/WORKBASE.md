@@ -8,6 +8,19 @@ This file is a live task scratchpad. The active AI must update it before and dur
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Task
+- Task ID: TASK-018
+- Title: Fix Tweet Reply/Comment Flow — Reply Belongs To Parent Tweet, Correct Reply Counts
+- Status: IMPLEMENTED — ALL QUALITY GATES PASSED (backend tests 100% incl. new reply regression suite, backend lint clean, frontend tests 75/75, frontend lint clean, frontend build clean)
+- Completion Level: `Implemented & Verified` (local); production deployment in progress
+- Summary of this task:
+  - **Root cause (replies stored as standalone tweets)**: on `POST /api/v1/tweets/:id/replies` the route injected `req.body.replyToId = req.params.id` AFTER body validation had already run. `validate()` attached the validated body as `req.validatedBody`, which shadowed the later injection, so `handleCreateTweet` read `replyToId = null` and every reply was persisted as a top-level tweet with no parent relationship. Consequently: parent `repliesCount` never incremented, replies appeared as standalone tweets in the feed AND on the replier's profile, and the profile tweet count was inflated.
+  - **Backend fix** (`backend/src/routes/tweets.routes.js` + `backend/src/validators/tweets.validator.js`): `replyToId` is now injected from the URL param BEFORE `validate(createReplySchema, "body")` runs, and `createReplySchema` requires `replyToId` (fail-safe — a reply without a parent is rejected 422 instead of silently stored as a standalone tweet). Client-facing request body unchanged (`{ content, media? }`) — `replyToId` is server-derived from the URL and never trusted from the client.
+  - **No data-model change**: the existing `replyToId` field on `Tweet` (indexed, with `replyToId: 1, createdAt: 1` index) is used correctly; `findPaginated`/`count` already filter `{ replyToId: null }`, so the feed and profile tweet queries were already correct — they were only fed wrong data.
+  - **Frontend fix** (`frontend/src/features/tweets/ui/TweetReplySection.js`): the visible reply count is now updated from the computed next replies array only AFTER the server confirms the reply/deletion — the server response remains the source of truth; a rejected reply never changes the count.
+  - **Regression tests** (`backend/tests/tweets.test.js`): (1) HTTP-level root-cause test — `POST /api/v1/tweets/:id/replies` with a real Better-Auth-style JWT must persist the reply with `replyToId` set and increment the parent `repliesCount` (this test FAILS against the pre-fix ordering); (2) service-level tests — reply excluded from top-level feed/profile listing, multiple replies count = 2, reply thread embedded under parent via `getTweetById`, reply to a missing parent → 404, deleting a reply decrements the parent count.
+  - **No contract change**: `POST /api/v1/tweets/:id/replies` request/response shape is unchanged; `contracts/API-CONTRACT.md` gained only a clarification note.
+
+## Previous Task
 - Task ID: TASK-017
 - Title: Tweet Media Upload Redesign & Fix — Direct Device Upload, Secure Cloudinary Pipeline
 - Status: IMPLEMENTED — ALL QUALITY GATES PASSED (backend 100%, frontend 75/75, lint 0/0, build clean; real Cloudinary E2E verified for all 5 image formats)

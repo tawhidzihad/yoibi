@@ -52,10 +52,17 @@ router.post(
     writeLimiter,
     verifyJwt,
     validate(tweetIdParamSchema, "params"),
+    (req, res, next) => {
+        // Server-authoritative: replyToId comes ONLY from the URL param and is
+        // injected BEFORE body validation. The validated body must carry the
+        // parent relationship — if validation ran first (previous bug), the
+        // injected replyToId was shadowed by req.validatedBody and every
+        // reply was stored as a standalone top-level tweet.
+        req.body.replyToId = req.params.id;
+        next();
+    },
     validate(createReplySchema, "body"),
     async (req, res, next) => {
-        // Inject replyToId from params into body before delegating to create handler
-        req.body.replyToId = req.params.id;
         return handleCreateTweet(req, res, next);
     }
 );

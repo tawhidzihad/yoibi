@@ -65,13 +65,18 @@ const tweetIdParamSchema = z.object({
 });
 
 /**
- * Schema for reply creation (same as tweet — replies are tweets with replyToId set).
+ * Schema for reply creation (replies are tweets with replyToId set).
+ * `replyToId` is injected server-side from the URL param before validation —
+ * it is never trusted from the client body. Requiring it here is fail-safe:
+ * if the route ever fails to inject it, the request is rejected (422) instead
+ * of silently storing the reply as a standalone top-level tweet.
  */
 const createReplySchema = z.object({
     content: z.string()
         .min(1, "Reply cannot be empty")
         .max(280, "Reply cannot exceed 280 characters")
-        .transform((s) => s.trim())
+        .transform((s) => s.trim()),
+    replyToId: z.string().min(1, "Parent tweet ID is required")
 });
 
 module.exports = {
