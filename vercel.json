@@ -1,5 +1,0 @@
-{
-  "framework": "nextjs",
-  "buildCommand": "cd frontend && npm run build && powershell -Command \"Remove-Item -Recurse -Force ../.next -ErrorAction SilentlyContinue; Copy-Item -Recurse .next ../.next\"",
-  "outputDirectory": ".next"
-}
