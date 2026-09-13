@@ -1,0 +1,10 @@
+{
+  "name": "yoibi",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm run build"
+  },
+  "workspaces": [
+    "frontend"
+  ]
+}
