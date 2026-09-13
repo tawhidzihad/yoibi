@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Radio, PlusCircle, Sparkles, Filter } from "lucide-react";
+import { Radio, PlusCircle } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { streamsApi } from "../api/streamsApi";
 import { CANONICAL_CATEGORIES } from "../constants/categories";
+import { CATEGORY_ICONS } from "../constants/categoryIcons";
 import { StreamList } from "./StreamList";
-import { CreateStreamModal } from "./CreateStreamModal";
+import { CreateStreamComposer } from "./CreateStreamComposer";
 import { Button } from "@/shared/ui/Button";
 import { cn } from "@/shared/utils/cn";
 
@@ -22,6 +23,7 @@ export function StreamsView() {
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [error, setError] = useState(null);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const composerRef = useRef(null);
 
     const fetchKeyRef = useRef(null);
     const pageRef = useRef(1);
@@ -111,129 +113,181 @@ export function StreamsView() {
         });
     };
 
+    const handleStreamCreated = (createdData) => {
+        const newStream = createdData?.stream || createdData;
+        if (newStream) {
+            if (activeStatus === "ready" || activeStatus === "live") {
+                setStreams((prev) => [newStream, ...prev]);
+            }
+        }
+        setIsCreateOpen(false);
+    };
+
     return (
-        <div className="space-y-6 pb-12">
-            {/* Header with Title & Broadcast Trigger */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5">
+        <div className="flex min-h-0 flex-col">
+            {/* Page Header */}
+            <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
                 <div>
                     <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                            <Radio size={18} aria-hidden="true" />
+                        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                            <Radio size={16} aria-hidden="true" />
                         </div>
-                        <h1 className="text-xl font-bold tracking-tight text-foreground">Live Broadcasts</h1>
+                        <h1 className="text-lg font-bold text-foreground">Streams</h1>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                        Ultra-low latency realtime video, audio, and screen share broadcasts powered by LiveKit SFU.
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                        Watch and share live
                     </p>
                 </div>
 
-                <Button
-                    onClick={() => setIsCreateOpen(true)}
-                    className="gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium shadow-md shadow-cyan-500/15"
-                >
-                    <PlusCircle size={16} aria-hidden="true" />
-                    <span>Start Stream</span>
-                </Button>
-            </div>
-
-            {/* Status Tabs: Live / Preparing / Past */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-                <button
-                    type="button"
-                    onClick={() => setActiveStatus("live")}
-                    className={cn(
-                        "flex items-center gap-1.5 rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all shrink-0",
-                        activeStatus === "live"
-                            ? "bg-red-600 text-white shadow-md shadow-red-600/20"
-                            : "bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary"
-                    )}
-                >
-                    <span className={cn("h-1.5 w-1.5 rounded-full", activeStatus === "live" ? "bg-white animate-pulse" : "bg-red-500")} />
-                    Live Now
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => setActiveStatus("ready")}
-                    className={cn(
-                        "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all shrink-0",
-                        activeStatus === "ready"
-                            ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
-                            : "bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary"
-                    )}
-                >
-                    Preparing / Scheduled
-                </button>
-
-                <button
-                    type="button"
-                    onClick={() => setActiveStatus("ended")}
-                    className={cn(
-                        "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all shrink-0",
-                        activeStatus === "ended"
-                            ? "bg-foreground text-background shadow-md"
-                            : "bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary"
-                    )}
-                >
-                    Concluded
-                </button>
-            </div>
-
-            {/* Canonical Category Chips */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-                <button
-                    type="button"
-                    onClick={() => setActiveCategory(null)}
-                    className={cn(
-                        "rounded-full px-3 py-1 text-xs font-medium transition-all shrink-0 border",
-                        activeCategory === null
-                            ? "border-cyan-500 bg-cyan-500/15 text-cyan-400 font-semibold"
-                            : "border-border/60 bg-secondary/40 text-muted-foreground hover:text-foreground hover:border-border"
-                    )}
-                >
-                    All Categories
-                </button>
-
-                {CANONICAL_CATEGORIES.map((cat) => (
-                    <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => setActiveCategory(cat.id === activeCategory ? null : cat.id)}
-                        className={cn(
-                            "rounded-full px-3 py-1 text-xs font-medium transition-all shrink-0 border",
-                            activeCategory === cat.id
-                                ? "border-cyan-500 bg-cyan-500/15 text-cyan-400 font-semibold"
-                                : "border-border/60 bg-secondary/40 text-muted-foreground hover:text-foreground hover:border-border"
-                        )}
+                {status === "authenticated" && user && (
+                    <Button
+                        size="sm"
+                        id="start-stream-toggle-btn"
+                        onClick={() => setIsCreateOpen((v) => !v)}
+                        className="gap-1.5 whitespace-nowrap bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium shadow-sm shadow-cyan-500/15"
+                        aria-expanded={isCreateOpen}
+                        aria-controls="stream-composer-region"
                     >
-                        {cat.label}
-                    </button>
-                ))}
+                        <PlusCircle size={15} aria-hidden="true" />
+                        <span>Start Stream</span>
+                    </Button>
+                )}
             </div>
 
-            {/* Streams Grid */}
-            <StreamList
-                streams={streams}
-                isLoading={isLoading}
-                isLoadingMore={isLoadingMore}
-                error={error}
-                hasMore={Boolean(pagination?.hasNextPage)}
-                onLoadMore={handleLoadMore}
-                onStartStreamClick={() => setIsCreateOpen(true)}
-                emptyMessage={
-                    activeStatus === "live"
-                        ? "There are currently no active live streams."
-                        : activeStatus === "ready"
-                        ? "No streams currently in studio preparation."
-                        : "No concluded broadcasts found."
-                }
-            />
+            {/* Inline Stream Creation Composer — CSS Grid row-height animated */}
+            <div
+                ref={composerRef}
+                data-open={isCreateOpen ? "true" : "false"}
+                aria-hidden={!isCreateOpen}
+                {...(!isCreateOpen ? { inert: "" } : {})}
+                className="stream-composer-shell"
+                id="stream-composer-region"
+            >
+                <div className="min-h-0 overflow-hidden">
+                    <CreateStreamComposer
+                        isOpen={isCreateOpen}
+                        onClose={() => setIsCreateOpen(false)}
+                        onStreamCreated={handleStreamCreated}
+                    />
+                </div>
+            </div>
 
-            {/* Create Stream Modal */}
-            <CreateStreamModal
-                isOpen={isCreateOpen}
-                onClose={() => setIsCreateOpen(false)}
-            />
+            {/* Filters Toolbar: Status Tabs & Category Chips */}
+            <div
+                className="sticky top-0 z-10 border-b border-border/50 bg-background/95 px-4 py-3 backdrop-blur-sm space-y-3"
+                role="toolbar"
+                aria-label="Filter streams"
+            >
+                {/* Status Tabs: Live Now / Preparing / Concluded */}
+                <div className="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        id="status-tab-live"
+                        onClick={() => setActiveStatus("live")}
+                        className={cn(
+                            "flex items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                            activeStatus === "live"
+                                ? "bg-red-600 text-white shadow-md shadow-red-600/20"
+                                : "bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        )}
+                        aria-pressed={activeStatus === "live"}
+                    >
+                        <span className={cn("h-1.5 w-1.5 rounded-full", activeStatus === "live" ? "bg-white animate-pulse" : "bg-red-500")} />
+                        <span>Live Now</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        id="status-tab-ready"
+                        onClick={() => setActiveStatus("ready")}
+                        className={cn(
+                            "whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                            activeStatus === "ready"
+                                ? "bg-amber-500 text-white shadow-md shadow-amber-500/20"
+                                : "bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        )}
+                        aria-pressed={activeStatus === "ready"}
+                    >
+                        <span>Preparing / Scheduled</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        id="status-tab-ended"
+                        onClick={() => setActiveStatus("ended")}
+                        className={cn(
+                            "whitespace-nowrap rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                            activeStatus === "ended"
+                                ? "bg-foreground text-background shadow-md"
+                                : "bg-secondary/50 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                        )}
+                        aria-pressed={activeStatus === "ended"}
+                    >
+                        <span>Concluded</span>
+                    </button>
+                </div>
+
+                {/* Category Filter Chips — Wrapping buttons with icons, zero horizontal scrollbar */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <button
+                        type="button"
+                        id="category-pill-all"
+                        onClick={() => setActiveCategory(null)}
+                        className={cn(
+                            "cursor-pointer whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                            !activeCategory
+                                ? "border-cyan-500/60 bg-cyan-500/15 font-semibold text-cyan-600 dark:text-cyan-400"
+                                : "border-border/50 bg-secondary/40 text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                        )}
+                        aria-pressed={!activeCategory}
+                    >
+                        <span>All</span>
+                    </button>
+
+                    {CANONICAL_CATEGORIES.map((cat) => {
+                        const Icon = CATEGORY_ICONS[cat.icon];
+                        const isSelected = activeCategory === cat.id;
+                        return (
+                            <button
+                                type="button"
+                                key={cat.id}
+                                id={`category-pill-${cat.id}`}
+                                onClick={() => setActiveCategory(isSelected ? null : cat.id)}
+                                className={cn(
+                                    "flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
+                                    isSelected
+                                        ? "border-cyan-500/60 bg-cyan-500/15 font-semibold text-cyan-600 dark:text-cyan-400"
+                                        : "border-border/50 bg-secondary/40 text-muted-foreground hover:bg-secondary/80 hover:text-foreground"
+                                )}
+                                aria-pressed={isSelected}
+                            >
+                                {Icon && <Icon size={12} aria-hidden="true" className="shrink-0" />}
+                                <span>{cat.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* Streams Grid with Consistent Container Rhythm */}
+            <div className="p-4 sm:p-6">
+                <StreamList
+                    streams={streams}
+                    isLoading={isLoading}
+                    isLoadingMore={isLoadingMore}
+                    error={error}
+                    hasMore={Boolean(pagination?.hasNextPage)}
+                    onLoadMore={handleLoadMore}
+                    onStartStreamClick={() => setIsCreateOpen(true)}
+                    emptyMessage={
+                        activeStatus === "live"
+                            ? "There are currently no active live streams."
+                            : activeStatus === "ready"
+                            ? "No streams currently in studio preparation."
+                            : "No concluded broadcasts found."
+                    }
+                />
+            </div>
         </div>
     );
 }

@@ -1,7 +1,7 @@
 import { StreamDetailView } from "@/features/streams/ui/StreamDetailView";
 
 export const metadata = {
-    title: "Live Stream Studio | YOIBI",
+    title: "Live Stream Studio",
     description: "Realtime interactive broadcast on YOIBI",
 };
 

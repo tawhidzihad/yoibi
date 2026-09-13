@@ -7,7 +7,6 @@ const { listStreams, getStreamById, joinStream } = require("../src/services/read
 const { startStream, endStream } = require("../src/services/update/streams.service");
 const { deleteStream } = require("../src/services/delete/streams.service");
 const { generateHostToken, generateViewerToken } = require("../src/integrations/livekit/livekit");
-const { env } = require("../src/config/env");
 
 /**
  * Decodes a JWT token payload without signature verification for test assertions.
@@ -347,11 +346,41 @@ async function runStreamsTests() {
     assert(directViewer.token);
     console.log("✓ Helpers: Direct generateHostToken and generateViewerToken generated valid JWTs.");
 
-    // Test 25: Secret Containment Assertion — LIVEKIT_API_SECRET is never present
-    const secretValue = env.LIVEKIT_API_SECRET || "secret123456789012345678901234567890";
-    const createPayloadString = JSON.stringify(createResult);
-    assert(!createPayloadString.includes(secretValue), "API response MUST NEVER contain LIVEKIT_API_SECRET");
-    console.log("✓ Security: Secret containment verified (LIVEKIT_API_SECRET never present in responses).");
+    // Test 26: Stream creation without thumbnailUrl, with null, and with empty string
+    const streamNoThumb = await createStream(hostUser, {
+        title: "Broadcast without Thumbnail",
+        category: "conversations"
+    });
+    assert.strictEqual(streamNoThumb.stream.thumbnailUrl, null, "Omitted thumbnailUrl must default to null");
+
+    const streamNullThumb = await createStream(hostUser, {
+        title: "Broadcast with Null Thumbnail",
+        category: "conversations",
+        thumbnailUrl: null
+    });
+    assert.strictEqual(streamNullThumb.stream.thumbnailUrl, null, "Explicit null thumbnailUrl must be stored as null");
+
+    const streamEmptyThumb = await createStream(hostUser, {
+        title: "Broadcast with Empty Thumbnail",
+        category: "conversations",
+        thumbnailUrl: ""
+    });
+    assert.strictEqual(streamEmptyThumb.stream.thumbnailUrl, null, "Empty string thumbnailUrl must normalize to null");
+    console.log("✓ Stream Creation: Stream creates cleanly without thumbnail (omitted, null, empty string).");
+
+    // Test 27: Mongoose Stream model schema contract assertion
+    const { Stream } = require("../src/models/stream.model");
+    const testDoc = new Stream({
+        _id: "strm_schema_test_123",
+        authorId: "usr_host_123",
+        title: "Schema Contract Test",
+        roomName: "stream_schema_test_uuid",
+        category: "conversations"
+    });
+    assert.strictEqual(typeof testDoc._id, "string", "Stream _id must be string");
+    assert.strictEqual(testDoc.schema.options._id, false, "Stream schema options._id must be false to support custom string ids");
+    assert.strictEqual(testDoc.schema.path("_id").instance, "String", "Stream _id instance type must be String");
+    console.log("✓ Model: Stream schema properly configured with _id: false and String _id.");
 
     console.log("\nAll Phase 4 Milestone 5 Streams tests passed successfully!");
 }

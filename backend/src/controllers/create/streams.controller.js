@@ -5,7 +5,8 @@ const { createStream } = require("../../services/create/streams.service");
  */
 async function handleCreateStream(req, res, next) {
     try {
-        const result = await createStream(req.user, req.body);
+        const payload = req.validatedBody || req.body;
+        const result = await createStream(req.user, payload);
         return res.status(201).json({
             success: true,
             data: result,

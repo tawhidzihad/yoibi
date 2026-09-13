@@ -417,10 +417,12 @@ export function StreamDetailView({ streamId }) {
                                 <span>{new Date(stream.startedAt).toLocaleTimeString()}</span>
                             </div>
                         )}
-                        <div className="flex items-center justify-between">
-                            <span>Realtime Transport:</span>
-                            <span className="font-semibold text-cyan-400 font-mono text-[11px]">LiveKit SFU</span>
-                        </div>
+                        {stream.category && (
+                            <div className="flex items-center justify-between">
+                                <span>Category:</span>
+                                <span className="font-semibold text-foreground capitalize">{stream.category.replace("-", " ")}</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

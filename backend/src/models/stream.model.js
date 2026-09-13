@@ -20,7 +20,8 @@ const STREAM_STATUS = {
 const streamSchema = new mongoose.Schema(
     {
         _id: {
-            type: String
+            type: String,
+            required: true
         },
         authorId: {
             type: String,
@@ -85,7 +86,8 @@ const streamSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
-        versionKey: false
+        versionKey: false,
+        _id: false
     }
 );
 

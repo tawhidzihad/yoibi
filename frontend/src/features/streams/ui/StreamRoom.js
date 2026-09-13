@@ -1,10 +1,16 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { LiveKitRoom, RoomAudioRenderer, StartAudio } from "@livekit/components-react";
-import { DisconnectReason } from "livekit-client";
-import { Loader2, AlertCircle } from "lucide-react";
-import { Button } from "@/shared/ui/Button";
+import { setLogLevel } from "livekit-client";
+import { Loader2 } from "lucide-react";
+
+// Suppress verbose internal WebRTC diagnostic logs in user-facing client while preserving warnings/errors
+try {
+    setLogLevel("warn");
+} catch {
+    // Ignore if running outside browser
+}
 
 export function StreamRoom({
     serverUrl,
@@ -38,7 +44,7 @@ export function StreamRoom({
             <div className="flex h-96 w-full items-center justify-center rounded-2xl border border-border/50 bg-card/40 p-8 text-center backdrop-blur-sm">
                 <div className="flex flex-col items-center gap-2">
                     <Loader2 size={32} className="animate-spin text-cyan-400" aria-hidden="true" />
-                    <p className="text-sm font-semibold text-foreground">Connecting to LiveKit Room...</p>
+                    <p className="text-sm font-semibold text-foreground">Connecting to stream...</p>
                 </div>
             </div>
         );

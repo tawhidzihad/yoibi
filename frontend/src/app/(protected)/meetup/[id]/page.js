@@ -1,7 +1,7 @@
 import { MeetupDetailView } from "@/features/meet-up/ui/MeetupDetailView";
 
 export const metadata = {
-    title: "Meet-Up Room | YOIBI",
+    title: "Meet-Up Room",
     description: "Collaborative multi-peer audio, video, and screen sharing room on YOIBI",
 };
 
