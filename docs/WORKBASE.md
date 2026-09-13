@@ -8,6 +8,19 @@ This file is a live task scratchpad. The active AI must update it before and dur
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Task
+- Task ID: TASK-020
+- Title: Meet Up Page UI/UX, Room Card & Responsiveness Improvement
+- Status: COMPLETE — ALL QUALITY GATES PASSED (backend tests 100%, frontend tests 75/75, frontend lint 0/0, frontend build clean, verified)
+- Completion Level: `Implemented & Verified`
+- Summary of this task:
+  - **Headline & Subtitle**: Page headline updated from `"Meet-Up Rooms"` to `"Meet Up"`. Subtitle updated from long sentence to concise `"Connect and meet live"`. Page metadata updated to `"Meet Up | YOIBI"`.
+  - **Dynamic Host & Room Creator Resolution**: Fixed MongoDB user lookup in `backend/src/repositories/meetup.repository.js` (`enrichOwner` and `enrichOwners`) to query `User` by `_id` (`User.findOne({ _id: meetup.ownerId })` / `User.find({ _id: { $in: ownerIds } })`) instead of nonexistent `id` field. Real user avatars, display names, and `@handles` are now accurately populated and rendered for all rooms.
+  - **Unified Room Card Design System (`MeetupCard.js`)**: Both Active and Past rooms now use the exact same unified card component and design hierarchy. Displays room status chips (Active pulsing dot / Ended badge), topic tags, dynamic host identity linking to `/profile/{handle}`, creator shield badge, participant count with live capacity progress bar, and action buttons.
+  - **Button No-Wrap Guarantee**: Enforced `whitespace-nowrap` on `Button.js` base styles and all Meet Up buttons ("Start Meet-Up", "Join Room", "Room Full", "Room Ended", tab filters, modal buttons).
+  - **Responsive UI/UX**: Optimized grid layout across mobile (320px, 375px, 390px, 430px), tablet, and desktop viewports without horizontal overflow.
+  - **Console Debug Logging Cleanup**: Suppressed verbose LiveKit WebRTC internal debug logs using `setLogLevel("warn")` in `MeetupRoom.js` while preserving critical warnings and error handlers.
+
+## Previous Task
 - Task ID: TASK-019
 - Title: Videos Upload Form Collapse + Repository Cleanup
 - Status: COMPLETE — ALL QUALITY GATES PASSED (backend tests 100%, frontend lint 0/0, frontend build clean, Vercel deployed, Railway deployed)

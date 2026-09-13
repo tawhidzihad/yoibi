@@ -6,25 +6,25 @@ import { Button } from "@/shared/ui/Button";
 
 function MeetupSkeletonCard() {
     return (
-        <div className="flex flex-col justify-between rounded-2xl border border-white/5 bg-card/40 p-5 backdrop-blur-md animate-pulse">
+        <div className="flex flex-col justify-between rounded-2xl border border-border/40 bg-card/40 p-5 backdrop-blur-md animate-pulse">
             <div>
-                <div className="mb-3 flex items-center justify-between">
-                    <div className="h-5 w-16 rounded-full bg-white/10" />
-                    <div className="h-4 w-12 rounded bg-white/10" />
+                <div className="mb-3.5 flex items-center justify-between">
+                    <div className="h-5 w-16 rounded-full bg-secondary/80" />
+                    <div className="h-4 w-12 rounded-md bg-secondary/80" />
                 </div>
-                <div className="h-5 w-3/4 rounded bg-white/10 mb-2" />
-                <div className="h-4 w-1/2 rounded bg-white/10" />
-                <div className="mt-4 h-1.5 w-full rounded-full bg-white/10" />
-                <div className="mt-4 flex items-center gap-2.5 border-t border-white/5 pt-3">
-                    <div className="h-8 w-8 rounded-full bg-white/10" />
-                    <div className="space-y-1.5 flex-1">
-                        <div className="h-3.5 w-24 rounded bg-white/10" />
-                        <div className="h-3 w-16 rounded bg-white/10" />
+                <div className="h-5 w-3/4 rounded-md bg-secondary/80 mb-2" />
+                <div className="h-4 w-1/2 rounded-md bg-secondary/60" />
+                <div className="mt-3.5 h-1.5 w-full rounded-full bg-secondary/80" />
+                <div className="mt-4 flex items-center gap-2.5 border-t border-border/30 pt-3">
+                    <div className="h-9 w-9 rounded-full bg-secondary/80" />
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                        <div className="h-3.5 w-24 rounded bg-secondary/80" />
+                        <div className="h-3 w-16 rounded bg-secondary/60" />
                     </div>
                 </div>
             </div>
-            <div className="mt-4 pt-2">
-                <div className="h-9 w-full rounded-xl bg-white/10" />
+            <div className="mt-4 pt-2 border-t border-border/20">
+                <div className="h-9 w-full rounded-lg bg-secondary/80" />
             </div>
         </div>
     );
@@ -42,7 +42,7 @@ export function MeetupList({
 }) {
     if (isLoading) {
         return (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
                 {Array.from({ length: 6 }).map((_, i) => (
                     <MeetupSkeletonCard key={i} />
                 ))}
@@ -64,9 +64,10 @@ export function MeetupList({
                         size="sm"
                         variant="outline"
                         onClick={onRetry}
-                        className="mt-4 gap-2"
+                        className="mt-4 gap-2 whitespace-nowrap"
                     >
-                        <RefreshCw size={14} aria-hidden="true" /> Retry
+                        <RefreshCw size={14} aria-hidden="true" />
+                        <span>Retry</span>
                     </Button>
                 )}
             </div>
@@ -75,7 +76,7 @@ export function MeetupList({
 
     if (!rooms || rooms.length === 0) {
         return (
-            <div className="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border border-white/5 bg-card/20 p-8 text-center backdrop-blur-md">
+            <div className="flex min-h-[340px] flex-col items-center justify-center rounded-2xl border border-border/40 bg-card/30 p-8 text-center backdrop-blur-md">
                 <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/20 shadow-inner">
                     <Video size={28} aria-hidden="true" />
                 </div>
@@ -89,9 +90,10 @@ export function MeetupList({
                         size="sm"
                         variant="primary"
                         onClick={onCreateClick}
-                        className="mt-5 shadow-lg shadow-cyan-500/20"
+                        className="mt-5 shadow-lg shadow-cyan-500/20 whitespace-nowrap gap-1.5"
                     >
-                        <Plus size={14} className="mr-1.5" aria-hidden="true" /> Start a Meet-Up
+                        <Plus size={14} aria-hidden="true" />
+                        <span>Start a Meet-Up</span>
                     </Button>
                 )}
             </div>
@@ -100,7 +102,7 @@ export function MeetupList({
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
                 {rooms.map((room) => (
                     <MeetupCard key={room.id || room._id} room={room} />
                 ))}
@@ -114,15 +116,15 @@ export function MeetupList({
                         variant="outline"
                         onClick={onLoadMore}
                         disabled={isLoadingMore}
-                        className="min-w-[140px]"
+                        className="min-w-[140px] whitespace-nowrap"
                     >
                         {isLoadingMore ? (
                             <>
                                 <RefreshCw size={14} className="mr-2 animate-spin" aria-hidden="true" />
-                                Loading...
+                                <span>Loading...</span>
                             </>
                         ) : (
-                            "Load More Rooms"
+                            <span>Load More Rooms</span>
                         )}
                     </Button>
                 </div>

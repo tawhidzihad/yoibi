@@ -2,7 +2,15 @@
 
 import { useCallback } from "react";
 import { LiveKitRoom, RoomAudioRenderer, StartAudio } from "@livekit/components-react";
+import { setLogLevel } from "livekit-client";
 import { Loader2 } from "lucide-react";
+
+// Suppress verbose internal WebRTC diagnostic logs in user-facing client while preserving warnings/errors
+try {
+    setLogLevel("warn");
+} catch {
+    // Ignore if running outside browser
+}
 
 export function MeetupRoom({
     serverUrl,

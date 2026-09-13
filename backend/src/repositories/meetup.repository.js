@@ -129,7 +129,7 @@ async function enrichOwner(meetup) {
     }
 
     try {
-        const user = await User.findOne({ id: meetup.ownerId }).lean();
+        const user = await User.findOne({ _id: meetup.ownerId }).lean();
         return {
             ...meetup,
             id: meetup.id || meetup._id?.toString(),
@@ -174,20 +174,28 @@ async function enrichOwners(meetups) {
 
     try {
         const ownerIds = [...new Set(meetups.map((m) => m.ownerId).filter(Boolean))];
-        const users = await User.find({ id: { $in: ownerIds } }).lean();
-        const userMap = new Map(users.map((u) => [u.id, u]));
+        const users = await User.find({ _id: { $in: ownerIds } }).lean();
+        const userMap = new Map();
+        users.forEach((u) => {
+            userMap.set(u._id ? u._id.toString() : "", {
+                id: u._id ? u._id.toString() : "",
+                name: u.name || "YOIBI Host",
+                handle: u.handle || "host",
+                avatarUrl: u.avatarUrl || null
+            });
+        });
 
         return meetups.map((m) => {
-            const user = userMap.get(m.ownerId);
+            const user = userMap.get(m.ownerId) || {
+                id: m.ownerId,
+                name: "YOIBI Host",
+                handle: "host",
+                avatarUrl: null
+            };
             return {
                 ...m,
                 id: m.id || m._id?.toString(),
-                owner: {
-                    id: m.ownerId,
-                    name: user?.name || "YOIBI Host",
-                    handle: user?.handle || "host",
-                    avatarUrl: user?.avatarUrl || null
-                }
+                owner: user
             };
         });
     } catch {

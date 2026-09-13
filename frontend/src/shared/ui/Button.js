@@ -15,7 +15,7 @@ export const Button = forwardRef(function Button(
     ref
 ) {
     const baseStyles =
-        "inline-flex cursor-pointer items-center justify-center gap-2 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50 select-none";
+        "inline-flex cursor-pointer items-center justify-center gap-2 font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 disabled:pointer-events-none disabled:opacity-50 select-none";
 
     const variantStyles = {
         primary: "bg-cyan-600 text-white hover:bg-cyan-700 shadow-sm",

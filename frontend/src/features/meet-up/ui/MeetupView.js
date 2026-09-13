@@ -104,31 +104,32 @@ export function MeetupView() {
     return (
         <div className="space-y-6 max-w-7xl mx-auto px-4 py-4 sm:px-6 sm:py-6">
             {/* Header Toolbar */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/40 pb-5">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/20">
-                            <Video size={18} aria-hidden="true" />
+                    <div className="flex items-center gap-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/20 shadow-sm">
+                            <Video size={19} aria-hidden="true" />
                         </div>
                         <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                            Meet-Up Rooms
+                            Meet Up
                         </h1>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                        Collaborative multi-peer rooms for realtime audio, video, and screen sharing
+                    <p className="mt-1 text-xs sm:text-sm text-muted-foreground">
+                        Connect and meet live
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2.5 self-start sm:self-auto">
+                <div className="flex items-center gap-2.5 self-stretch sm:self-auto justify-end">
                     <Button
                         id="refresh-meetups-btn"
                         size="sm"
                         variant="ghost"
                         onClick={handleRefresh}
-                        className="text-muted-foreground hover:text-foreground"
+                        className="text-muted-foreground hover:text-foreground shrink-0"
                         title="Refresh rooms"
                     >
                         <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} aria-hidden="true" />
+                        <span className="sr-only">Refresh rooms</span>
                     </Button>
 
                     <Button
@@ -136,40 +137,40 @@ export function MeetupView() {
                         size="sm"
                         variant="primary"
                         onClick={() => setIsCreateModalOpen(true)}
-                        className="shadow-lg shadow-cyan-500/20 gap-1.5"
+                        className="shadow-lg shadow-cyan-500/20 gap-1.5 whitespace-nowrap"
                     >
                         <Plus size={15} aria-hidden="true" />
-                        <span>Start Meet-Up</span>
+                        <span className="whitespace-nowrap">Start Meet-Up</span>
                     </Button>
                 </div>
             </div>
 
             {/* Status Tabs Toolbar */}
-            <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+            <div className="flex items-center gap-2 border-b border-border/40 pb-3 overflow-x-auto no-scrollbar">
                 <button
                     type="button"
                     onClick={() => setStatusFilter("active")}
-                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                         statusFilter === "active"
                             ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 shadow-sm"
-                            : "text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent"
+                            : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
                     }`}
                 >
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-                    Active Rooms
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse shrink-0" aria-hidden="true" />
+                    <span>Active Rooms</span>
                 </button>
 
                 <button
                     type="button"
                     onClick={() => setStatusFilter("ended")}
-                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
+                    className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                         statusFilter === "ended"
-                            ? "bg-zinc-500/10 text-zinc-300 border border-zinc-500/30 shadow-sm"
-                            : "text-muted-foreground hover:bg-white/5 hover:text-foreground border border-transparent"
+                            ? "bg-secondary text-foreground border border-border shadow-sm"
+                            : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground border border-transparent"
                     }`}
                 >
-                    <Radio size={13} aria-hidden="true" />
-                    Past Rooms
+                    <Radio size={13} className="shrink-0" aria-hidden="true" />
+                    <span>Past Rooms</span>
                 </button>
             </div>
 
@@ -178,7 +179,7 @@ export function MeetupView() {
                 rooms={rooms}
                 isLoading={isLoading}
                 error={error}
-                onRetry={() => fetchRooms(1, false)}
+                onRetry={handleRefresh}
                 onCreateClick={() => setIsCreateModalOpen(true)}
                 hasNextPage={hasNextPage}
                 onLoadMore={handleLoadMore}
