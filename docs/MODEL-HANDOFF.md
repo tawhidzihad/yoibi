@@ -7,9 +7,9 @@ At the end of every meaningful session/task, the active model must update this f
 
 ## Current Snapshot
 - Last updated: 2026-09-13
-- Active task: TASK-020 — Meet Up Page UI/UX, Room Card & Responsiveness Improvement
-- Overall phase: Phase 5 — TASK-020 implemented, tested, and quality-gated (backend tests 100%, frontend tests 75/75, frontend lint 0/0, frontend build clean)
-- Completion status: `Implemented & Verified`
+- Active task: TASK-021 — Mobile Edit Profile Spacing & Past Meet-Up Room Card Information Hierarchy
+- Overall phase: Phase 5 — TASK-021 implemented, verified across viewports, deployed to Vercel production, and smoke-tested live
+- Completion status: `Implemented, Deployed & Verified`
 - Git repository status: Committed on `main`; see latest commits
 - Current branch: `main`
 
@@ -210,4 +210,29 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 - **End-to-End Flow**:
   - Production frontend successfully communicates with production backend.
   - Video listing `/api/v1/videos` verified returning live community video documents and Cloudinary assets.
+
+## Profile Edit Spacing & Meet Up Past Room Hierarchy (TASK-021, 2026-09-13)
+
+### Phase 1 — Mobile Edit Profile Header Spacing
+1. **Root Cause**: On mobile/tablet viewports (< `lg:` breakpoint), `ProtectedLayout` wraps content in a `<main>` container with `flex-1 pb-6` and no top padding. `EditProfilePage` container previously used `px-4 pb-10 sm:px-6`, causing the page header to visually touch the 56px sticky mobile header bar.
+2. **Fix**: Updated `EditProfilePage.js` container padding to `px-4 pt-4 sm:pt-6 lg:pt-0 pb-10 sm:px-6`. On mobile screens (320px–430px) this provides 16px of comfortable breathing room below the sticky mobile header; on tablet screens (640px–1023px) it provides 24px; and on desktop (`lg:`, 1024px+), `lg:pt-0` preserves the existing layout without duplicate top margin.
+3. **Alignment**: The circular back button (`h-9 w-9`), "Edit profile" heading (`text-lg font-bold sm:text-xl`), and subtitle ("Update how you appear on YOIBI.") remain aligned with clean spacing.
+
+### Phase 2 — Past Meet-Up Room Card Information Hierarchy
+1. **Root Cause**: In `MeetupCard.js`, the topic chip was crammed into the top status/capacity header row next to the "Ended" / "Active" badge, while the room title was separated below without visual association to its topic. Ended rooms also rendered an empty grey capacity progress bar.
+2. **Fix**:
+   - **Header Row**: Cleaned up to display only the status badge (`Active` with animated pulsing dot or `Ended` with broadcast icon) on the left, and capacity (`{count}/{max}` or `{max} max`) on the right.
+   - **Room Title & Topic Hierarchy**: Room title is visually dominant (`text-base font-bold text-foreground leading-snug`). The topic is placed directly beneath the room title as secondary context styled as a subtle chip (`rounded-md bg-secondary/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground border border-border/40`).
+   - **Capacity Progress Bar**: Rendered dynamically exclusively on Active rooms; removed from Ended rooms to prevent clutter.
+   - **Host Information & Dynamic Identity**: Preserved avatar, host display name, creator shield badge, and `@handle` linking to `/profile/{handle}`.
+   - **State Compatibility**: Preserved Active (Join Room / Room Full) and Ended (Room Ended disabled button) states seamlessly.
+
+### Quality Gates & Deployment
+- Backend tests (`npm test`): **100% passing** across all suites
+- Frontend tests (`npm test`): **75/75 passing** across all 5 test suites
+- Frontend lint (`npm run lint`): **0 errors, 0 warnings**
+- Frontend build (`npm run build`): Clean production compile
+- Vercel Deployment: Production deployed (`https://yoibi-frontend.vercel.app`)
+- Railway Backend: Online (`https://yoibi-backend-production.up.railway.app`, `/api/v1/health` → 200 `connected`)
+- Live Browser Verification: Passed on desktop (1280x800), tablet (768x1024), and mobile (390x844, 375x812) viewports.
 

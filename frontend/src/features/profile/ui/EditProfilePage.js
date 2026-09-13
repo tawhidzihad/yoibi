@@ -155,7 +155,7 @@ export function EditProfilePage() {
     }
 
     return (
-        <div className="mx-auto w-full max-w-2xl px-4 pb-10 sm:px-6">
+        <div className="mx-auto w-full max-w-2xl px-4 pt-4 sm:pt-6 lg:pt-0 pb-10 sm:px-6">
             {/* Page header */}
             <header className="mb-6 flex items-center gap-3">
                 <button

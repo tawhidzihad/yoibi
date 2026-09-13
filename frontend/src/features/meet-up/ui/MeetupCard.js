@@ -59,27 +59,19 @@ export function MeetupCard({ room }) {
             <div className="pointer-events-none absolute -right-12 -top-12 h-32 w-32 rounded-full bg-cyan-500/5 blur-2xl transition-opacity group-hover:opacity-100" />
 
             <div>
-                {/* Header: Status, Topic & Capacity Badge */}
+                {/* Header: Status & Capacity Badges */}
                 <div className="mb-3.5 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                        {!isEnded ? (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20 whitespace-nowrap shrink-0">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
-                                Active
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground border border-border/40 whitespace-nowrap shrink-0">
-                                <Radio size={11} aria-hidden="true" />
-                                Ended
-                            </span>
-                        )}
-
-                        {room.topic ? (
-                            <span className="inline-flex items-center rounded-md bg-secondary/80 px-2 py-0.5 text-xs text-muted-foreground border border-border/40 truncate max-w-[130px] sm:max-w-[150px] whitespace-nowrap">
-                                {room.topic}
-                            </span>
-                        ) : null}
-                    </div>
+                    {!isEnded ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20 whitespace-nowrap shrink-0">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
+                            Active
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/80 px-2.5 py-0.5 text-xs font-medium text-muted-foreground border border-border/40 whitespace-nowrap shrink-0">
+                            <Radio size={11} aria-hidden="true" />
+                            Ended
+                        </span>
+                    )}
 
                     <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground whitespace-nowrap shrink-0">
                         <Users
@@ -97,14 +89,23 @@ export function MeetupCard({ room }) {
                     </div>
                 </div>
 
-                {/* Room Title */}
-                <h3 className="line-clamp-2 text-base font-bold text-foreground transition-colors group-hover:text-cyan-400 leading-snug">
-                    {room.name}
-                </h3>
+                {/* Room Title & Topic Hierarchy */}
+                <div className="flex flex-col gap-1.5 min-w-0">
+                    <h3 className="line-clamp-2 text-base font-bold text-foreground transition-colors group-hover:text-cyan-400 leading-snug">
+                        {room.name}
+                    </h3>
+                    {room.topic ? (
+                        <div className="flex items-center">
+                            <span className="inline-flex items-center rounded-md bg-secondary/80 px-2 py-0.5 text-[11px] font-medium text-muted-foreground border border-border/40 truncate max-w-full">
+                                {room.topic}
+                            </span>
+                        </div>
+                    ) : null}
+                </div>
 
-                {/* Capacity Progress Bar / Status Indicator */}
-                <div className="mt-3.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80 border border-border/20">
-                    {!isEnded ? (
+                {/* Active Capacity Progress Bar (Active rooms only) */}
+                {!isEnded && (
+                    <div className="mt-3.5 h-1.5 w-full overflow-hidden rounded-full bg-secondary/80 border border-border/20">
                         <div
                             className={`h-full transition-all duration-500 rounded-full ${
                                 isFull
@@ -115,10 +116,8 @@ export function MeetupCard({ room }) {
                             }`}
                             style={{ width: `${Math.max(capacityRatio * 100, 5)}%` }}
                         />
-                    ) : (
-                        <div className="h-full w-full bg-muted/40 rounded-full" />
-                    )}
-                </div>
+                    </div>
+                )}
 
                 {/* Host Info */}
                 <div className="mt-4 flex items-center justify-between border-t border-border/40 pt-3">

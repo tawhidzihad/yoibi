@@ -8,6 +8,16 @@ This file is a live task scratchpad. The active AI must update it before and dur
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Task
+- Task ID: TASK-021
+- Title: Mobile Edit Profile Spacing & Past Meet-Up Room Card Information Hierarchy
+- Status: COMPLETE — ALL QUALITY GATES PASSED (backend tests 100%, frontend tests 75/75, frontend lint 0/0, frontend build clean, Vercel production deployed, live browser verification passed)
+- Completion Level: `Implemented, Verified & Deployed`
+- Summary of this task:
+  - **Mobile Edit Profile Header Spacing**: Added responsive padding `pt-4 sm:pt-6 lg:pt-0` to `EditProfilePage.js` container, establishing a comfortable, intentional vertical gap below the mobile sticky header bar without impacting desktop layout.
+  - **Past Room Title / Topic Information Hierarchy**: Restructured `MeetupCard.js` so that the room title is visually dominant, with the dynamic topic placed directly beneath it as secondary context chip. Status badge (`Active` / `Ended`) and capacity (`{count}/{max}` / `{max} max`) are cleanly separated into the top header row.
+  - **State-Aware Card Features**: Ended rooms omit the active capacity progress bar to eliminate visual clutter. All host avatar/name/handle identity and action buttons remain dynamic and responsive across 320px–1440px viewports.
+
+## Previous Task
 - Task ID: TASK-020
 - Title: Meet Up Page UI/UX, Room Card & Responsiveness Improvement
 - Status: COMPLETE — ALL QUALITY GATES PASSED (backend tests 100%, frontend tests 75/75, frontend lint 0/0, frontend build clean, verified)
