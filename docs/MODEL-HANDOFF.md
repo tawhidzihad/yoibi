@@ -191,7 +191,23 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 ### Quality Gates (TASK-019)
 - Backend tests (`npm test`): **100% passing** (all suites)
 - Backend lint (`npm run lint`): **0 errors, 0 warnings**
+- Frontend tests (`npm test`): **75/75 passing** (all 5 test suites)
 - Frontend lint (`npm run lint`): **0 errors, 0 warnings**
-- Frontend build (`npm run build`): **Clean** — all 17+3 routes compiled
+- Frontend build (`npm run build`): **Clean** — all 17 static + 3 dynamic routes compiled
 - No secrets tracked; no temporary files committed
+
+### Production Deployment & Verification
+- **Vercel Frontend**:
+  - Project: `yoibi-frontend` (`prj_VyIT8GPfkKbiO2o2lt25uKGZGeqq`)
+  - Deployment: `https://yoibi-frontend-94wpke2zc-yoibi.vercel.app` (Aliased to `https://yoibi-frontend.vercel.app`)
+  - Status: **● Ready / Production**
+  - Verification: `/videos` page verified live via browser subagent. Collapsed state on initial load, smooth inline expansion upon clicking "Upload Video", interactive form controls, smooth toggle collapse, and Cancel button closing verified.
+- **Railway Backend**:
+  - Service: `yoibi-backend` (`8e3edd28-21b8-431c-a8a7-75d4522e1615`)
+  - Deployment: `https://yoibi-backend-production.up.railway.app`
+  - Status: **● Online**
+  - Verification: `/api/v1/health` returned HTTP 200 `{ status: "ok", database: "connected" }`.
+- **End-to-End Flow**:
+  - Production frontend successfully communicates with production backend.
+  - Video listing `/api/v1/videos` verified returning live community video documents and Cloudinary assets.
 
