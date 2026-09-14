@@ -55,7 +55,7 @@ export function StreamRoom({
             serverUrl={serverUrl}
             token={token}
             connect={true}
-            audio={true}
+            audio={isHost}
             video={isHost}
             onDisconnected={handleDisconnected}
             onError={handleError}

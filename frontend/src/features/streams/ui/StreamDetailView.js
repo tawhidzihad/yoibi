@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -11,7 +11,6 @@ import {
     ArrowLeft,
     AlertCircle,
     Loader2,
-    CheckCircle2,
     Trash2,
     Share2,
     Calendar,
@@ -64,7 +63,7 @@ function BroadcasterCard({ author, isOwner = false }) {
 export function StreamDetailView({ streamId }) {
     const router = useRouter();
     const { user, status: authStatus } = useAuth();
-    const containerRef = useRef(null);
+    const playerContainerRef = useRef(null);
 
     const [stream, setStream] = useState(null);
     const [livekitData, setLivekitData] = useState(null);
@@ -73,78 +72,166 @@ export function StreamDetailView({ streamId }) {
     const [isStarting, setIsStarting] = useState(false);
     const [isEnding, setIsEnding] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState(null);
+    const [connectionError, setConnectionError] = useState(null);
     const [hasEndedLocally, setHasEndedLocally] = useState(false);
 
-    const isOwner = Boolean(user && stream && (user.id === stream.authorId || user.id === stream.author?.id));
+    const isOwner = Boolean(
+        user &&
+            stream &&
+            (user.id === stream.authorId ||
+                user.id === stream.author?.id ||
+                user.id === stream.author?._id)
+    );
     const isAdmin = user?.role === "admin";
     const isLive = stream?.status === "live" && !hasEndedLocally;
     const isReady = stream?.status === "ready" && !hasEndedLocally;
     const isEnded = stream?.status === "ended" || hasEndedLocally;
 
-    // Load Stream Details on mount or streamId change
-    useEffect(() => {
-        let isCancelled = false;
+    // Stable references to prevent stale closures across asynchronous lifecycles
+    const streamRef = useRef(null);
+    const ownerRef = useRef(false);
+    const authRef = useRef("loading");
+    const livekitRef = useRef(null);
+    const connectToRoomRef = useRef(null);
+    const fetchStreamSnapshotRef = useRef(null);
 
-        async function fetchDetail() {
+    // Initial stream metadata fetch
+    async function fetchStreamSnapshot() {
+        try {
+            const res = await streamsApi.getStreamById(streamId);
+            if (res.success && res.data) {
+                setStream(res.data);
+                return res.data;
+            } else {
+                setError(res.error?.message || "Stream not found.");
+                return null;
+            }
+        } catch (err) {
+            setError(err?.message || "Failed to load stream details.");
+            return null;
+        }
+    }
+
+    // Connect to LiveKit Room (Host in ready/live or Viewer in live)
+    async function connectToRoom(targetStream) {
+        const target = targetStream || streamRef.current;
+        if (!target) return;
+
+        // Viewers cannot join ready streams (server enforces STREAM_NOT_LIVE)
+        if (!ownerRef.current && target.status === "ready") {
+            return;
+        }
+
+        // Do not connect if stream is ended
+        if (target.status === "ended" || hasEndedLocally) {
+            return;
+        }
+
+        // Avoid duplicate concurrent join requests
+        if (livekitRef.current) {
+            return;
+        }
+
+        setIsJoining(true);
+        setConnectionError(null);
+
+        try {
+            const res = await streamsApi.joinStream(streamId);
+            if (res.success && res.data?.livekit) {
+                setLivekitData(res.data.livekit);
+            } else {
+                setConnectionError(res.error?.message || "Unable to connect to this stream.");
+            }
+        } catch (err) {
+            if (err?.code === "STREAM_NOT_LIVE" || err?.message?.includes("STREAM_NOT_LIVE")) {
+                // Stream is still in preparation
+                return;
+            }
+            setConnectionError(err?.message || "Unable to connect to this stream.");
+        } finally {
+            setIsJoining(false);
+        }
+    }
+
+    useEffect(() => {
+        streamRef.current = stream;
+        ownerRef.current = isOwner;
+        authRef.current = authStatus;
+        livekitRef.current = livekitData;
+        connectToRoomRef.current = connectToRoom;
+        fetchStreamSnapshotRef.current = fetchStreamSnapshot;
+    });
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function init() {
             setIsLoading(true);
             setError(null);
             try {
                 const res = await streamsApi.getStreamById(streamId);
-                if (isCancelled) return;
+                if (cancelled) return;
                 if (res.success && res.data) {
                     setStream(res.data);
                 } else {
                     setError(res.error?.message || "Stream not found.");
                 }
             } catch (err) {
-                if (isCancelled) return;
-                setError(err.message || "Failed to load stream details.");
+                if (cancelled) return;
+                setError(err?.message || "Failed to load stream details.");
             } finally {
-                if (!isCancelled) setIsLoading(false);
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
             }
         }
 
-        fetchDetail();
-        return () => { isCancelled = true; };
+        init();
+        return () => {
+            cancelled = true;
+        };
     }, [streamId]);
 
-    // Connect to Room (Host in ready/live or Viewer in live)
+    // Room connection lifecycle trigger
     useEffect(() => {
-        let isCancelled = false;
-        if (!stream) return;
+        if (!stream || authStatus === "loading" || hasEndedLocally) return;
 
-        // Viewers cannot join ready streams
-        if (!isOwner && stream.status === "ready") {
-            return;
-        }
-
-        // Do not attempt connect if ended
-        if (stream.status === "ended") {
-            return;
-        }
-
-        async function join() {
-            setIsJoining(true);
-            try {
-                const res = await streamsApi.joinStream(streamId);
-                if (isCancelled) return;
-                if (res.success && res.data?.livekit) {
-                    setLivekitData(res.data.livekit);
-                } else {
-                    setError(res.error?.message || "Failed to connect to stream room.");
-                }
-            } catch (err) {
-                if (isCancelled) return;
-                setError(err.message || "Could not generate stream connection token.");
-            } finally {
-                if (!isCancelled) setIsJoining(false);
+        if (isOwner) {
+            // Host joins in ready or live state to preview devices & broadcast
+            if ((stream.status === "ready" || stream.status === "live") && !livekitData && !isJoining) {
+                connectToRoomRef.current?.(stream);
+            }
+        } else {
+            // Viewer joins only when stream is live
+            if (stream.status === "live" && !livekitData && !isJoining) {
+                connectToRoomRef.current?.(stream);
             }
         }
+    }, [stream, isOwner, authStatus, livekitData, isJoining, hasEndedLocally]);
 
-        join();
-        return () => { isCancelled = true; };
-    }, [stream, isOwner, streamId]);
+    // Automatic polling for viewers waiting on a ready stream
+    useEffect(() => {
+        if (!stream || isOwner || stream.status !== "ready" || hasEndedLocally) {
+            return;
+        }
+
+        const interval = setInterval(async () => {
+            try {
+                const res = await streamsApi.getStreamById(streamId);
+                if (res.success && res.data) {
+                    if (res.data.status === "live" || res.data.status === "ended") {
+                        setStream(res.data);
+                    }
+                }
+            } catch (err) {
+                // Silently keep polling
+            }
+        }, 4000);
+
+        return () => clearInterval(interval);
+    }, [stream, isOwner, streamId, hasEndedLocally]);
 
     // Host Action: Go Live
     const handleStartBroadcast = async () => {
@@ -160,7 +247,7 @@ export function StreamDetailView({ streamId }) {
                 setError(res.error?.message || "Failed to start broadcast.");
             }
         } catch (err) {
-            setError(err.message || "Error going live.");
+            setError(err?.message || "Error going live.");
         } finally {
             setIsStarting(false);
         }
@@ -173,12 +260,13 @@ export function StreamDetailView({ streamId }) {
             const res = await streamsApi.endStream(streamId);
             if (res.success) {
                 setHasEndedLocally(true);
+                setLivekitData(null);
                 setStream((prev) => (prev ? { ...prev, status: "ended", endedAt: new Date() } : null));
             } else {
                 setError(res.error?.message || "Failed to end broadcast.");
             }
         } catch (err) {
-            setError(err.message || "Error ending stream.");
+            setError(err?.message || "Error ending stream.");
         } finally {
             setIsEnding(false);
         }
@@ -196,15 +284,15 @@ export function StreamDetailView({ streamId }) {
                 setError(res.error?.message || "Failed to delete stream.");
             }
         } catch (err) {
-            setError(err.message || "Error deleting stream.");
+            setError(err?.message || "Error deleting stream.");
         } finally {
             setIsDeleting(false);
         }
     };
 
+    // Manual Refresh for Viewer in Ready State
     const handleRefreshStream = async () => {
-        setIsLoading(true);
-        setError(null);
+        setIsRefreshing(true);
         try {
             const res = await streamsApi.getStreamById(streamId);
             if (res.success && res.data) {
@@ -213,19 +301,27 @@ export function StreamDetailView({ streamId }) {
                 setError(res.error?.message || "Stream not found.");
             }
         } catch (err) {
-            setError(err.message || "Failed to load stream details.");
+            setError(err?.message || "Failed to load stream details.");
         } finally {
-            setIsLoading(false);
+            setIsRefreshing(false);
         }
     };
 
-    // Disconnect event callback from LiveKit room
+    // LiveKit Room Disconnect Handler
     const handleRoomDisconnected = (reason) => {
         console.log("[Stream Room Disconnected]:", reason);
         setHasEndedLocally(true);
+        setLivekitData(null);
+        setStream((prev) => (prev ? { ...prev, status: "ended", endedAt: new Date() } : null));
     };
 
-    if (isLoading) {
+    // LiveKit Room Error Handler
+    const handleRoomError = (err) => {
+        console.error("[Stream Room Error]:", err);
+        setConnectionError("Unable to connect to this stream.");
+    };
+
+    if (isLoading || authStatus === "loading") {
         return (
             <div className="flex h-[70vh] w-full items-center justify-center">
                 <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -255,7 +351,7 @@ export function StreamDetailView({ streamId }) {
     }
 
     return (
-        <div className="space-y-6 pb-12" ref={containerRef}>
+        <div className="space-y-6 pb-12">
             {/* Top Navigation */}
             <div className="flex items-center justify-between border-b border-border/50 pb-3">
                 <Link
@@ -288,10 +384,32 @@ export function StreamDetailView({ streamId }) {
                 </div>
             )}
 
-            {/* Main Broadcast Player Area */}
-            <div className="relative aspect-video w-full overflow-hidden rounded-3xl border border-border/60 bg-black shadow-2xl">
-                {/* 1. Ended State */}
-                {isEnded ? (
+            {/* Connection Error Banner with Retry */}
+            {connectionError && (
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300">
+                    <div className="flex items-center gap-2">
+                        <AlertCircle size={16} className="shrink-0 text-amber-400" aria-hidden="true" />
+                        <span>Unable to connect to this stream.</span>
+                    </div>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                            setConnectionError(null);
+                            setLivekitData(null);
+                            connectToRoomRef.current?.(stream);
+                        }}
+                        className="h-7 px-3 text-xs border border-amber-500/30 text-amber-300 hover:text-amber-200"
+                    >
+                        Try again
+                    </Button>
+                </div>
+            )}
+
+            {/* Broadcast Stage Area */}
+            {isEnded ? (
+                /* 1. Ended State */
+                <div className="relative aspect-video w-full overflow-hidden rounded-3xl border border-border/60 bg-black shadow-2xl">
                     <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-card/80 via-background to-secondary/30">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-secondary/80 text-muted-foreground border border-border/60">
                             <Radio size={32} aria-hidden="true" />
@@ -309,8 +427,10 @@ export function StreamDetailView({ streamId }) {
                             </Button>
                         </Link>
                     </div>
-                ) : isReady && !isOwner ? (
-                    /* 2. Ready State (Viewer Perspective - Waiting for Host) */
+                </div>
+            ) : isReady && !isOwner ? (
+                /* 2. Ready State (Viewer Perspective — Waiting for Host) */
+                <div className="relative aspect-video w-full overflow-hidden rounded-3xl border border-border/60 bg-black shadow-2xl">
                     <div className="flex h-full w-full flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-card/90 via-background to-secondary/40">
                         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-400 border border-amber-500/30 animate-pulse">
                             <Clock size={32} aria-hidden="true" />
@@ -326,48 +446,66 @@ export function StreamDetailView({ streamId }) {
                             variant="secondary"
                             size="sm"
                             onClick={handleRefreshStream}
+                            disabled={isRefreshing}
                             className="mt-6 gap-2 text-xs"
                         >
-                            <Radio size={13} aria-hidden="true" />
+                            {isRefreshing ? (
+                                <Loader2 size={13} className="animate-spin" aria-hidden="true" />
+                            ) : (
+                                <Radio size={13} aria-hidden="true" />
+                            )}
                             Check If Live
                         </Button>
                     </div>
-                ) : (
-                    /* 3. LiveKit Active Room (Host Ready/Live or Viewer Live) */
-                    livekitData && (
-                        <StreamRoom
-                            serverUrl={livekitData.url}
-                            token={livekitData.token}
-                            isHost={isOwner}
-                            onDisconnected={handleRoomDisconnected}
-                            onError={(err) => setError(err?.message || "LiveKit connection error.")}
+                </div>
+            ) : livekitData ? (
+                /* 3. LiveKit Room Stage: Provider wraps BOTH player and controls bar */
+                <StreamRoom
+                    serverUrl={livekitData.url}
+                    token={livekitData.token}
+                    isHost={isOwner}
+                    onDisconnected={handleRoomDisconnected}
+                    onError={handleRoomError}
+                >
+                    <div className="space-y-4">
+                        {/* Player Container */}
+                        <div
+                            ref={playerContainerRef}
+                            className="relative aspect-video w-full overflow-hidden rounded-3xl border border-border/60 bg-black shadow-2xl"
                         >
                             <StreamTrackView
                                 author={stream.author}
                                 title={stream.title}
                                 isHost={isOwner}
                             />
-                        </StreamRoom>
-                    )
-                )}
-            </div>
+                        </div>
 
-            {/* Controls Bar */}
-            {isOwner ? (
-                <HostControls
-                    streamStatus={stream.status}
-                    onStartBroadcast={handleStartBroadcast}
-                    onEndBroadcast={handleEndBroadcast}
-                    isStarting={isStarting}
-                    isEnding={isEnding}
-                />
-            ) : isLive ? (
-                <ViewerControls
-                    viewerCount={stream.viewerCount || 0}
-                    onLeave={() => router.push("/streams")}
-                    containerRef={containerRef}
-                />
-            ) : null}
+                        {/* Controls Bar (Guaranteed Inside LiveKit Room Context) */}
+                        {isLive && isOwner ? (
+                            <HostControls
+                                streamStatus={stream.status}
+                                onStartBroadcast={handleStartBroadcast}
+                                onEndBroadcast={handleEndBroadcast}
+                                isStarting={isStarting}
+                                isEnding={isEnding}
+                            />
+                        ) : isLive && !isOwner ? (
+                            <ViewerControls
+                                viewerCount={stream.viewerCount || 0}
+                                onLeave={() => router.push("/streams")}
+                                containerRef={playerContainerRef}
+                            />
+                        ) : null}
+                    </div>
+                </StreamRoom>
+            ) : (
+                /* 4. Connecting State */
+                <div className="relative aspect-video w-full overflow-hidden rounded-3xl border border-border/60 bg-black shadow-2xl flex flex-col items-center justify-center p-8 text-center bg-card/40">
+                    <Loader2 size={36} className="animate-spin text-cyan-400 mb-3" aria-hidden="true" />
+                    <p className="text-sm font-semibold text-foreground">Connecting to stream...</p>
+                    <p className="text-xs text-muted-foreground mt-1">Establishing secure connection</p>
+                </div>
+            )}
 
             {/* Stream Info & Metadata Grid */}
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -429,3 +567,5 @@ export function StreamDetailView({ streamId }) {
         </div>
     );
 }
+
+export default StreamDetailView;

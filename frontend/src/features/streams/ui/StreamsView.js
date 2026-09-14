@@ -126,7 +126,8 @@ export function StreamsView() {
     return (
         <div className="flex min-h-0 flex-col">
             {/* Page Header */}
-            <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
+            <div className="border-b border-border/50">
+                <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
                 <div>
                     <div className="flex items-center gap-2">
                         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
@@ -152,6 +153,7 @@ export function StreamsView() {
                         <span>Start Stream</span>
                     </Button>
                 )}
+                </div>
             </div>
 
             {/* Inline Stream Creation Composer — CSS Grid row-height animated */}
@@ -174,10 +176,11 @@ export function StreamsView() {
 
             {/* Filters Toolbar: Status Tabs & Category Chips */}
             <div
-                className="sticky top-0 z-10 border-b border-border/50 bg-background/95 px-4 py-3 backdrop-blur-sm space-y-3"
+                className="sticky top-0 z-10 border-b border-border/50 bg-background/95 backdrop-blur-sm"
                 role="toolbar"
                 aria-label="Filter streams"
             >
+                <div className="mx-auto w-full max-w-7xl space-y-3 px-4 py-3 sm:px-6">
                 {/* Status Tabs: Live Now / Preparing / Concluded */}
                 <div className="flex flex-wrap items-center gap-2">
                     <button
@@ -267,10 +270,11 @@ export function StreamsView() {
                         );
                     })}
                 </div>
+                </div>
             </div>
 
             {/* Streams Grid with Consistent Container Rhythm */}
-            <div className="p-4 sm:p-6">
+            <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6">
                 <StreamList
                     streams={streams}
                     isLoading={isLoading}
