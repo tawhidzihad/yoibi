@@ -82,7 +82,10 @@ export function StreamDetailView({ streamId }) {
             stream &&
             (user.id === stream.authorId ||
                 user.id === stream.author?.id ||
-                user.id === stream.author?._id)
+                user.id === stream.author?._id ||
+                user._id === stream.authorId ||
+                user._id === stream.author?.id ||
+                user._id === stream.author?._id)
     );
     const isAdmin = user?.role === "admin";
     const isLive = stream?.status === "live" && !hasEndedLocally;
@@ -351,7 +354,7 @@ export function StreamDetailView({ streamId }) {
     }
 
     return (
-        <div className="space-y-6 pb-12">
+        <div className="mx-auto w-full max-w-7xl px-4 py-4 sm:px-6 sm:py-6 space-y-6 pb-12">
             {/* Top Navigation */}
             <div className="flex items-center justify-between border-b border-border/50 pb-3">
                 <Link
@@ -481,7 +484,7 @@ export function StreamDetailView({ streamId }) {
                         </div>
 
                         {/* Controls Bar (Guaranteed Inside LiveKit Room Context) */}
-                        {isLive && isOwner ? (
+                        {isOwner ? (
                             <HostControls
                                 streamStatus={stream.status}
                                 onStartBroadcast={handleStartBroadcast}
