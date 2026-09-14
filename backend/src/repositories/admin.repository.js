@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 const User = require('../models/user.model');
 const Tweet = require('../models/tweet.model');
-const Video = require('../models/video.model');
-const Stream = require('../models/stream.model');
-const MeetUp = require('../models/meetup.model');
+const { Video } = require('../models/video.model');
+const { Stream } = require('../models/stream.model');
+const { Meetup: MeetUp } = require('../models/meetup.model');
 const Report = require('../models/report.model');
 const AuditLog = require('../models/auditLog.model');
 

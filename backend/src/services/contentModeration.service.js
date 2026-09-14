@@ -72,9 +72,11 @@ async function deleteContent(type, id, adminUser, reason = 'Content violates mod
         throw error;
     }
 
+    const typeMap = { tweet: 'tweets', video: 'videos', stream: 'streams', meetup: 'meetups' };
+    const normalizedType = typeMap[type] || type;
     let deletedId = id;
 
-    switch (type) {
+    switch (normalizedType) {
         case 'tweets': {
             const result = await deleteTweet({ tweetId: id, user: adminUser });
             deletedId = result.deletedId;

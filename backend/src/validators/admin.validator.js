@@ -17,7 +17,12 @@ const listUsersQuerySchema = z.object({
 });
 
 const listContentQuerySchema = z.object({
-    type: z.enum(['tweets', 'videos', 'streams', 'meetups']).default('tweets'),
+    type: z.enum(['tweets', 'videos', 'streams', 'meetups', 'tweet', 'video', 'stream', 'meetup'])
+        .transform((val) => {
+            const map = { tweet: 'tweets', video: 'videos', stream: 'streams', meetup: 'meetups' };
+            return map[val] || val;
+        })
+        .default('tweets'),
     search: z.string().max(100).optional(),
     limit: z.coerce.number().min(1).max(100).default(20).optional(),
     page: z.coerce.number().min(1).default(1).optional()

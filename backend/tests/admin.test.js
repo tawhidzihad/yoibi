@@ -3,9 +3,9 @@ const http = require('http');
 const app = require('../src/app');
 const User = require('../src/models/user.model');
 const Tweet = require('../src/models/tweet.model');
-const Video = require('../src/models/video.model');
-const Stream = require('../src/models/stream.model');
-const MeetUp = require('../src/models/meetup.model');
+const { Video } = require('../src/models/video.model');
+const { Stream } = require('../src/models/stream.model');
+const { Meetup: MeetUp } = require('../src/models/meetup.model');
 const Follow = require('../src/models/follow.model');
 
 const adminService = require('../src/services/admin.service');
