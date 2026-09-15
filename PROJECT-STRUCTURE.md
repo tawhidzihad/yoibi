@@ -4,6 +4,11 @@ The repository is intentionally split into frontend, backend, shared contracts, 
 
 ```text
 yoibi/
+├── AGENTS.md
+├── .claude/
+│   └── commands/
+│       └── yoibi-resume.md
+│
 ├── .agents/
 │   ├── AI-AGENT.md
 │   ├── skills/
@@ -30,7 +35,9 @@ yoibi/
 │   ├── CODE-STANDARDS.md
 │   ├── MANDATORY-RULES.md
 │   ├── WORKBASE.md
+│   ├── WORKBASE-ARCHIVE.md
 │   ├── MODEL-HANDOFF.md
+│   ├── MODEL-HANDOFF-ARCHIVE.md
 │   ├── FRONTEND-GUIDE.md
 │   ├── BACKEND-GUIDE.md
 │   ├── SECURITY-RULES.md
