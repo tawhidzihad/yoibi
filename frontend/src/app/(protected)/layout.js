@@ -14,12 +14,10 @@ import {
     Shield,
     Menu,
     User,
-    Search,
     MoreHorizontal
 } from "lucide-react";
 import { YoibiLogo } from "../../shared/ui/YoibiLogo";
 import { Avatar } from "../../shared/ui/Avatar";
-import { Modal } from "../../shared/ui/Modal";
 import { LoadingFallback } from "../../shared/feedback/LoadingFallback";
 import { cn } from "../../shared/utils/cn";
 import { useAuth } from "../../features/auth/context/AuthContext";
@@ -286,28 +284,26 @@ export default function ProtectedLayout({ children }) {
     const pathname = usePathname();
     const router = useRouter();
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsDrawerOpen(false);
-        setIsSearchOpen(false);
     }, [pathname]);
 
     useEffect(() => {
-        const overflowHidden = isDrawerOpen || isSearchOpen;
-        document.body.style.overflow = overflowHidden ? "hidden" : "";
+        if (isDrawerOpen) {
+            document.body.style.overflow = "hidden";
+        } else {
+            document.body.style.overflow = "";
+        }
         return () => {
             document.body.style.overflow = "";
         };
-    }, [isDrawerOpen, isSearchOpen]);
+    }, [isDrawerOpen]);
 
     useEffect(() => {
         const handleEsc = (e) => {
-            if (e.key === "Escape") {
-                setIsDrawerOpen(false);
-                setIsSearchOpen(false);
-            }
+            if (e.key === "Escape") setIsDrawerOpen(false);
         };
         window.addEventListener("keydown", handleEsc);
         return () => window.removeEventListener("keydown", handleEsc);
@@ -358,30 +354,27 @@ export default function ProtectedLayout({ children }) {
 
             {/* ── MOBILE / TABLET: header + drawer ── */}
             <div className="flex flex-col lg:hidden min-h-screen">
-                {/* Mobile sticky header — logo (left), search (middle), menu (right) */}
-                <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/50 bg-background/95 px-4 backdrop-blur-sm">
+                {/* Mobile sticky header — logo (left), inline search bar (middle), menu (right) */}
+                <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border/50 bg-background/95 px-4 backdrop-blur-sm">
                     <Link
                         href="/feed"
-                        className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        className="flex shrink-0 items-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                         aria-label="Yoibi home"
                     >
                         <YoibiLogo className="h-7 w-7 text-cyan-500" />
-                        <span className="text-lg font-bold tracking-tight text-foreground">Yoibi</span>
                     </Link>
 
-                    <button
-                        type="button"
-                        onClick={() => setIsSearchOpen(true)}
-                        className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                        aria-label="Search people"
-                    >
-                        <Search size={22} aria-hidden="true" />
-                    </button>
+                    {/* Inline people search — results drop down from the top bar
+                        (anchored panel, never a centered modal). key={pathname}
+                        resets the search on every navigation. */}
+                    <div className="relative min-w-0 flex-1 self-stretch">
+                        <UserSearch key={pathname} variant="dropdown" />
+                    </div>
 
                     <button
                         type="button"
                         onClick={() => setIsDrawerOpen(true)}
-                        className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        className="flex shrink-0 items-center justify-center rounded-md p-2 text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
                         aria-label="Open navigation menu"
                         aria-expanded={isDrawerOpen}
                         aria-controls="mobile-drawer"
@@ -393,19 +386,6 @@ export default function ProtectedLayout({ children }) {
                 <main id="main-content" className="flex-1 pb-6" tabIndex={-1}>
                     {children}
                 </main>
-
-                {/* Mobile Search Modal — visually elevated above a dimmed/blurred page */}
-                <Modal
-                    isOpen={isSearchOpen}
-                    onClose={() => setIsSearchOpen(false)}
-                    title="Search people"
-                    description="Find people by name or username."
-                >
-                    <UserSearch
-                        autoFocus
-                        onNavigate={() => setIsSearchOpen(false)}
-                    />
-                </Modal>
 
                 {/* Mobile Drawer Backdrop */}
                 {isDrawerOpen && (

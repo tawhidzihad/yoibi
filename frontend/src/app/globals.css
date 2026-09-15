@@ -145,7 +145,18 @@
 @layer base {
     * {
         border-color: var(--border);
+        /* Site-wide default: hide the visual scrollbar on both axes
+           (page and every scrollable container) while keeping scrolling
+           fully functional — wheel, trackpad, touch, keyboard, and
+           programmatic scrolling are unaffected. */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
+
+    *::-webkit-scrollbar {
+        display: none;
+    }
+
     body {
         background-color: var(--background);
         color: var(--foreground);
@@ -187,6 +198,29 @@
     }
     to {
         transform: translateY(calc(-100% - var(--gap, 1rem)));
+    }
+}
+
+/* Mobile people-search results dropdown — subtle anchored slide-down entry
+   (panel hangs from the top bar, so it drops in from above, never floats). */
+@utility animate-dropdown-in {
+    animation: dropdown-in 150ms ease-out;
+}
+
+@keyframes dropdown-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-dropdown-in {
+        animation: none;
     }
 }
 

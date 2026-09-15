@@ -6,23 +6,24 @@ Every session writes to this file in EXACTLY this section structure:
 `## Current Status` · `## Last Completed Step` · `## Exact Next Step` · `## Files Touched This Session` · `## Known Issues / Blockers` · `## Session Date` · `## What Is Working` · `## Reference`
 
 ## Current Status
-- Session Date: 2026-09-15
-- Active task: TASK-024 — People Search + navigation redesign (backend `GET /users/search`, desktop right-panel search, left-sidebar Profile nav + account switcher, mobile search modal + drawer profile-preview)
+- Session Date: 2026-09-16
+- Active task: TASK-025 — Mobile search UX fixes (top-bar search bar + top-anchored results dropdown, clear-button removal, site-wide hidden scrollbars)
 - Overall phase: Phase 5 complete; platform live in production; post-launch feature work
 - Completion status: `Implemented, Verified & Deployed`
-- Git repository status: TASK-024 committed on `main` (clean)
+- Git repository status: TASK-025 changes pending commit/push (frontend + docs only)
 - Current branch: `main`
 
 ## Last Completed Step
-- TASK-024 completed end-to-end. Backend: new `GET /api/v1/users/search` endpoint (auth-required, `searchLimiter` 60/min/IP, Zod-validated `q` 1–100 / `limit` 1–20, regex-escaped case-insensitive partial match on handle+name, blocked users excluded, strict `id/handle/name/avatarUrl` projection), implemented through the full route → controller → service (`services/read/users.service.js`) → repository (`repositories/users.repository.js`) layering, with a new test suite (`tests/user-search.test.js`, 5 sections, registered in the runner). Frontend: `UserSearch` feature component (`features/users/ui/UserSearch.js`) shared by the desktop right panel (inline results, idle mini profile card) and a mobile search modal (shared `Modal`); left sidebar gained a Profile nav item above Feed and a Twitter-style account row with a kebab Sign Out menu; mobile top bar is now logo + search + hamburger, and the drawer's logo header was replaced by a tappable profile-preview (banner/avatar/name/handle). Contracts (`API-CONTRACT.md`, `openapi.yaml`) and `SECURITY-RULES.md` updated. Quality gates: backend tests 100%, both lints clean, backend audit 0 vulns, frontend build clean. Deployed: Railway backend (health 200) + Vercel frontend (aliased `https://www.yoibi.com`, new UI chunks confirmed served). Live logged-in verification with the owner's test account passed: real result sets, case-insensitive, @-prefix tolerated, empty result, literal regex handling, 401/422 guards, rate-limit headers, and profile click-through 200.
+- TASK-025 completed. `UserSearch` gained a `variant` prop — `"inline"` (desktop sidebar, behavior unchanged) and `"dropdown"` (mobile): the search input now sits visibly in the mobile top bar (same shared searchBar element/styling as desktop), and results render in a scrollable panel anchored to the top (flush under the search bar, aligned to its width; `max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain`; outside-tap dismiss; `key={pathname}` reset on navigation) instead of the old centered `Modal` (removed). Mobile header wordmark removed (logo icon only). Shared input changed `type="search"` → `type="text"` (native clear "x" gone on both desktop and mobile — the only desktop-visible change). `globals.css`: site-wide scrollbar hiding (`scrollbar-width: none` + `*::-webkit-scrollbar { display: none }` in `@layer base`) and a new `animate-dropdown-in` utility with reduced-motion guard. Backend untouched (no Railway redeploy). Quality gates: lint clean (pre-existing warning only), build clean, built CSS verified. Deployed to Vercel, aliased `https://www.yoibi.com`; live verification confirmed the compiled mobile header structure (logo-only → dropdown UserSearch → hamburger), modal strings gone, one shared `type:"text"` input, unchanged desktop inline container, and the live CSS serving the scrollbar + animation rules; live API sanity check passed.
 
 ## Exact Next Step
-- No code work pending. Next session: run `/yoibi-resume`, then take the owner's next direction. Optional owner follow-up: a visual phone pass over the mobile search modal + drawer profile-preview (API/code-level live verification passed; no browser automation was available this session).
+- Commit and push TASK-025 to `main` (this session's remaining step), then no code work pending. Next session: run `/yoibi-resume`, then take the owner's next direction. Optional owner follow-up: visual phone pass over the mobile search dropdown (compiled-code/live-asset verification passed; no browser automation was available this session).
 
 ## Files Touched This Session
-- Backend: `src/validators/users.validator.js`, `src/repositories/users.repository.js` (new), `src/services/read/users.service.js` (new), `src/controllers/read/users.controller.js`, `src/routes/users.routes.js`, `src/middleware/rate-limiter.js`, `tests/user-search.test.js` (new), `tests/index.js`
-- Frontend: `src/features/users/api/usersApi.js`, `src/features/users/ui/UserSearch.js` (new), `src/app/(protected)/layout.js`
-- Contracts/docs: `contracts/API-CONTRACT.md`, `contracts/openapi.yaml`, `docs/SECURITY-RULES.md`, `docs/WORKBASE.md`, `docs/MODEL-HANDOFF.md` (this file)
+- `frontend/src/features/users/ui/UserSearch.js` (variant prop, `type="text"`, shared searchBar/resultsBody)
+- `frontend/src/app/(protected)/layout.js` (mobile header: logo-only + inline dropdown search; search Modal + `isSearchOpen` removed)
+- `frontend/src/app/globals.css` (site-wide scrollbar hiding; `animate-dropdown-in`)
+- `docs/WORKBASE.md`, `docs/MODEL-HANDOFF.md` (this file)
 
 ## Known Issues / Blockers
 - 1 pre-existing React Compiler warning in `frontend/src/features/streams/ui/CreateStreamComposer.js` (unrelated; lint exits 0; intentionally not modified per the "do not modify unrelated files" rule).
@@ -43,7 +44,8 @@ Every session writes to this file in EXACTLY this section structure:
 - Auth: Better Auth 1.7.4 (email + Google OAuth, no email verification), JWT + JWKS verified by the backend, canonical `users` profile auto-provisioning, database-backed rate limiting.
 - Security: multi-tier rate limiting, security response headers, strict CORS origin validation, LiveKit camera/mic permissions policy.
 - Auth-aware home page nav (TASK-022), responsive mobile drawer navigation, inline upload composers.
-- People search (TASK-024): authenticated `GET /users/search` (name/username, case-insensitive partial, rate-limited, minimal projection), desktop right-panel inline search, mobile search modal, left-sidebar Profile nav + kebab account switcher, mobile drawer profile-preview.
+- People search (TASK-024): authenticated `GET /users/search` (name/username, case-insensitive partial, rate-limited, minimal projection), desktop right-panel inline search, left-sidebar Profile Nav + kebab account switcher, mobile drawer profile-preview.
+- Mobile search UX (TASK-025): visible search bar in the mobile top bar (shared `UserSearch` styling with desktop), top-anchored scrollable results dropdown (no centered modal), logo-only mobile header, no native clear button on the search input, site-wide hidden scrollbars (scrolling fully functional).
 
 ## Reference
 - Entry point for any agent: root `AGENTS.md`

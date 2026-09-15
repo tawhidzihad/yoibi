@@ -11,39 +11,29 @@ Every session writes to this file in EXACTLY this section structure:
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Status
-- Task ID: TASK-024
-- Title: People Search (desktop right panel + mobile modal), left-sidebar Profile nav + account switcher, mobile top bar & drawer redesign, `GET /users/search` backend endpoint
+- Task ID: TASK-025
+- Title: Mobile search UX fixes (top-bar search bar + top-anchored results dropdown), remove search-input clear button, site-wide hidden scrollbars
 - Status: COMPLETE
 - Completion Level: `Implemented, Verified & Deployed`
-- Summary: Cross-cutting navigation/search feature:
-  1. **Backend** — new `GET /api/v1/users/search?q=&limit=` (auth-required, regex-escaped case-insensitive partial match on `handle`/`name`, blocked users excluded, strict public projection `id/handle/name/avatarUrl`, dedicated `searchLimiter` 60 req/min/IP, Zod query validation `q` 1–100 chars / `limit` 1–20 default 10). Layered: route → `controllers/read/users.controller.js` → new `services/read/users.service.js` → new `repositories/users.repository.js`. Tests in new `backend/tests/user-search.test.js` (registered in `tests/index.js`). Contracts updated (`API-CONTRACT.md` + `openapi.yaml`) plus `SECURITY-RULES.md` limiter list.
-  2. **Desktop** — right sidebar is now a search panel: search bar pinned at top, debounced inline results below (skeleton idiom while loading, shared `EmptyState`/`ErrorState` otherwise); the logged-in user's compact profile card (avatar/name/handle/stats) shows as idle content below the search bar (buttons removed — superseded by the new left-nav Profile item). Left sidebar gains a "Profile" nav item (top, above Feed) and the Sign Out row became a Twitter-style account row (avatar/name/handle + kebab menu containing only Sign Out).
-  3. **Mobile** — top bar: YOIBI logo (left, links to /feed), search icon (middle, opens a search modal using the shared `Modal`), hamburger (right, sole drawer trigger). Drawer: logo/wordmark removed, replaced by a compact profile-preview (banner + avatar + name + handle, single tappable area → own profile); "My Profile" nav item removed; nav list + bottom Sign Out unchanged.
-  4. Deployed: backend → Railway, frontend → Vercel (`https://www.yoibi.com`), live-verified (see Last Completed Step).
+- Summary: Mobile-only fixes to TASK-024's search + two shared/global tweaks (desktop search behavior otherwise unchanged):
+  1. **Mobile top bar** — "Yoibi" wordmark removed (logo icon only, left); the middle search *icon* replaced with the actual visible search input bar — the SAME shared `UserSearch` search-bar element/styling as desktop (single styling source).
+  2. **Mobile results** — centered `Modal` removed entirely; `UserSearch` gained a `variant` prop: `"inline"` (desktop sidebar, unchanged) vs `"dropdown"` (mobile) where results render in a panel anchored to the top (flush under the search bar via `top-full` of a `self-stretch` header wrapper, aligned to the search bar's width), scrollable (`max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain`), same skeleton/empty/result rows; dismisses on outside pointer-down; resets on navigation (`key={pathname}`).
+  3. **Clear button** — shared input switched `type="search"` → `type="text"` so the native webkit clear "x" is gone on BOTH desktop and mobile.
+  4. **Global scrollbars** — `globals.css` `@layer base` hides scrollbars site-wide on both axes (`scrollbar-width: none` + `*::-webkit-scrollbar { display: none }` + `-ms-overflow-style: none`) while scrolling stays fully functional.
+  5. New `@utility animate-dropdown-in` keyframe in `globals.css` (follows the `animate-marquee` convention, with a `prefers-reduced-motion` guard).
+- Backend untouched — no Railway redeploy (frontend-only change).
 
 ## Last Completed Step
-- All TASK-024 work finished and verified:
-  - Backend: `npm test` 100% (incl. new user-search suite), `npm run lint` clean, `npm audit` 0 vulnerabilities. Deployed to Railway (health 200 `database: connected`).
-  - Frontend: `npm run lint` clean (only the pre-existing unrelated CreateStreamComposer warning), `npm run build` clean. Deployed to Vercel production, aliased to `https://www.yoibi.com`; new UI chunks confirmed live (Search people / Account options / View my profile strings present in served JS).
-  - Live logged-in verification (owner-provided test account `test@gmail.com`): search `q=tawhid` and `q=test` returned real users (handle AND name matches, both Tawhidul Islam accounts + the test account); `q=TAWHID` case-insensitive ✓; `q=@tawhidzihad` @-prefix tolerated ✓; `q=zzzzzqqqq` → empty `users[]` ✓; regex metacharacters (`a.*`) matched literally (no injection) ✓; missing `q` / `limit=50` → 422 VALIDATION_ERROR ✓; unauthenticated → 401 ✓; rate-limit headers confirm `60-in-1min` searchLimiter live ✓; profile click-through target `/profile/tawhidzihad` returns 200 on the live site ✓. Temp cookie/scratch files deleted.
+- All TASK-025 work finished and verified: frontend `npm run lint` clean (only the pre-existing unrelated CreateStreamComposer warning), `npm run build` clean, built CSS confirmed to contain the scrollbar + animation rules. Deployed to Vercel production, aliased `https://www.yoibi.com`. Live verification: compiled layout chunk shows the mobile header as logo-only Link → `variant="dropdown"` UserSearch (inline in the top bar) → hamburger; the old modal strings ("Find people by name or username") are gone; the wordmark class string appears exactly once (desktop brand only); the shared input is `type:"text"` (no clear x on any platform); the desktop inline-results container is unchanged; the live CSS serves `scrollbar-width:none`, `::-webkit-scrollbar{display:none}`, and the `dropdown-in` keyframe + utility + reduced-motion guard; live API sanity check with the test account still returns real search results.
 
 ## Next Step
-- No pending code work. Next session: run `/yoibi-resume`, then proceed to the next feature/fix task as directed by the owner.
-- Note for the owner: the test account `test@gmail.com` was used for live verification and can be deleted at will; recommend a visual pass over the mobile search modal + drawer profile-preview on a real phone (this session verified code + API level; no browser automation was available for pixel-level UI confirmation).
+- No pending code work. Next session: run `/yoibi-resume`, then proceed to the owner's next task.
+- Note for the owner: this session verified the fixes at compiled-code/live-asset level (no browser automation available); a quick visual pass on a real phone is recommended — mobile: logo-only top bar, inline search bar, top-anchored scrollable dropdown, no clear x; desktop: unchanged except no clear x; scrollbars hidden site-wide.
 
 ## Files Touched This Session
-- `backend/src/validators/users.validator.js` (new `searchUsersQuerySchema`)
-- `backend/src/repositories/users.repository.js` (new — users repository layer)
-- `backend/src/services/read/users.service.js` (new — people search service)
-- `backend/src/controllers/read/users.controller.js` (new `searchUsers` controller)
-- `backend/src/routes/users.routes.js` (`GET /users/search` before `/users/:handle`)
-- `backend/src/middleware/rate-limiter.js` (new `searchLimiter`)
-- `backend/tests/user-search.test.js` (new) + `backend/tests/index.js` (registered)
-- `frontend/src/features/users/api/usersApi.js` (new `searchUsers`)
-- `frontend/src/features/users/ui/UserSearch.js` (new — shared desktop/mobile search component)
-- `frontend/src/app/(protected)/layout.js` (left nav Profile item + account switcher; right panel search; mobile header logo/search/hamburger; search modal; drawer profile-preview)
-- `contracts/API-CONTRACT.md` + `contracts/openapi.yaml` (new search endpoint + `UserSearchResult` schema)
-- `docs/SECURITY-RULES.md` (searchLimiter documented)
+- `frontend/src/features/users/ui/UserSearch.js` (variant prop: inline/dropdown; `type="text"`; shared searchBar/resultsBody extraction)
+- `frontend/src/app/(protected)/layout.js` (mobile header: logo-only, inline dropdown search, gap layout; removed search Modal + `isSearchOpen`)
+- `frontend/src/app/globals.css` (site-wide scrollbar hiding in `@layer base`; `animate-dropdown-in` utility + keyframe + reduced-motion guard)
 - `docs/WORKBASE.md` + `docs/MODEL-HANDOFF.md` (this session)
 
 ## Known Issues / Blockers
@@ -59,6 +49,7 @@ One line per task; full detail in `docs/WORKBASE-ARCHIVE.md` (or `docs/MODEL-HAN
 
 | Task | Title | Status |
 |------|-------|--------|
+| TASK-025 | Mobile search UX fixes (top-bar search bar, top-anchored dropdown, clear-button removal, hidden scrollbars) | COMPLETE — deployed & live-verified |
 | TASK-024 | People Search + nav redesign (search endpoint, right panel, Profile nav, account switcher, mobile search modal + drawer preview) | COMPLETE — deployed & live-verified |
 | TASK-023 | Persistent Context + Resume System (AGENTS.md, doc restructure, /yoibi-resume) | COMPLETE (history in WORKBASE-ARCHIVE.md) |
 | TASK-022 | Stale Frontend URL Cleanup + Auth-Aware Home Page Nav Button | COMPLETE — deployed & live-verified |
