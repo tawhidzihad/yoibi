@@ -36,7 +36,7 @@ export async function getTweets({ page = 1, limit = 20, filter = "all", authorId
 }
 
 /**
- * Fetch a single tweet by ID with author details and direct replies.
+ * Fetch a single tweet by ID with author details and its threaded comment tree.
  */
 export async function getTweetById(id) {
     const res = await apiClient.get(`/tweets/${id}`);
@@ -177,7 +177,8 @@ export async function deleteTweet(id) {
 }
 
 /**
- * Like a tweet.
+ * Like a tweet or a comment (comments are tweets — the same endpoint works
+ * with a comment ID).
  */
 export async function likeTweet(id) {
     const res = await apiClient.post(`/tweets/${id}/like`);
@@ -185,7 +186,7 @@ export async function likeTweet(id) {
 }
 
 /**
- * Unlike a tweet.
+ * Unlike a tweet or a comment.
  */
 export async function unlikeTweet(id) {
     const res = await apiClient.delete(`/tweets/${id}/like`);
@@ -209,7 +210,10 @@ export async function undoRetweet(id) {
 }
 
 /**
- * Fetch direct replies for a tweet.
+ * Fetch the threaded comment tree of a tweet. Returns top-level comments,
+ * each carrying a flat chronological `replies` array with ALL of its
+ * descendants (depth >= 2 flattened Facebook-style; each nested reply also
+ * carries `parentAuthor`).
  */
 export async function getReplies(id) {
     const res = await apiClient.get(`/tweets/${id}/replies`);
@@ -217,7 +221,9 @@ export async function getReplies(id) {
 }
 
 /**
- * Create a reply for a tweet.
+ * Create a reply. `id` may be a TWEET (top-level comment) or a COMMENT
+ * (nested reply) — the server derives the parent relationship and thread
+ * roots from the URL, never from the body.
  */
 export async function createReply(id, { content }) {
     const res = await apiClient.post(`/tweets/${id}/replies`, {

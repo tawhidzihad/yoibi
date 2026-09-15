@@ -1,9 +1,15 @@
 const tweetsRepository = require("../../repositories/tweets.repository");
 
 /**
- * Service: Delete a tweet
- * Only the tweet author or an admin may delete.
- * When a reply is deleted, the parent repliesCount is decremented.
+ * Service: Delete a tweet or comment
+ * Only the author or an admin may delete.
+ *
+ * Threaded-comment cascades (Facebook-style):
+ *   - Deleting a COMMENT removes the comment AND all of its nested replies
+ *     (the whole subtree), keeps the parent comment's direct-reply count and
+ *     the root tweet's total thread-comment count consistent.
+ *   - Deleting a top-level TWEET also removes its entire comment thread, so
+ *     no orphaned comments are left behind.
  */
 async function deleteTweet({ tweetId, user }) {
     if (!user || !user.id) {
@@ -26,15 +32,57 @@ async function deleteTweet({ tweetId, user }) {
         };
     }
 
-    await tweetsRepository.deleteById(tweetId);
+    const isComment = Boolean(existing.replyToId);
+    // Legacy comments (pre-threading) have no rootTweetId — their replyToId
+    // is always the root tweet, so the fallback is exact.
+    const rootTweetId = isComment
+        ? (existing.rootTweetId || existing.replyToId)
+        : null;
 
-    // If this was a reply, decrement parent repliesCount
-    if (existing.replyToId) {
-        await tweetsRepository.decrementRepliesCount(existing.replyToId);
+    // Collect every document that must be removed.
+    const removedIds = [tweetId];
+    if (isComment) {
+        // Remove the comment's whole nested-reply subtree.
+        const threadComments = await tweetsRepository.findThreadComments(rootTweetId);
+        const childrenOf = new Map();
+        for (const comment of threadComments) {
+            const parentId = comment.replyToId;
+            if (!childrenOf.has(parentId)) {
+                childrenOf.set(parentId, []);
+            }
+            childrenOf.get(parentId).push(comment._id);
+        }
+        const queue = [tweetId];
+        while (queue.length > 0) {
+            const currentId = queue.shift();
+            for (const childId of childrenOf.get(currentId) || []) {
+                removedIds.push(childId);
+                queue.push(childId);
+            }
+        }
+    } else {
+        // Top-level tweet: cascade-delete its entire comment thread.
+        const threadComments = await tweetsRepository.findThreadComments(tweetId);
+        for (const comment of threadComments) {
+            removedIds.push(comment._id);
+        }
+    }
+
+    await tweetsRepository.deleteManyByIds(removedIds);
+
+    // Keep the counters consistent:
+    //   - the direct parent comment loses exactly one direct reply;
+    //   - the root tweet loses every removed comment of its thread.
+    if (isComment) {
+        if (existing.replyToId && existing.replyToId !== rootTweetId) {
+            await tweetsRepository.decrementRepliesCount(existing.replyToId, 1);
+        }
+        await tweetsRepository.decrementRepliesCount(rootTweetId, removedIds.length);
     }
 
     return {
-        deletedId: tweetId
+        deletedId: tweetId,
+        deletedCount: removedIds.length
     };
 }
 

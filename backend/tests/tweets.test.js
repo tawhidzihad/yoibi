@@ -130,7 +130,7 @@ async function runTweetsTests() {
         const httpOriginalFindById = tweetsRepository.findById;
         const httpOriginalCreate = tweetsRepository.create;
         const httpOriginalIncrementRepliesCount = tweetsRepository.incrementRepliesCount;
-        const httpOriginalFindReplies = tweetsRepository.findReplies;
+        const httpOriginalFindThreadComments = tweetsRepository.findThreadComments;
         const httpOriginalAttachAuthors = tweetsRepository.attachAuthors;
 
         tweetsRepository.findById = async (id) => httpRepliesStore.get(id) || null;
@@ -143,8 +143,10 @@ async function runTweetsTests() {
             if (parent) parent.repliesCount = (parent.repliesCount || 0) + 1;
             return parent || null;
         };
-        tweetsRepository.findReplies = async (tweetId) => {
-            return Array.from(httpRepliesStore.values()).filter((t) => t.replyToId === tweetId);
+        tweetsRepository.findThreadComments = async (tweetId) => {
+            return Array.from(httpRepliesStore.values()).filter(
+                (t) => t.rootTweetId === tweetId || (t.replyToId === tweetId && !t.rootTweetId)
+            );
         };
         tweetsRepository.attachAuthors = async (tweets) => {
             const isArray = Array.isArray(tweets);
@@ -209,6 +211,16 @@ async function runTweetsTests() {
                 "Reply must carry its parent relationship (replyToId)"
             );
             assert.strictEqual(
+                replyRes.body.data.rootTweetId,
+                "tweet_parent_http",
+                "Reply must carry its thread root (rootTweetId)"
+            );
+            assert.strictEqual(
+                replyRes.body.data.rootCommentId,
+                null,
+                "Direct tweet reply must be a top-level comment (rootCommentId null)"
+            );
+            assert.strictEqual(
                 httpRepliesStore.get("tweet_parent_http").repliesCount,
                 1,
                 "Parent repliesCount must be incremented by the reply"
@@ -227,7 +239,7 @@ async function runTweetsTests() {
             tweetsRepository.findById = httpOriginalFindById;
             tweetsRepository.create = httpOriginalCreate;
             tweetsRepository.incrementRepliesCount = httpOriginalIncrementRepliesCount;
-            tweetsRepository.findReplies = httpOriginalFindReplies;
+            tweetsRepository.findThreadComments = httpOriginalFindThreadComments;
             tweetsRepository.attachAuthors = httpOriginalAttachAuthors;
             env.BETTER_AUTH_JWKS_URL = originalJwksUrl;
             env.BETTER_AUTH_BASE_URL = originalBaseUrl;
@@ -256,6 +268,8 @@ async function runTweetsTests() {
     const originalIncrementRepliesCount = tweetsRepository.incrementRepliesCount;
     const originalDecrementRepliesCount = tweetsRepository.decrementRepliesCount;
     const originalFindReplies = tweetsRepository.findReplies;
+    const originalFindThreadComments = tweetsRepository.findThreadComments;
+    const originalDeleteManyByIds = tweetsRepository.deleteManyByIds;
     const originalAttachAuthors = tweetsRepository.attachAuthors;
 
     tweetsRepository.create = async (doc) => {
@@ -312,14 +326,26 @@ async function runTweetsTests() {
         tweet.repliesCount = (tweet.repliesCount || 0) + 1;
         return tweet;
     };
-    tweetsRepository.decrementRepliesCount = async (tweetId) => {
+    tweetsRepository.decrementRepliesCount = async (tweetId, amount = 1) => {
         const tweet = inMemoryTweets.get(tweetId);
         if (!tweet) return null;
-        tweet.repliesCount = Math.max(0, (tweet.repliesCount || 0) - 1);
+        tweet.repliesCount = Math.max(0, (tweet.repliesCount || 0) - amount);
         return tweet;
     };
     tweetsRepository.findReplies = async (tweetId) => {
         return Array.from(inMemoryTweets.values()).filter((t) => t.replyToId === tweetId);
+    };
+    tweetsRepository.findThreadComments = async (tweetId) => {
+        return Array.from(inMemoryTweets.values()).filter(
+            (t) => t.rootTweetId === tweetId || (t.replyToId === tweetId && !t.rootTweetId)
+        );
+    };
+    tweetsRepository.deleteManyByIds = async (ids) => {
+        let deletedCount = 0;
+        for (const id of ids) {
+            if (inMemoryTweets.delete(id)) deletedCount += 1;
+        }
+        return { deletedCount };
     };
     tweetsRepository.attachAuthors = async (tweets) => {
         const isArray = Array.isArray(tweets);
@@ -467,6 +493,71 @@ async function runTweetsTests() {
         assert.strictEqual(repliesAfterDelete.items.length, 1);
         console.log("✓ Service: deleting a reply decremented the parent repliesCount (server-computed count stays correct).");
 
+        // Test N1 (THREADS): replying to a COMMENT creates a nested reply with
+        // the correct server-derived thread roots, and increments BOTH the
+        // parent comment's direct-reply count and the root tweet's total.
+        const nestedReply = await createTweet({
+            user: userB,
+            content: "Nested reply to Alice's comment",
+            replyToId: replyA.id
+        });
+        assert.strictEqual(nestedReply.replyToId, replyA.id, "Nested reply's direct parent is the comment");
+        assert.strictEqual(nestedReply.rootTweetId, createdTweet.id, "Nested reply inherits the thread's root tweet");
+        assert.strictEqual(nestedReply.rootCommentId, replyA.id, "Nested reply is grouped under its top-level comment");
+        assert.strictEqual(inMemoryTweets.get(replyA.id).repliesCount, 1, "Parent comment direct-reply count incremented");
+        assert.strictEqual(inMemoryTweets.get(createdTweet.id).repliesCount, 2, "Root tweet total comment count incremented");
+        console.log("✓ Service: nested reply stored with correct replyToId/rootTweetId/rootCommentId and counters.");
+
+        // Test N2 (THREADS): a reply to the nested reply (depth 3) stays in the
+        // same top-level comment group — arbitrary depth is preserved in
+        // storage, only presentation flattens.
+        const deepReply = await createTweet({
+            user: userA,
+            content: "Deeper reply inside the same thread",
+            replyToId: nestedReply.id
+        });
+        assert.strictEqual(deepReply.replyToId, nestedReply.id);
+        assert.strictEqual(deepReply.rootTweetId, createdTweet.id);
+        assert.strictEqual(deepReply.rootCommentId, replyA.id, "Depth-3 reply is attributed to the SAME top-level comment");
+        assert.strictEqual(inMemoryTweets.get(nestedReply.id).repliesCount, 1);
+        assert.strictEqual(inMemoryTweets.get(createdTweet.id).repliesCount, 3);
+        console.log("✓ Service: depth-3 reply preserved arbitrary-depth parent chain while staying in the top-level group.");
+
+        // Test N3 (THREADS): getReplies returns top-level comments, each with a
+        // flat chronological replies array containing ALL descendants, and
+        // nested replies carry parentAuthor for "replying to" context.
+        const threaded = await getReplies({ tweetId: createdTweet.id, currentUserId: null });
+        assert.strictEqual(threaded.items.length, 1, "One top-level comment");
+        const topLevelComment = threaded.items[0];
+        assert.strictEqual(topLevelComment.id, replyA.id);
+        assert.strictEqual(topLevelComment.replies.length, 2, "Both nested replies grouped under their top-level comment");
+        assert.strictEqual(topLevelComment.replies[0].id, nestedReply.id);
+        assert.strictEqual(topLevelComment.replies[1].id, deepReply.id);
+        assert.strictEqual(topLevelComment.replies[1].parentAuthor.id, "usr_bob", "parentAuthor of the depth-3 reply is the nested reply's author");
+        console.log("✓ Service: getReplies returned the Facebook-style flattened thread with parentAuthor context.");
+
+        // Test N4 (THREADS): comments are likable through the same tweet-like
+        // endpoints (a comment IS a tweet), with personalized liked state.
+        const commentLike = await likeTweet({ tweetId: nestedReply.id, user: userA });
+        assert.strictEqual(commentLike.liked, true);
+        assert.strictEqual(commentLike.likesCount, 1);
+        const threadedLiked = await getReplies({ tweetId: createdTweet.id, currentUserId: userA.id });
+        const likedReply = threadedLiked.items[0].replies.find((r) => r.id === nestedReply.id);
+        assert.strictEqual(likedReply.liked, true, "Comment liked state is personalized for the viewer");
+        console.log("✓ Service: comment liked via likeTweet and reported as liked in the thread.");
+
+        // Test N5 (THREADS): deleting a comment removes its whole nested-reply
+        // subtree and keeps both counters consistent.
+        const cascadeDeleteRes = await deleteTweet({ tweetId: replyA.id, user: userA });
+        assert.strictEqual(cascadeDeleteRes.deletedId, replyA.id);
+        assert.strictEqual(cascadeDeleteRes.deletedCount, 3, "Comment + its 2 nested replies removed");
+        assert.strictEqual(inMemoryTweets.has(nestedReply.id), false, "Nested reply removed with parent");
+        assert.strictEqual(inMemoryTweets.has(deepReply.id), false, "Depth-3 reply removed with parent");
+        assert.strictEqual(inMemoryTweets.get(createdTweet.id).repliesCount, 0, "Root tweet total back to 0");
+        const threadAfterCascade = await getReplies({ tweetId: createdTweet.id, currentUserId: null });
+        assert.strictEqual(threadAfterCascade.items.length, 0);
+        console.log("✓ Service: deleting a comment cascaded to its nested replies and kept counts consistent.");
+
         // Test H: Delete tweet authorization
         let unauthorizedDeleteFailed = false;
         try {
@@ -527,6 +618,8 @@ async function runTweetsTests() {
         tweetsRepository.incrementRepliesCount = originalIncrementRepliesCount;
         tweetsRepository.decrementRepliesCount = originalDecrementRepliesCount;
         tweetsRepository.findReplies = originalFindReplies;
+        tweetsRepository.findThreadComments = originalFindThreadComments;
+        tweetsRepository.deleteManyByIds = originalDeleteManyByIds;
         tweetsRepository.attachAuthors = originalAttachAuthors;
     }
 

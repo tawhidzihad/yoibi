@@ -57,7 +57,64 @@ async function listTweets({ page = 1, limit = 20, _filter = "all", authorHandle 
 }
 
 /**
- * Service: Get single tweet by ID with its replies
+ * Formats a raw comment document into the public comment shape (personalized
+ * `liked`/`retweeted` for the viewer, interaction arrays stripped).
+ */
+function formatComment(comment, currentUserId) {
+    const liked = Boolean(currentUserId && Array.isArray(comment.likes) && comment.likes.includes(currentUserId));
+    const retweeted = Boolean(currentUserId && Array.isArray(comment.retweets) && comment.retweets.includes(currentUserId));
+    const copy = { ...comment, liked, retweeted };
+    delete copy.likes;
+    delete copy.retweets;
+    return copy;
+}
+
+/**
+ * Builds the Facebook-style thread structure for a tweet's comments.
+ *
+ * Returns an array of TOP-LEVEL comments (direct replies to the tweet), each
+ * carrying a flat chronological `replies` array with ALL of its descendants
+ * (any depth). The backend stores the true arbitrary-depth parent chain
+ * (`replyToId`) — flattening everything deeper than the first level under the
+ * top-level comment is purely a presentation/grouping rule, so deeper visual
+ * nesting can be introduced later without any schema change.
+ *
+ * Each nested reply also carries `parentAuthor` (the author of the comment it
+ * directly replied to) so clients can render "replying to @handle" context.
+ */
+function buildCommentThread(rawComments, currentUserId) {
+    const formatted = rawComments.map((c) => formatComment(c, currentUserId));
+    const byId = new Map(formatted.map((c) => [c.id, c]));
+
+    const topLevel = [];
+    const repliesByRoot = new Map();
+    for (const comment of formatted) {
+        const rootId = comment.rootCommentId;
+        if (rootId && rootId !== comment.id && byId.has(rootId)) {
+            if (!repliesByRoot.has(rootId)) {
+                repliesByRoot.set(rootId, []);
+            }
+            repliesByRoot.get(rootId).push(comment);
+        } else {
+            // Direct reply to the tweet — or a defensive fallback: a reply
+            // whose top-level comment no longer exists renders as top-level.
+            topLevel.push(comment);
+        }
+    }
+
+    for (const comment of topLevel) {
+        const replies = repliesByRoot.get(comment.id) || [];
+        comment.replies = replies.map((reply) => ({
+            ...reply,
+            parentAuthor: byId.has(reply.replyToId) ? byId.get(reply.replyToId).author : null
+        }));
+    }
+
+    return topLevel;
+}
+
+/**
+ * Service: Get single tweet by ID with its threaded replies
  */
 async function getTweetById({ id, currentUserId = null }) {
     const rawTweet = await tweetsRepository.findById(id);
@@ -66,20 +123,14 @@ async function getTweetById({ id, currentUserId = null }) {
     }
 
     const enriched = await tweetsRepository.attachAuthors(rawTweet);
-    const rawReplies = await tweetsRepository.findReplies(id);
+    const rawReplies = await tweetsRepository.findThreadComments(id);
     const enrichedReplies = await tweetsRepository.attachAuthors(rawReplies);
 
     const liked = Boolean(currentUserId && Array.isArray(rawTweet.likes) && rawTweet.likes.includes(currentUserId));
     const retweeted = Boolean(currentUserId && Array.isArray(rawTweet.retweets) && rawTweet.retweets.includes(currentUserId));
 
-    const replies = enrichedReplies.map((r) => {
-        const replyLiked = Boolean(currentUserId && Array.isArray(r.likes) && r.likes.includes(currentUserId));
-        const replyRetweeted = Boolean(currentUserId && Array.isArray(r.retweets) && r.retweets.includes(currentUserId));
-        const copy = { ...r, liked: replyLiked, retweeted: replyRetweeted };
-        delete copy.likes;
-        delete copy.retweets;
-        return copy;
-    });
+    // Threaded comment structure: top-level comments with nested reply groups.
+    const replies = buildCommentThread(enrichedReplies, currentUserId);
 
     const result = {
         ...enriched,
@@ -94,21 +145,12 @@ async function getTweetById({ id, currentUserId = null }) {
 }
 
 /**
- * Service: Get replies for a tweet
+ * Service: Get the threaded comment tree for a tweet
  */
 async function getReplies({ tweetId, currentUserId = null }) {
-    const rawReplies = await tweetsRepository.findReplies(tweetId);
+    const rawReplies = await tweetsRepository.findThreadComments(tweetId);
     const enrichedReplies = await tweetsRepository.attachAuthors(rawReplies);
-
-    const items = enrichedReplies.map((r) => {
-        const liked = Boolean(currentUserId && Array.isArray(r.likes) && r.likes.includes(currentUserId));
-        const retweeted = Boolean(currentUserId && Array.isArray(r.retweets) && r.retweets.includes(currentUserId));
-        const copy = { ...r, liked, retweeted };
-        delete copy.likes;
-        delete copy.retweets;
-        return copy;
-    });
-
+    const items = buildCommentThread(enrichedReplies, currentUserId);
     return { items };
 }
 

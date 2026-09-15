@@ -351,6 +351,13 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 > **Architectural Standard:** In YOIBI, `Tweet` is the primary social content entity. `POST` is strictly an HTTP request method (e.g. `POST /api/v1/tweets`), not a separate content domain. Feed is a presentation and discovery view of Tweets.
 > 
 > A Tweet supports short text updates (≤ 280 characters), optional media URLs, likes, retweets, threaded replies (via `replyToId`), interaction counts, and authenticated user interaction states.
+>
+> **Threaded comments (Facebook-style):** Comments are Tweets. Every comment carries:
+> - `replyToId` — the DIRECT parent (the tweet, or another comment). This chain stores the true arbitrary-depth nesting; no depth limit exists in the schema (visual flattening beyond the first level is a frontend presentation rule only).
+> - `rootTweetId` — the top-level tweet owning the whole thread (null on top-level tweets). One indexed query fetches a tweet's entire comment tree; legacy pre-threading replies are backfilled on read.
+> - `rootCommentId` — the top-level comment this comment is grouped under (null for direct replies to the tweet).
+>
+> Comments are individually likable via the same tweet like endpoints (`:id` = comment ID works because a comment IS a tweet). `repliesCount` semantics: on a top-level tweet it is the TOTAL number of comments in its thread (all depths); on a comment it is that comment's direct-reply count. Deleting a comment cascades to its nested-reply subtree; deleting a top-level tweet removes its entire comment thread.
 
 ### `GET /api/v1/tweets`
 - Auth: Optional (personalizes `liked` and `retweeted` state if authenticated)
@@ -411,30 +418,34 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ### `GET /api/v1/tweets/:id`
 - Auth: Optional (marks `liked` and `retweeted` if authenticated)
-- Description: Get tweet details including direct replies thread.
-- Response (200): Tweet object with author info and replies list.
+- Description: Get tweet details including its threaded comment tree (same shape as `GET /tweets/:id/replies` — top-level comments each carrying a flat `replies` array).
+- Response (200): Tweet object with author info and threaded replies list.
 - Error (404 `NOT_FOUND`): Tweet not found.
 
 ### `DELETE /api/v1/tweets/:id`
 - Auth: Required (`Bearer <token>`)
 - Authorization: Must be tweet author (`req.user.id === tweet.authorId`) or user with role `admin`.
+- Description: Deletes the tweet. If the target is a top-level tweet, its **entire comment thread is cascade-deleted**; if it is a comment, the comment **and all of its nested replies (subtree)** are removed. Counters on the affected parents are kept consistent.
 - Response (200):
   ```json
   {
       "success": true,
-      "data": { "deletedId": "tweet_123" },
+      "data": { "deletedId": "tweet_123", "deletedCount": 3 },
       "message": "Tweet deleted successfully"
   }
   ```
+  `deletedCount` is the number of documents removed (the target plus cascaded comments/replies).
 - Error (403 `FORBIDDEN`): Not authorized to delete this tweet.
 - Error (404 `NOT_FOUND`): Tweet not found.
 
 ### `POST /api/v1/tweets/:id/like`
 - Auth: Required (`Bearer <token>`)
+- Description: Like a tweet **or a comment** (`:id` may be either — comments are tweets).
 - Response (200): `{ "liked": true, "likesCount": 12 }`
 
 ### `DELETE /api/v1/tweets/:id/like`
 - Auth: Required (`Bearer <token>`)
+- Description: Remove a like from a tweet **or a comment**.
 - Response (200): `{ "liked": false, "likesCount": 11 }`
 
 ### `POST /api/v1/tweets/:id/retweet`
@@ -446,12 +457,63 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 - Response (200): `{ "retweeted": false, "retweetsCount": 4 }`
 
 ### `GET /api/v1/tweets/:id/replies`
-- Auth: Optional
-- Response (200): List of reply tweets linked via `replyToId`.
+- Auth: Optional (marks `liked` on every comment for the authenticated viewer)
+- Description: Fetch the **threaded comment tree** of a tweet. Returns the top-level comments (direct replies), each carrying a flat chronological `replies` array with ALL of its descendants (any depth — depth ≥ 2 is flattened into the same group, Facebook-style). Each nested reply also carries `parentAuthor` (the author of the comment it directly replied to) for "replying to @handle" context. Legacy pre-threading replies are backfilled to `rootTweetId` on read.
+- Response (200):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "items": [
+              {
+                  "id": "tweet_c1",
+                  "content": "First top-level comment",
+                  "author": { "id": "usr_a", "name": "Alice", "handle": "@alice", "avatarUrl": null },
+                  "createdAt": "2026-09-16T10:00:00.000Z",
+                  "likesCount": 2,
+                  "liked": false,
+                  "repliesCount": 3,
+                  "replyToId": "tweet_root",
+                  "rootTweetId": "tweet_root",
+                  "rootCommentId": null,
+                  "replies": [
+                      {
+                          "id": "tweet_c2",
+                          "content": "Direct reply to the comment",
+                          "author": { "id": "usr_b", "name": "Bob", "handle": "@bob", "avatarUrl": null },
+                          "createdAt": "2026-09-16T10:05:00.000Z",
+                          "likesCount": 0,
+                          "liked": false,
+                          "repliesCount": 1,
+                          "replyToId": "tweet_c1",
+                          "rootTweetId": "tweet_root",
+                          "rootCommentId": "tweet_c1",
+                          "parentAuthor": { "id": "usr_a", "name": "Alice", "handle": "@alice", "avatarUrl": null }
+                      },
+                      {
+                          "id": "tweet_c3",
+                          "content": "Reply-to-a-reply — flattened into the same thread",
+                          "author": { "id": "usr_c", "name": "Carol", "handle": "@carol", "avatarUrl": null },
+                          "createdAt": "2026-09-16T10:10:00.000Z",
+                          "likesCount": 1,
+                          "liked": false,
+                          "repliesCount": 0,
+                          "replyToId": "tweet_c2",
+                          "rootTweetId": "tweet_root",
+                          "rootCommentId": "tweet_c1",
+                          "parentAuthor": { "id": "usr_b", "name": "Bob", "handle": "@bob", "avatarUrl": null }
+                      }
+                  ]
+              }
+          ]
+      },
+      "message": ""
+  }
+  ```
 
 ### `POST /api/v1/tweets/:id/replies`
 - Auth: Required (`Bearer <token>`)
-- Note: the parent tweet relationship (`replyToId`) is derived SERVER-SIDE from the URL `:id` parameter and is never taken from the client request body. A reply is always persisted as a child of its parent tweet (never as a standalone top-level tweet); replying to a non-existent parent returns 404 `NOT_FOUND`.
+- Note: `:id` may be a **tweet** (creates a top-level comment) **or a comment** (creates a nested reply — the Facebook-style threading). The parent relationship (`replyToId`) is derived SERVER-SIDE from the URL `:id` parameter and is never taken from the client request body. Thread roots (`rootTweetId`, `rootCommentId`) are likewise derived server-side from the stored parent chain — a reply can never be attributed to a foreign thread. Replying to a non-existent parent returns 404 `NOT_FOUND`.
 - Request Body:
   ```json
   {
@@ -459,7 +521,8 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
       "media": []
   }
   ```
-- Response (201): Created reply tweet object linked via `replyToId`.
+- Response (201): Created comment object linked via `replyToId`, with its server-derived `rootTweetId` and `rootCommentId`.
+- Counter semantics: creating a nested reply increments BOTH the direct parent comment's `repliesCount` (direct replies) and the root tweet's `repliesCount` (total comments in the thread).
 
 ---
 

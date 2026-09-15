@@ -26,11 +26,30 @@ async function createTweet({ user, content, media = [], replyToId = null }) {
     }
 
     let parent = null;
-    // If this is a reply, ensure the parent tweet exists
+    let rootTweetId = null;
+    let rootCommentId = null;
+    // If this is a reply, ensure the parent exists. The parent may be a
+    // top-level tweet OR an existing comment (replies are tweets too) —
+    // replying to a comment is what creates the nested thread. The thread
+    // roots are derived SERVER-SIDE from the stored parent, never from the
+    // client, so a comment can never be attributed to a foreign thread.
     if (replyToId) {
         parent = await tweetsRepository.findById(replyToId);
         if (!parent) {
             throw { statusCode: 404, code: "NOT_FOUND", message: "Parent tweet not found" };
+        }
+        const parentId = parent._id ? parent._id.toString() : parent.id;
+        const parentIsComment = Boolean(parent.replyToId);
+        if (parentIsComment) {
+            // Parent is a comment: inherit its thread roots. `rootTweetId`
+            // falls back to the parent's own replyToId for legacy comments
+            // stored before rootTweetId existed (their replyToId IS the tweet).
+            rootTweetId = parent.rootTweetId || parent.replyToId;
+            rootCommentId = parent.rootCommentId || parentId;
+        } else {
+            // Parent is a top-level tweet: start a new comment thread.
+            rootTweetId = parentId;
+            rootCommentId = null;
         }
     }
 
@@ -78,6 +97,8 @@ async function createTweet({ user, content, media = [], replyToId = null }) {
         retweetCount: 0,
         repliesCount: 0,
         replyToId: replyToId || null,
+        rootTweetId,
+        rootCommentId,
         isRetweet: false,
         quoteTweet: null,
         createdAt: new Date(),
@@ -86,9 +107,15 @@ async function createTweet({ user, content, media = [], replyToId = null }) {
 
     const created = await tweetsRepository.create(tweetDoc);
 
-    // If this is a reply, increment the parent's repliesCount
+    // If this is a reply, increment the parent's repliesCount. For a NESTED
+    // reply (reply to a comment) the root tweet's repliesCount — the total
+    // comment count of the thread — is incremented as well, so the parent
+    // tweet always reflects every comment in its thread.
     if (replyToId) {
         await tweetsRepository.incrementRepliesCount(replyToId);
+        if (rootTweetId && rootTweetId !== replyToId) {
+            await tweetsRepository.incrementRepliesCount(rootTweetId);
+        }
     }
 
     const enriched = await tweetsRepository.attachAuthors(created);

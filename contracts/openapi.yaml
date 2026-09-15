@@ -358,6 +358,10 @@ paths:
   /tweets/{id}:
     get:
       summary: Get tweet details
+      description: >
+        Tweet details with the threaded comment tree (same shape as
+        GET /tweets/{id}/replies — top-level comments, each carrying a flat
+        chronological `replies` array with all descendants).
       parameters:
         - name: id
           in: path
@@ -369,6 +373,10 @@ paths:
           description: Tweet details
     delete:
       summary: Delete a tweet
+      description: >
+        Deletes the tweet. If the target is a top-level tweet its entire
+        comment thread is cascade-deleted; if it is a comment, the comment and
+        all of its nested replies (subtree) are removed. Author or admin only.
       security:
         - bearerAuth: []
       parameters:
@@ -379,11 +387,14 @@ paths:
             type: string
       responses:
         '200':
-          description: Tweet deleted
+          description: Tweet deleted (data includes deletedId and deletedCount)
 
   /tweets/{id}/like:
     post:
-      summary: Like a tweet
+      summary: Like a tweet or comment
+      description: >
+        :id may be a tweet OR a comment (comments are tweets). Adds the
+        authenticated user to the target's likes (idempotent per user).
       security:
         - bearerAuth: []
       parameters:
@@ -394,9 +405,9 @@ paths:
             type: string
       responses:
         '200':
-          description: Tweet liked
+          description: Target liked (data includes liked and likesCount)
     delete:
-      summary: Unlike a tweet
+      summary: Unlike a tweet or comment
       security:
         - bearerAuth: []
       parameters:
@@ -407,7 +418,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Tweet unliked
+          description: Target unliked (data includes liked and likesCount)
 
   /tweets/{id}/retweet:
     post:
@@ -439,7 +450,15 @@ paths:
 
   /tweets/{id}/replies:
     get:
-      summary: Get tweet replies
+      summary: Get a tweet's threaded comment tree
+      description: >
+        Returns the top-level comments (direct replies) of the tweet, each
+        carrying a flat chronological `replies` array with ALL of its
+        descendants (any depth — depth >= 2 is flattened into the same
+        group, Facebook-style). Each nested reply carries `parentAuthor`
+        (author of the comment it directly replied to). Comments are
+        individually likable; every item exposes `liked` for the viewer.
+        Legacy pre-threading replies are backfilled to rootTweetId on read.
       parameters:
         - name: id
           in: path
@@ -448,9 +467,22 @@ paths:
             type: string
       responses:
         '200':
-          description: List of tweet replies
+          description: >
+            Threaded comment list — data.items is an array of top-level
+            comments, each with a nested flat `replies` array. Comment
+            fields include id, content, author, createdAt, likesCount,
+            liked, repliesCount, replyToId, rootTweetId, rootCommentId
+            (and parentAuthor on nested replies).
     post:
-      summary: Reply to a tweet
+      summary: Reply to a tweet or comment (threaded)
+      description: >
+        :id may be a tweet (creates a top-level comment) or a comment
+        (creates a nested reply). The parent relationship (replyToId) and
+        the thread roots (rootTweetId, rootCommentId) are derived
+        SERVER-SIDE from the URL :id and the stored parent chain — never
+        from the client body. A nested reply increments both the parent
+        comment's direct-reply count and the root tweet's total comment
+        count.
       security:
         - bearerAuth: []
       parameters:

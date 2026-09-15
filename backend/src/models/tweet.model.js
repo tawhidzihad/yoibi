@@ -22,6 +22,19 @@ const tweetSchema = new mongoose.Schema({
     retweetCount: { type: Number, default: 0 },
     repliesCount: { type: Number, default: 0 },
     replyToId: { type: String, default: null, index: true },
+    // Threaded comments (arbitrary-depth parent-child):
+    //   replyToId    — the DIRECT parent (a top-level tweet OR another comment).
+    //                  This chain preserves the true nesting depth; no depth
+    //                  limit is stored in the schema (visual flattening is a
+    //                  frontend presentation rule only).
+    //   rootTweetId  — the top-level TWEET that owns this comment's whole
+    //                  thread (null on top-level tweets). Enables a single
+    //                  indexed query to fetch a tweet's entire comment tree.
+    //   rootCommentId — the top-level COMMENT this comment belongs to (null
+    //                  for direct replies to the tweet). Enables flat grouping
+    //                  of all descendants under their top-level comment.
+    rootTweetId: { type: String, default: null, index: true },
+    rootCommentId: { type: String, default: null, index: true },
     isRetweet: { type: Boolean, default: false },
     quoteTweet: { type: String, default: null },
     createdAt: { type: Date, default: Date.now, index: true },

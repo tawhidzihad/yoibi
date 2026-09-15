@@ -71,6 +71,49 @@ async function findReplies(tweetId) {
 }
 
 /**
+ * Finds the ENTIRE comment thread of a tweet (all depths, one query).
+ *
+ * Legacy documents created before threaded comments have `replyToId` set but
+ * no `rootTweetId`. They are backfilled here (idempotent, indexed on
+ * `replyToId`) so every comment of the thread is reachable via the single
+ * `rootTweetId` index. Legacy replies were always direct replies to the
+ * tweet, so backfilling `rootTweetId` from `replyToId` is exact.
+ */
+async function findThreadComments(tweetId) {
+    if (mongoose.connection.readyState !== 1) {
+        return [];
+    }
+    await Tweet.updateMany(
+        { replyToId: tweetId, rootTweetId: null },
+        { $set: { rootTweetId: tweetId } }
+    );
+    return Tweet.find({ rootTweetId: tweetId })
+        .sort({ createdAt: 1 })
+        .lean();
+}
+
+/**
+ * Finds many tweets by their string _ids in a single query.
+ */
+async function findManyByIds(ids) {
+    if (mongoose.connection.readyState !== 1 || !Array.isArray(ids) || ids.length === 0) {
+        return [];
+    }
+    return Tweet.find({ _id: { $in: ids } }).lean();
+}
+
+/**
+ * Deletes many tweets by their string _ids in a single query.
+ * Used for cascading comment-subtree deletion.
+ */
+async function deleteManyByIds(ids) {
+    if (mongoose.connection.readyState !== 1 || !Array.isArray(ids) || ids.length === 0) {
+        return { deletedCount: 0 };
+    }
+    return Tweet.deleteMany({ _id: { $in: ids } });
+}
+
+/**
  * Counts replies for a given parent tweet ID.
  */
 async function countReplies(tweetId) {
@@ -192,12 +235,13 @@ async function incrementRepliesCount(tweetId) {
 
 /**
  * Decrements the repliesCount on a parent tweet (floor at 0).
+ * `amount` supports cascading deletions that remove a whole subtree at once.
  */
-async function decrementRepliesCount(tweetId) {
+async function decrementRepliesCount(tweetId, amount = 1) {
     if (mongoose.connection.readyState !== 1) return null;
     const tweet = await Tweet.findOne({ _id: tweetId }).lean();
     if (!tweet) return null;
-    const newCount = Math.max(0, (tweet.repliesCount || 0) - 1);
+    const newCount = Math.max(0, (tweet.repliesCount || 0) - amount);
     return Tweet.findOneAndUpdate(
         { _id: tweetId },
         { $set: { repliesCount: newCount } },
@@ -254,6 +298,9 @@ module.exports = {
     findPaginated,
     count,
     findReplies,
+    findThreadComments,
+    findManyByIds,
+    deleteManyByIds,
     countReplies,
     deleteById,
     addLike,

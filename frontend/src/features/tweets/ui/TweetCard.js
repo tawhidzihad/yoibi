@@ -46,7 +46,7 @@ function AuthorAvatar({ name, avatarUrl }) {
     );
 }
 
-export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
+export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false, defaultShowReplies = false }) {
     const router = useRouter();
     const { user, status } = useAuth();
     const [liked, setLiked] = useState(Boolean(tweet.liked));
@@ -54,7 +54,7 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
     const [retweeted, setRetweeted] = useState(Boolean(tweet.retweeted));
     const [retweetCount, setRetweetCount] = useState(tweet.retweetCount || 0);
     const [repliesCount, setRepliesCount] = useState(tweet.repliesCount || 0);
-    const [showReplies, setShowReplies] = useState(false);
+    const [showReplies, setShowReplies] = useState(defaultShowReplies);
     const [copied, setCopied] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -70,6 +70,20 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
         const rawHandle = tweet.author?.handle || "user";
         const cleanHandle = rawHandle.startsWith("@") ? rawHandle.slice(1) : rawHandle;
         router.push(`/profile/${cleanHandle}`);
+    };
+
+    // Opening the tweet's own page: triggered ONLY by the tweet's text body.
+    // The media gallery and the action row are separate siblings, so their
+    // clicks (image lightbox, like/comment/share/delete) never bubble here.
+    const handleOpenTweet = () => {
+        router.push(`/tweets/${tweet.id}`);
+    };
+
+    const handleOpenTweetKeyDown = (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleOpenTweet();
+        }
     };
 
     const handleLikeToggle = async () => {
@@ -221,30 +235,38 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
                         )}
                     </div>
 
-                    {/* Content */}
-                    <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/95 break-words">
+                    {/* Content — clicking the text opens this tweet's own page */}
+                    <p
+                        onClick={handleOpenTweet}
+                        onKeyDown={handleOpenTweetKeyDown}
+                        role="link"
+                        tabIndex={0}
+                        aria-label="Open tweet page"
+                        className="cursor-pointer whitespace-pre-line text-sm leading-relaxed text-foreground/95 break-words focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-sm"
+                    >
                         {tweet.content}
                     </p>
 
-                    {/* Media Attachments (single image / carousel / viewer) */}
+                    {/* Media Attachments (single image / carousel / viewer) —
+                        image clicks open the lightbox, never navigation */}
                     <TweetMediaGallery mediaUrls={tweet.mediaUrls} tweetId={tweet.id} />
 
                     {/* Action Bar */}
                     <div className="mt-3 flex items-center gap-6 text-muted-foreground">
-                        {/* Like Button */}
+                        {/* Replies Toggle Button */}
                         <button
                             type="button"
-                            onClick={handleLikeToggle}
-                            aria-label={liked ? "Unlike tweet" : "Like tweet"}
-                            aria-pressed={liked}
-                            id={`tweet-like-btn-${tweet.id}`}
+                            onClick={() => setShowReplies((v) => !v)}
+                            aria-label="Toggle replies"
+                            aria-expanded={showReplies}
+                            id={`tweet-replies-btn-${tweet.id}`}
                             className={cn(
-                                "flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-pink-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded",
-                                liked && "text-pink-400 font-semibold"
+                                "flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded",
+                                showReplies && "text-cyan-400"
                             )}
                         >
-                            <Heart size={15} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
-                            <span>{likesCount}</span>
+                            <MessageCircle size={15} aria-hidden="true" />
+                            <span>{repliesCount}</span>
                         </button>
 
                         {/* Retweet Button */}
@@ -263,20 +285,20 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false }) {
                             <span>{retweetCount}</span>
                         </button>
 
-                        {/* Replies Toggle Button */}
+                        {/* Like Button */}
                         <button
                             type="button"
-                            onClick={() => setShowReplies((v) => !v)}
-                            aria-label="Toggle replies"
-                            aria-expanded={showReplies}
-                            id={`tweet-replies-btn-${tweet.id}`}
+                            onClick={handleLikeToggle}
+                            aria-label={liked ? "Unlike tweet" : "Like tweet"}
+                            aria-pressed={liked}
+                            id={`tweet-like-btn-${tweet.id}`}
                             className={cn(
-                                "flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded",
-                                showReplies && "text-cyan-400"
+                                "flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-pink-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded",
+                                liked && "text-pink-400 font-semibold"
                             )}
                         >
-                            <MessageCircle size={15} aria-hidden="true" />
-                            <span>{repliesCount}</span>
+                            <Heart size={15} fill={liked ? "currentColor" : "none"} aria-hidden="true" />
+                            <span>{likesCount}</span>
                         </button>
 
                         {/* Share Button */}
