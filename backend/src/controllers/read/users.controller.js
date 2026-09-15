@@ -3,6 +3,7 @@ const followsRepository = require('../../repositories/follows.repository');
 const tweetsRepository = require('../../repositories/tweets.repository');
 const videosRepository = require('../../repositories/videos.repository');
 const streamsRepository = require('../../repositories/streams.repository');
+const usersSearchService = require('../../services/read/users.service');
 const { normalizeHandleParam } = require('../../utils/handles');
 
 
@@ -105,4 +106,24 @@ async function getPublicProfile(req, res) {
     }
 }
 
-module.exports = { getPublicProfile, buildPublicProfile, collectProfileCounts };
+/**
+ * Controller: People search by name/username
+ * Auth: Required (verifyJwt). Search lives in the protected area — anonymous
+ * account enumeration scraping is not allowed.
+ */
+async function searchUsers(req, res) {
+    try {
+        const q = (req.validatedQuery && req.validatedQuery.q) || req.query.q || '';
+        const limit = (req.validatedQuery && req.validatedQuery.limit) || 10;
+        const data = await usersSearchService.searchUsers({ q, limit });
+        return res.status(200).json({ success: true, data, message: '' });
+    } catch (err) {
+        console.error('[searchUsers] error:', err);
+        return res.status(500).json({
+            success: false,
+            error: { code: 'INTERNAL_SERVER_ERROR', message: 'Server error' }
+        });
+    }
+}
+
+module.exports = { getPublicProfile, buildPublicProfile, collectProfileCounts, searchUsers };

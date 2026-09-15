@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
     Home,
@@ -12,12 +13,17 @@ import {
     LogOut,
     Shield,
     Menu,
-    User
+    User,
+    Search,
+    MoreHorizontal
 } from "lucide-react";
 import { YoibiLogo } from "../../shared/ui/YoibiLogo";
+import { Avatar } from "../../shared/ui/Avatar";
+import { Modal } from "../../shared/ui/Modal";
 import { LoadingFallback } from "../../shared/feedback/LoadingFallback";
 import { cn } from "../../shared/utils/cn";
 import { useAuth } from "../../features/auth/context/AuthContext";
+import { UserSearch } from "../../features/users/ui/UserSearch";
 
 const baseNavItems = [
     { href: "/feed", label: "Feed", icon: Home },
@@ -37,12 +43,20 @@ function getSafeReturnUrl(pathname) {
     return pathname;
 }
 
+/** Canonical link to a user's own profile page (handle without the "@" prefix). */
+function profilePathFor(user) {
+    return user?.handle ? `/profile/${String(user.handle).replace(/^@/, "").trim()}` : "/feed";
+}
+
 function LeftNav({ user, onLogout }) {
     const pathname = usePathname();
     const isAdmin = user?.role === "admin";
-    const navItems = isAdmin
-        ? [...baseNavItems, { href: "/admin", label: "Admin", icon: Shield }]
-        : baseNavItems;
+    const profilePath = profilePathFor(user);
+    const navItems = [
+        { href: profilePath, label: "Profile", icon: User, exact: true },
+        ...baseNavItems,
+        ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: Shield }] : []),
+    ];
 
     return (
         <aside className="sticky top-0 flex h-screen w-[220px] shrink-0 flex-col border-r border-border/50 bg-background px-3 py-6">
@@ -58,11 +72,11 @@ function LeftNav({ user, onLogout }) {
 
             {/* Navigation */}
             <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-1">
-                {navItems.map(({ href, label, icon: Icon }) => {
-                    const active = pathname === href || pathname.startsWith(href + "/");
+                {navItems.map(({ href, label, icon: Icon, exact }) => {
+                    const active = exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
                     return (
                         <Link
-                            key={href}
+                            key={label}
                             href={href}
                             className={cn(
                                 "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500",
@@ -79,80 +93,191 @@ function LeftNav({ user, onLogout }) {
                 })}
             </nav>
 
-            {/* Sign Out Button */}
-            <button
-                type="button"
-                onClick={onLogout}
-                className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive rounded-lg cursor-pointer"
-            >
-                <LogOut size={18} aria-hidden="true" />
-                Sign Out
-            </button>
+            {/* Logged-in account row + sign-out menu */}
+            <AccountSwitcher user={user} onLogout={onLogout} />
         </aside>
     );
 }
 
+/**
+ * Twitter-style account row for the bottom of the left sidebar: shows the
+ * logged-in user (avatar, name, handle) with a kebab menu whose only action
+ * is Sign Out.
+ */
+function AccountSwitcher({ user, onLogout }) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const containerRef = useRef(null);
+    const handle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
+
+    useEffect(() => {
+        if (!menuOpen) return undefined;
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setMenuOpen(false);
+            }
+        };
+        const handleEsc = (e) => {
+            if (e.key === "Escape") setMenuOpen(false);
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        document.addEventListener("keydown", handleEsc);
+        return () => {
+            document.removeEventListener("mousedown", handleClickOutside);
+            document.removeEventListener("keydown", handleEsc);
+        };
+    }, [menuOpen]);
+
+    const handleSignOut = () => {
+        setMenuOpen(false);
+        onLogout();
+    };
+
+    return (
+        <div ref={containerRef} className="relative mt-2">
+            {menuOpen && (
+                <div
+                    role="menu"
+                    aria-label="Account options"
+                    className="absolute bottom-full left-0 z-10 mb-2 w-48 overflow-hidden rounded-xl border border-border/60 bg-card py-1 shadow-lg"
+                >
+                    <button
+                        type="button"
+                        role="menuitem"
+                        onClick={handleSignOut}
+                        className="flex w-full cursor-pointer items-center gap-3 px-4 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-destructive"
+                    >
+                        <LogOut size={16} aria-hidden="true" />
+                        Sign Out
+                    </button>
+                </div>
+            )}
+
+            <div className="flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-secondary">
+                <Avatar
+                    src={user?.avatarUrl || ""}
+                    name={user?.name || ""}
+                    handle={handle}
+                    size={36}
+                />
+                <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                        {user?.name || user?.handle || "User"}
+                    </p>
+                    {handle && (
+                        <p className="truncate text-xs text-muted-foreground">@{handle}</p>
+                    )}
+                </div>
+                <button
+                    type="button"
+                    onClick={() => setMenuOpen((open) => !open)}
+                    className="cursor-pointer rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                    aria-label="Account options"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                >
+                    <MoreHorizontal size={18} aria-hidden="true" />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Compact logged-in user card shown in the right sidebar while no search is
+ * active — a lightweight "you" indicator with live counts (synced through
+ * /auth/me via the profile-changed event, like before).
+ */
+function ProfileMiniCard({ user }) {
+    const handle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
+    return (
+        <div className="rounded-xl border border-border/50 bg-card p-4">
+            <div className="mb-3 flex items-center gap-3">
+                <Avatar
+                    src={user?.avatarUrl || ""}
+                    name={user?.name || ""}
+                    handle={handle}
+                    size={40}
+                />
+                <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                        {user?.name || user?.handle || "User"}
+                    </p>
+                    {handle && (
+                        <p className="truncate text-xs text-muted-foreground">@{handle}</p>
+                    )}
+                </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 border-t border-border/50 pt-3">
+                {[
+                    { label: "Posts", value: user.postsCount ?? 0 },
+                    { label: "Followers", value: user.followersCount ?? 0 },
+                    { label: "Following", value: user.followingCount ?? 0 },
+                ].map(({ label, value }) => (
+                    <div key={label} className="text-center">
+                        <p className="text-sm font-bold text-foreground">{value}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 function RightPanel({ user }) {
-    const profileHandle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
     return (
         <aside className="sticky top-0 h-screen w-[260px] shrink-0 overflow-y-auto border-l border-border/50 bg-background px-4 py-6">
-            {user ? (
-                <div className="rounded-xl border border-border/50 bg-card p-4">
-                    {/* Avatar */}
-                    <div className="mb-3 flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-500 font-bold uppercase">
-                            {user.avatarUrl ? (
-                                /* eslint-disable-next-line @next/next/no-img-element */
-                                <img src={user.avatarUrl} alt={user.name || user.handle} className="h-10 w-10 rounded-full object-cover" />
-                            ) : (
-                                (user.name?.[0] || user.handle?.[0] || "U")
-                            )}
-                        </div>
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">
-                                {user.name || user.handle || "User"}
-                            </p>
-                            <p className="truncate text-xs text-muted-foreground">
-                                {user.handle ? (user.handle.startsWith("@") ? user.handle : `@${user.handle}`) : ""}
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-3 gap-2 border-t border-border/50 pt-3">
-                        {[
-                            { label: "Posts", value: user.postsCount ?? 0 },
-                            { label: "Followers", value: user.followersCount ?? 0 },
-                            { label: "Following", value: user.followingCount ?? 0 },
-                        ].map(({ label, value }) => (
-                            <div key={label} className="text-center">
-                                <p className="text-sm font-bold text-foreground">{value}</p>
-                                <p className="text-xs text-muted-foreground">{label}</p>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Profile links — sign-out lives ONLY in the left sidebar */}
-                    <div className="mt-3 flex flex-col gap-2">
-                        {user.role === "admin" && (
-                            <Link
-                                href="/admin"
-                                className="block rounded-lg border border-cyan-500/40 bg-cyan-500/10 py-1.5 text-center text-xs font-semibold text-cyan-500 transition-colors hover:bg-cyan-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                            >
-                                Admin Dashboard
-                            </Link>
-                        )}
-                        <Link
-                            href={profileHandle ? `/profile/${profileHandle}` : "/feed"}
-                            className="flex items-center justify-center gap-2 rounded-lg border border-border/60 bg-secondary py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                        >
-                            <User size={14} aria-hidden="true" />
-                            My Profile
-                        </Link>
-                    </div>
-                </div>
-            ) : null}
+            {/* People search — inline results, no modal on desktop */}
+            <UserSearch
+                idleContent={user ? <ProfileMiniCard user={user} /> : null}
+            />
         </aside>
+    );
+}
+
+/**
+ * Compact profile-preview section at the top of the mobile drawer: banner,
+ * avatar, name and handle — a glimpse of the profile page. The entire
+ * section is one tappable area linking to the user's own profile.
+ */
+function DrawerProfilePreview({ user, onNavigate }) {
+    const handle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
+    return (
+        <Link
+            href={profilePathFor(user)}
+            onClick={onNavigate}
+            className="mb-6 block overflow-hidden rounded-xl border border-border/50 bg-card transition-colors hover:border-cyan-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+            aria-label="View my profile"
+        >
+            {/* Banner (same deliberate gradient as the profile page when empty) */}
+            <div className="relative h-16 w-full overflow-hidden bg-gradient-to-br from-cyan-500/15 via-secondary to-background">
+                {user?.bannerUrl ? (
+                    <Image
+                        src={user.bannerUrl}
+                        alt=""
+                        fill
+                        sizes="280px"
+                        className="object-cover"
+                    />
+                ) : null}
+            </div>
+            <div className="px-3 pb-3">
+                <div className="-mt-6 mb-1.5 w-fit rounded-full border-2 border-card">
+                    <Avatar
+                        src={user?.avatarUrl || ""}
+                        name={user?.name || ""}
+                        handle={handle}
+                        size={48}
+                    />
+                </div>
+                <p className="truncate text-sm font-bold text-foreground">
+                    {user?.name || user?.handle || "User"}
+                </p>
+                {handle && (
+                    <p className="truncate text-xs text-muted-foreground">@{handle}</p>
+                )}
+            </div>
+        </Link>
     );
 }
 
@@ -161,26 +286,28 @@ export default function ProtectedLayout({ children }) {
     const pathname = usePathname();
     const router = useRouter();
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsDrawerOpen(false);
+        setIsSearchOpen(false);
     }, [pathname]);
 
     useEffect(() => {
-        if (isDrawerOpen) {
-            document.body.style.overflow = "hidden";
-        } else {
-            document.body.style.overflow = "";
-        }
+        const overflowHidden = isDrawerOpen || isSearchOpen;
+        document.body.style.overflow = overflowHidden ? "hidden" : "";
         return () => {
             document.body.style.overflow = "";
         };
-    }, [isDrawerOpen]);
+    }, [isDrawerOpen, isSearchOpen]);
 
     useEffect(() => {
         const handleEsc = (e) => {
-            if (e.key === "Escape") setIsDrawerOpen(false);
+            if (e.key === "Escape") {
+                setIsDrawerOpen(false);
+                setIsSearchOpen(false);
+            }
         };
         window.addEventListener("keydown", handleEsc);
         return () => window.removeEventListener("keydown", handleEsc);
@@ -231,22 +358,24 @@ export default function ProtectedLayout({ children }) {
 
             {/* ── MOBILE / TABLET: header + drawer ── */}
             <div className="flex flex-col lg:hidden min-h-screen">
-                {/* Mobile sticky header */}
+                {/* Mobile sticky header — logo (left), search (middle), menu (right) */}
                 <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border/50 bg-background/95 px-4 backdrop-blur-sm">
+                    <Link
+                        href="/feed"
+                        className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        aria-label="Yoibi home"
+                    >
+                        <YoibiLogo className="h-7 w-7 text-cyan-500" />
+                        <span className="text-lg font-bold tracking-tight text-foreground">Yoibi</span>
+                    </Link>
+
                     <button
                         type="button"
-                        onClick={() => setIsDrawerOpen(true)}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-500/20 text-cyan-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 overflow-hidden"
-                        aria-label="Open navigation menu"
-                        aria-expanded={isDrawerOpen}
-                        aria-controls="mobile-drawer"
+                        onClick={() => setIsSearchOpen(true)}
+                        className="flex items-center justify-center rounded-md p-2 text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        aria-label="Search people"
                     >
-                        {user?.avatarUrl ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={user.avatarUrl} alt={user.name || user.handle} className="h-full w-full object-cover" />
-                        ) : (
-                            <span className="text-xs font-bold uppercase">{user?.name?.[0] || user?.handle?.[0] || "U"}</span>
-                        )}
+                        <Search size={22} aria-hidden="true" />
                     </button>
 
                     <button
@@ -264,6 +393,19 @@ export default function ProtectedLayout({ children }) {
                 <main id="main-content" className="flex-1 pb-6" tabIndex={-1}>
                     {children}
                 </main>
+
+                {/* Mobile Search Modal — visually elevated above a dimmed/blurred page */}
+                <Modal
+                    isOpen={isSearchOpen}
+                    onClose={() => setIsSearchOpen(false)}
+                    title="Search people"
+                    description="Find people by name or username."
+                >
+                    <UserSearch
+                        autoFocus
+                        onNavigate={() => setIsSearchOpen(false)}
+                    />
+                </Modal>
 
                 {/* Mobile Drawer Backdrop */}
                 {isDrawerOpen && (
@@ -286,14 +428,12 @@ export default function ProtectedLayout({ children }) {
                     aria-label="Mobile navigation"
                 >
                     <div className="flex-1 overflow-y-auto px-4 py-6">
-                        <Link
-                            href="/feed"
-                            className="mb-8 flex items-center gap-2.5 px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded-lg"
-                            onClick={() => setIsDrawerOpen(false)}
-                        >
-                            <YoibiLogo className="h-8 w-8 text-cyan-500" />
-                            <span className="text-lg font-bold tracking-tight text-foreground">Yoibi</span>
-                        </Link>
+                        {/* Profile preview — replaces the old logo header; the
+                            whole section links to the user's own profile */}
+                        <DrawerProfilePreview
+                            user={user}
+                            onNavigate={() => setIsDrawerOpen(false)}
+                        />
 
                         <nav aria-label="Mobile main navigation" className="flex flex-col gap-1">
                             {user?.role === "admin" && (
@@ -327,17 +467,6 @@ export default function ProtectedLayout({ children }) {
                                 );
                             })}
                         </nav>
-                        
-                        <div className="mt-8 border-t border-border/50 pt-4">
-                            <Link
-                                href={user?.handle ? `/profile/${String(user.handle).replace(/^@/, "").trim()}` : "/feed"}
-                                className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                                onClick={() => setIsDrawerOpen(false)}
-                            >
-                                <User size={20} aria-hidden="true" />
-                                <span>My Profile</span>
-                            </Link>
-                        </div>
                     </div>
 
                     <div className="border-t border-border/50 p-4">
@@ -355,4 +484,3 @@ export default function ProtectedLayout({ children }) {
         </div>
     );
 }
-

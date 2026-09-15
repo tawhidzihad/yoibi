@@ -40,6 +40,53 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
 
+  /users/search:
+    get:
+      summary: Search users by name or username
+      description: Case-insensitive partial match on display name or username. Auth required (protected area — no anonymous enumeration). Blocked accounts are never returned. The query is regex-escaped server-side; a leading "@" is tolerated. Strict public projection (id, handle, name, avatarUrl only). Rate limited 60 req/min/IP.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          example: "jane"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 10
+      responses:
+        '200':
+          description: Matching users (ordered by follower count, then handle)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/UserSearchResult'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          description: Validation error (missing/over-length q, limit outside 1-20)
+        '429':
+          description: Search rate limit exceeded
+
   /users/{handle}:
     get:
       summary: Get user public profile by handle
@@ -1846,6 +1893,23 @@ components:
               description: Never exposes isEmailVerified (email verification is removed) or any credential fields.
         message:
           type: string
+
+    UserSearchResult:
+      type: object
+      description: Strict public search-result projection for people search. Never exposes email, role, moderation state, or any other profile detail.
+      properties:
+        id:
+          type: string
+          example: usr_65e1a2b3
+        handle:
+          type: string
+          example: janedoe
+        name:
+          type: string
+          example: Jane Doe
+        avatarUrl:
+          type: string
+          description: Cloudinary avatar URL or verified Google avatar URL; empty when none.
 
     UserPublicProfile:
       type: object

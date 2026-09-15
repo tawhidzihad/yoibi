@@ -172,6 +172,39 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 ## 4. Users & Follows
 
+### `GET /api/v1/users/search`
+- Auth: Required (`Bearer <token>`). People search lives in the protected area —
+  anonymous account enumeration is not allowed. Rate limited: 60 requests / 1 min per IP.
+- Description: Search users by display name or username (case-insensitive partial
+  match). Blocked accounts are never returned. The query is regex-escaped
+  server-side (metacharacters are matched literally — no pattern injection) and a
+  leading `@` is tolerated (`@jane` ≡ `jane`).
+- Query Parameters:
+  - `q` (required): 1–100 characters, trimmed server-side.
+  - `limit` (optional): 1–20, default 10.
+- Response (200) — strict public search projection (never email, role, or
+  moderation state):
+  ```json
+  {
+      "success": true,
+      "data": {
+          "users": [
+              {
+                  "id": "usr_65e1a2b3",
+                  "handle": "janedoe",
+                  "name": "Jane Doe",
+                  "avatarUrl": "https://res.cloudinary.com/.../avatar.jpg"
+              }
+          ]
+      },
+      "message": ""
+  }
+  ```
+  Results are ordered by follower count (descending), then handle.
+- Error (401 `UNAUTHORIZED`): Token missing, malformed, or expired.
+- Error (422 `VALIDATION_ERROR`): Missing/over-length `q`, or `limit` outside 1–20.
+- Error (429 `RATE_LIMITED`): Search rate limit exceeded.
+
 ### `GET /api/v1/users/:handle`
 - Auth: Required (`Bearer <token>`). Profile pages live inside the protected area.
 - Description: Fetch a public user profile **by canonical handle** (e.g. `janedoe`,

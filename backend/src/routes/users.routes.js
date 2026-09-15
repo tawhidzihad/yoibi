@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const { getPublicProfile } = require('../controllers/read/users.controller');
+const { getPublicProfile, searchUsers } = require('../controllers/read/users.controller');
 const { updateMe, handleGetProfileMediaSignature } = require('../controllers/update/users.controller');
 const { handleFollowUser } = require('../controllers/create/follows.controller');
 const { handleUnfollowUser } = require('../controllers/delete/follows.controller');
@@ -10,15 +10,20 @@ const {
     userHandleParamSchema,
     updateUserBodySchema,
     userIdParamSchema,
-    profileMediaSignatureSchema
+    profileMediaSignatureSchema,
+    searchUsersQuerySchema
 } = require('../validators/users.validator');
-const { writeLimiter, expensiveLimiter } = require('../middleware/rate-limiter');
+const { writeLimiter, expensiveLimiter, searchLimiter } = require('../middleware/rate-limiter');
 
 const router = Router();
 
 // Profile image upload authorization (avatar/banner) — server-issued signature.
 // NOTE: declared BEFORE /users/:handle so "me" is never matched as a handle.
 router.post('/users/me/upload-signature', expensiveLimiter, verifyJwt, requireAuth, validate(profileMediaSignatureSchema, 'body'), handleGetProfileMediaSignature);
+
+// People search by name/username — declared BEFORE /users/:handle so "search"
+// is never matched as a handle. Protected: anonymous user enumeration is not allowed.
+router.get('/users/search', searchLimiter, verifyJwt, requireAuth, validate(searchUsersQuerySchema, 'query'), searchUsers);
 
 // Route order: /users/me (PATCH) before /users/:handle (GET) — different HTTP
 // methods, but explicit ordering keeps "me" reserved for the self endpoints.

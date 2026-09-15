@@ -90,11 +90,23 @@ const adminLimiter = createLimiter({
     message: 'Too many admin requests. Please slow down.'
 });
 
+/**
+ * People search rate limiter (GET /users/search).
+ * 60 requests / 1 minute per IP — a debounced typeahead stays well under this;
+ * bulk account enumeration does not.
+ */
+const searchLimiter = createLimiter({
+    windowMs: 60 * 1000,
+    max: 60,
+    message: 'Too many search requests. Please slow down.'
+});
+
 module.exports = {
     globalLimiter,
     authLimiter,
     writeLimiter,
     expensiveLimiter,
     reportLimiter,
-    adminLimiter
+    adminLimiter,
+    searchLimiter
 };

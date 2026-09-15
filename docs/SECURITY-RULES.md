@@ -34,6 +34,7 @@
   - `expensiveLimiter`: 10 requests / 15 min per IP on media signatures, stream create/start/join, and meetup create/join.
   - `reportLimiter`: 20 requests / 1 hour per IP on `POST /reports`.
   - `adminLimiter`: 60 requests / 1 min per IP on all `/admin/*` operations.
+  - `searchLimiter`: 60 requests / 1 min per IP on `GET /users/search` (protected people search — no anonymous enumeration; query capped at 100 chars and regex-escaped server-side).
   - All limiters skip automatically when `NODE_ENV === 'test'`.
   - All 429 responses return standard error envelope: `{ success: false, error: { code: 'RATE_LIMITED', message: '...' } }`.
 - **Request Abuse & Input Bounds**:

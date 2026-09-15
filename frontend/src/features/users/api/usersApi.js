@@ -12,4 +12,11 @@ export const usersApi = {
      * PATCH /api/v1/users/me
      */
     updateUserProfile: (data) => apiClient.patch("/users/me", data),
+
+    /**
+     * Search users by display name / username
+     * GET /api/v1/users/search?q=<query>&limit=<n>
+     */
+    searchUsers: (q, limit = 10) =>
+        apiClient.get(`/users/search?q=${encodeURIComponent(q)}&limit=${limit}`),
 };

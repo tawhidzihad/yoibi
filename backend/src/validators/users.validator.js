@@ -83,6 +83,14 @@ const userIdParamSchema = z.object({
     id: z.string().min(1, 'User ID is required')
 });
 
+// Validate the query for people search (GET /users/search).
+//   - q: required, 1-100 chars (same cap as admin search — regex-DoS guard)
+//   - limit: 1-20, defaulted server-side (typeahead-sized result sets)
+const searchUsersQuerySchema = z.object({
+    q: z.string().trim().min(1, 'Search query is required').max(100, 'Search query cannot exceed 100 characters'),
+    limit: z.coerce.number().int('Limit must be a whole number').min(1, 'Limit must be at least 1').max(20, 'Limit cannot exceed 20').default(10)
+}).strict();
+
 // Validate the body for requesting a server-issued profile-image upload
 // signature (avatar / banner). The kind decides the Cloudinary folder.
 const profileMediaSignatureSchema = z.object({
@@ -93,5 +101,6 @@ module.exports = {
     userHandleParamSchema,
     updateUserBodySchema,
     userIdParamSchema,
-    profileMediaSignatureSchema
+    profileMediaSignatureSchema,
+    searchUsersQuerySchema
 };

@@ -16,6 +16,7 @@ process.env.LIVEKIT_API_SECRET = '';
 const { runFoundationTests } = require("./foundation.test");
 const { runAuthArchitectureTests } = require("./auth-architecture.test");
 const { runUserProfileTests } = require("./users-profile.test");
+const { runUserSearchTests } = require("./user-search.test");
 const { runJwtTests } = require("./auth-jwt.test");
 const { runTweetsTests } = require("./tweets.test");
 const { runVideosTests } = require("./videos.test");
@@ -33,6 +34,7 @@ async function main() {
     await runAuthArchitectureTests();
     console.log("\n--------------------------------------------------\n");
     await runUserProfileTests();
+    await runUserSearchTests();
     console.log("\n--------------------------------------------------\n");
     await runJwtTests();
     console.log("\n--------------------------------------------------\n");
