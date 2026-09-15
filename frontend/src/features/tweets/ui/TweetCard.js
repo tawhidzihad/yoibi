@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, Repeat2, MessageCircle, Share2, Trash2, Check, FileText } from "lucide-react";
+import { Heart, Repeat2, MessageCircle, Share2, Trash2 } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { tweetsApi } from "../api/tweetsApi";
 import { emitProfileChanged } from "@/lib/profileSync";
 import { TweetReplySection } from "./TweetReplySection";
 import { TweetMediaGallery } from "./TweetMediaGallery";
+import { TweetShareModal } from "./TweetShareModal";
 import { Modal } from "@/shared/ui/Modal";
 import { Button } from "@/shared/ui/Button";
 import { cn } from "@/shared/utils/cn";
@@ -46,7 +47,7 @@ function AuthorAvatar({ name, avatarUrl }) {
     );
 }
 
-export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false, defaultShowReplies = false }) {
+export function TweetCard({ tweet, onTweetDeleted, defaultShowReplies = false }) {
     const router = useRouter();
     const { user, status } = useAuth();
     const [liked, setLiked] = useState(Boolean(tweet.liked));
@@ -55,7 +56,7 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false, defau
     const [retweetCount, setRetweetCount] = useState(tweet.retweetCount || 0);
     const [repliesCount, setRepliesCount] = useState(tweet.repliesCount || 0);
     const [showReplies, setShowReplies] = useState(defaultShowReplies);
-    const [copied, setCopied] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteError, setDeleteError] = useState("");
@@ -144,21 +145,6 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false, defau
         }
     };
 
-    const handleShare = async () => {
-        try {
-            if (typeof window !== "undefined") {
-                const shareUrl = `${window.location.origin}/feed#${tweet.id}`;
-                if (navigator.clipboard) {
-                    await navigator.clipboard.writeText(shareUrl);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                }
-            }
-        } catch (err) {
-            console.warn("[TweetCard] Share failed:", err);
-        }
-    };
-
     const handleDelete = async () => {
         setIsDeleting(true);
         setDeleteError("");
@@ -187,7 +173,6 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false, defau
             className="border-b border-border/50 px-4 py-4 transition-colors hover:bg-secondary/15"
         >
             <div className="flex gap-3">
-                {/* Avatar and Thread Line */}
                 <div className="flex flex-col items-center">
                     <button
                         type="button"
@@ -197,9 +182,6 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false, defau
                     >
                         <AuthorAvatar name={tweet.author?.name} avatarUrl={tweet.author?.avatarUrl} />
                     </button>
-                    {showThreadLine && (
-                        <div className="mt-1 w-0.5 flex-1 min-h-4 bg-border/60" />
-                    )}
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -301,25 +283,18 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false, defau
                             <span>{likesCount}</span>
                         </button>
 
-                        {/* Share Button */}
+                        {/* Share Button — opens the share sheet (copy link +
+                            social targets); it no longer copies on click. */}
                         <button
                             type="button"
-                            onClick={handleShare}
+                            onClick={() => setShowShareModal(true)}
                             aria-label="Share tweet"
+                            aria-haspopup="dialog"
                             id={`tweet-share-btn-${tweet.id}`}
-                            className="flex cursor-pointer items-center gap-1 text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
+                            className="flex cursor-pointer items-center gap-1.5 text-xs transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 rounded"
                         >
-                            {copied ? (
-                                <>
-                                    <Check size={14} className="text-emerald-400" aria-hidden="true" />
-                                    <span className="text-emerald-400">Copied</span>
-                                </>
-                            ) : (
-                                <>
-                                    <Share2 size={14} aria-hidden="true" />
-                                    <span>Share</span>
-                                </>
-                            )}
+                            <Share2 size={14} aria-hidden="true" />
+                            <span>Share</span>
                         </button>
                     </div>
 
@@ -333,6 +308,15 @@ export function TweetCard({ tweet, onTweetDeleted, showThreadLine = false, defau
                     )}
                 </div>
             </div>
+
+            {/* Share Sheet */}
+            <TweetShareModal
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+                tweetId={tweet.id}
+                tweetContent={tweet.content}
+                authorHandle={tweet.author?.handle}
+            />
 
             {/* Delete Confirmation Modal */}
             <Modal

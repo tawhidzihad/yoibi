@@ -7,39 +7,29 @@ Every session writes to this file in EXACTLY this section structure:
 
 ## Current Status
 - Session Date: 2026-09-16
-- Active task: TASK-026 — Individual tweet page (`/tweets/[tweetId]`), like/comment icon swap, reply skeleton, Facebook-style threaded comments (frontend + backend)
+- Active task: TASK-027 — Comment UI revision (simple nesting + "See N Replies"), comment-author profile navigation, share-link fix, share modal, @username reply prefix (frontend-only)
 - Overall phase: Phase 5 complete; platform live in production; post-launch feature work
 - Completion status: `Implemented, Verified & Deployed`
-- Git repository status: TASK-026 committed and pushed to `main`
+- Git repository status: TASK-027 committed and pushed to `main`
 - Current branch: `main`
 
 ## Last Completed Step
-- TASK-026 completed end-to-end. **Backend:** tweet model gained `rootTweetId`/`rootCommentId` (indexed) while `replyToId` keeps the true arbitrary-depth parent chain — no depth limit in the schema; the 2-level visual flattening is a frontend presentation rule only. Create service derives all thread roots server-side from the stored parent (foreign-thread attribution impossible) and increments both the parent comment's direct-reply count and the root tweet's total; read service (`buildCommentThread`) returns top-level comments each with a flat chronological `replies` array (all descendants) + `parentAuthor`, with idempotent legacy backfill of pre-threading replies on read; comment likes reuse the existing tweet like endpoints; delete cascades (comment → its subtree; top-level tweet → its whole comment thread) with consistent counters and `deletedCount` in the response. **Frontend:** `/tweets/[id]` dynamic page (new `TweetDetailView`, awaited `params`, reuses `TweetCard` with `defaultShowReplies`); tweet text body navigates to the individual page (image gallery + action row structurally excluded); action-row order swapped to [comment][retweet][like][share]; "Loading replies..." replaced with comment-shaped skeletons; `TweetReplySection` fully reworked for threads (connector-line nesting, depth-2+ flattening, per-comment likes with optimistic rollback, inline RHF reply composers scoped per thread, "Replying to @handle" context, cascade-aware delete with silent refetch). Contracts (`API-CONTRACT.md`, `openapi.yaml`) updated. Quality gates: backend `npm test` 100% (6 new thread tests), lint clean, audit 0 vulnerabilities; frontend lint clean (pre-existing warning only), build clean. Deployed backend → Railway (`railway up`) and frontend → Vercel (`vercel --prod` from the REPO ROOT — the Vercel project's rootDirectory is `frontend`, so deploying from `frontend/` fails with a path error). Live verification on https://www.yoibi.com/ passed: full API E2E with a disposable account (threaded shape, depth-3 flattening, comment like/unlike, counters, cascade delete, legacy backfill — all PASS), `/tweets/[id]` serving live (HTTP 200, "Tweet | Yoibi"), served chunk confirmed "Loading replies..." absent + threading markers present + swapped aria-label order. Smoke content deleted; committed and pushed to `main`.
+- TASK-027 completed end-to-end (frontend only — **no backend change needed**: the share-link fix is pure frontend URL construction; contracts untouched). **(1) Simplified comment UI:** the TASK-026 connector-line design (`ml-4 border-l-2 border-border/60 pl-3` thread lines) is fully REMOVED from the code and the live bundle (verified absent); replies render in one simple nesting level (`ml-10`), collapsed by default behind a dynamic "See {n} Replies" toggle (real count, singular/plural), flipping to "Hide Replies" when expanded; no toggle on zero-reply comments; posting a reply auto-expands its group; collapsing dismisses the open composer. **(2) Profile navigation:** avatar + display name + @username on every comment/reply row are buttons → `/profile/<handle>`; comment text is plain non-navigating text. **(3) Share-link fix:** old `<origin>/feed#<id>` hash-fragment URL (dead since dynamic tweet pages) replaced by `buildTweetShareUrl()` → `<origin>/tweets/<id>` (matches the real route). **(4) Share modal:** Share now opens a sheet on the existing shared `Modal` primitive (Escape / backdrop / X dismiss) with Copy link (real clipboard round-trip verified) + X / Facebook / WhatsApp / LinkedIn share targets via standard URL schemes (brand icons as inline single-path SVGs — lucide-react 1.44 has no brand marks). **(5) @username prefix:** Reply on a comment/reply prefills the inline composer with THAT comment's author `@handle ` as normal editable text (caret at end, verified editable); top-level tweet comment box never prefixed. Quality gates: frontend lint clean (pre-existing warning only) + build clean. Deployed frontend → Vercel (`vercel --prod` from REPO ROOT — rootDirectory is `frontend`). Live verification on https://www.yoibi.com/ passed: **real headless-Chrome CDP E2E 35/35** (expand/collapse, no connector lines, profile nav vs non-nav text, @prefill at both depths + editability + DB persistence, share modal content/dismissal/clipboard, social hrefs, and the pasted-share-link test opening the exact tweet in a fresh browser target), plus API-level E2E and live-bundle marker checks (all PASS). Seeded content deleted (cascade verified); temp test scripts deleted; committed and pushed to `main`.
 
 ## Exact Next Step
-- No pending work. Next session: run `/yoibi-resume`, then take the owner's next direction. Optional owner follow-ups: (1) visual browser pass over the thread UI (connector lines, inline composers, swapped icons — verification this session was API-level + compiled-chunk-level, no browser automation available); (2) delete the disposable live-test account `yoibi-thread-smoke-1789506915@example.com` (its content is already deleted).
+- No pending work. Next session: run `/yoibi-resume`, then take the owner's next direction. Optional owner follow-up: delete the disposable live-test accounts (content already deleted): `yoibi-rev027-dbg-1789511864692`, `yoibi-rev027-a-1789512268275`, `yoibi-rev027-b-1789512268275`, `yoibi-thread-smoke-1789506915` (all `@example.com`).
 
 ## Files Touched This Session
-- `backend/src/models/tweet.model.js` (rootTweetId, rootCommentId + indexes)
-- `backend/src/repositories/tweets.repository.js` (findThreadComments + backfill, findManyByIds, deleteManyByIds, decrementRepliesCount amount param)
-- `backend/src/services/create/tweets.service.js` (server-derived thread roots, dual counter increments)
-- `backend/src/services/read/tweets.service.js` (formatComment, buildCommentThread, threaded getTweetById/getReplies)
-- `backend/src/services/delete/tweets.service.js` (cascade deletion, counter consistency, deletedCount)
-- `backend/tests/tweets.test.js` (updated mocks, 6 new thread tests N1–N5)
-- `contracts/API-CONTRACT.md`, `contracts/openapi.yaml`
-- `frontend/src/features/tweets/ui/TweetCard.js` (body navigation, icon swap, defaultShowReplies)
-- `frontend/src/features/tweets/ui/TweetReplySection.js` (threaded rewrite + skeleton + comment likes + inline composers)
-- `frontend/src/features/tweets/ui/TweetDetailView.js` (NEW)
-- `frontend/src/app/(protected)/tweets/[id]/page.js` (NEW)
-- `frontend/src/features/tweets/api/tweetsApi.js` (JSDoc for threaded semantics)
+- `frontend/src/features/tweets/ui/TweetShareModal.js` (NEW — share modal + `buildTweetShareUrl` + inline brand SVGs + social targets)
+- `frontend/src/features/tweets/ui/TweetReplySection.js` (simplified nesting, See/Hide N Replies state, comment-author profile nav, @handle prefill + caret, composer dismissal on collapse)
+- `frontend/src/features/tweets/ui/TweetCard.js` (share button → modal; removed `handleShare`/`copied` state + `/feed#` URL + `showThreadLine` prop/markup + unused imports)
 - `docs/WORKBASE.md`, `docs/MODEL-HANDOFF.md` (this file)
 
 ## Known Issues / Blockers
 - 1 pre-existing React Compiler warning in `frontend/src/features/streams/ui/CreateStreamComposer.js` (unrelated; lint exits 0; intentionally not modified per the "do not modify unrelated files" rule).
 - Live Google OAuth browser smoke test pending (owner go-ahead required — writes to production).
 - Pre-TASK-018 replies may exist in production with `replyToId: null`; deliberately not migrated (indistinguishable from standalone tweets).
-- Disposable live-test account `yoibi-thread-smoke-1789506915@example.com` exists in production (content deleted); delete at will.
-- Visual browser pass over the new thread UI recommended (API + compiled-chunk verification passed).
+- Disposable live-test accounts exist in production (all content deleted); delete at will (list in Exact Next Step).
 
 ## Session Date
 - 2026-09-16
@@ -47,7 +37,8 @@ Every session writes to this file in EXACTLY this section structure:
 ## What Is Working
 - All 10 Milestones (Phase 1 through Phase 5 Milestone 10) fully implemented and verified; platform live in production (Vercel `https://www.yoibi.com` + Railway `https://yoibi-backend-production.up.railway.app`, health 200 `database: connected`).
 - Twitter-like micro-posting, likes, retweets, feeds; tweet media via secure server-signed Cloudinary intents.
-- **Threaded comments (TASK-026):** individual tweet pages at `/tweets/[tweetId]` (body-text click navigates; image clicks still open the lightbox; action row untouched by navigation); swapped [comment][retweet][like][share] action row everywhere; skeleton loading for reply threads; Facebook-style nested replies with connector thread lines and depth-2+ flattening; per-comment likes; inline per-thread reply composers; "Replying to @handle" context; cascade deletes (comment subtree / tweet whole thread) with consistent counters; legacy pre-threading replies backfilled on read; arbitrary-depth nesting preserved in storage for future deeper visual threading without migration.
+- **Threaded comments (TASK-026 + TASK-027 revision):** individual tweet pages at `/tweets/[tweetId]` (body-text click navigates; image clicks still open the lightbox); [comment][retweet][like][share] action row everywhere; skeleton loading; backend stores arbitrary-depth `replyToId`/`rootTweetId`/`rootCommentId` (grouping is presentation-only); per-comment likes; inline per-comment reply composers with **@handle prefill**; comment/reply avatar + name + username navigate to profiles (comment text does not); **simplified one-level nesting with collapsed-by-default "See N Replies" / "Hide Replies" toggles (connector lines removed in TASK-027)**; cascade deletes with consistent counters; legacy replies backfilled on read.
+- **Tweet sharing (TASK-027):** share button opens a modal (reuses the shared `Modal` primitive; Escape/backdrop/X dismiss) with Copy link (correct `<origin>/tweets/<id>` URL — the old `/feed#` fragment pattern is gone) and X / Facebook / WhatsApp / LinkedIn share targets via plain URL schemes.
 - Cloudinary server-signed video uploads (provenance-verified, single-use intents), metadata registration, playback views tracking.
 - LiveKit live stream broadcasts (host publishing, anonymous viewing, lifecycle termination) and Meet-Up multi-peer rooms (reservation TTLs, atomic slot capacity).
 - Complete User Profile System: dynamic `/profile/[username]`, editing (name/handle/bio/country/avatar/banner), real content tabs with server-side counts.

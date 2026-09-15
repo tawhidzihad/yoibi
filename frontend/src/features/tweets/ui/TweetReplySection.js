@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,6 +26,17 @@ function formatRelative(isoString) {
     if (diff < 3600) return `${Math.floor(diff / 60)}m`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
     return `${Math.floor(diff / 86400)}d`;
+}
+
+/** Bare handle (no leading `@`) for URLs and mention prefixes. */
+function cleanHandle(handle) {
+    return String(handle || "").trim().replace(/^@/, "");
+}
+
+/** `@handle` for display, tolerating handles stored with a leading `@`. */
+function displayHandle(handle) {
+    const clean = cleanHandle(handle);
+    return clean ? `@${clean}` : "@user";
 }
 
 function ReplyAvatar({ name, avatarUrl }) {
@@ -95,8 +106,12 @@ function countThreadComments(items) {
  * One comment row (top-level or nested): avatar, author, time, text, and the
  * comment's own actions — like (heart + count), reply, and delete when the
  * viewer owns the comment (or is an admin).
+ *
+ * Profile navigation is bound to the author identity ONLY (avatar, display
+ * name, handle). The comment body is plain text and never navigates.
  */
 function CommentRow({ comment, isNested = false, topLevelCommentId, onLike, onReply, onDelete }) {
+    const router = useRouter();
     const { user } = useAuth();
     const [liked, setLiked] = useState(Boolean(comment.liked));
     const [likesCount, setLikesCount] = useState(comment.likesCount || 0);
@@ -106,13 +121,19 @@ function CommentRow({ comment, isNested = false, topLevelCommentId, onLike, onRe
     const isAdmin = user?.role === "admin";
     const canDelete = isAuthor || isAdmin;
 
-    // "Replying to @handle" context on flattened deep replies: only replies
-    // whose direct parent is NOT the top-level comment of the thread.
+    // "Replying to @handle" context on nested replies whose direct parent is
+    // NOT the top-level comment of the thread.
     const showReplyingTo =
         isNested &&
         comment.parentAuthor?.handle &&
         comment.replyToId &&
         comment.replyToId !== topLevelCommentId;
+
+    const handleOpenProfile = () => {
+        const rawHandle = comment.author?.handle || "user";
+        const handle = rawHandle.startsWith("@") ? rawHandle.slice(1) : rawHandle;
+        router.push(`/profile/${handle}`);
+    };
 
     const handleLike = () => {
         onLike(comment, { liked, likesCount }, (next) => {
@@ -123,20 +144,35 @@ function CommentRow({ comment, isNested = false, topLevelCommentId, onLike, onRe
 
     return (
         <div className="group relative flex gap-2.5 px-2">
-            <ReplyAvatar
-                name={comment.author?.name}
-                avatarUrl={comment.author?.avatarUrl}
-            />
+            <button
+                type="button"
+                onClick={handleOpenProfile}
+                className="h-8 shrink-0 cursor-pointer rounded-full transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                aria-label={`View ${comment.author?.name || "user"}'s profile`}
+            >
+                <ReplyAvatar
+                    name={comment.author?.name}
+                    avatarUrl={comment.author?.avatarUrl}
+                />
+            </button>
 
             <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-semibold text-foreground">
+                        <button
+                            type="button"
+                            onClick={handleOpenProfile}
+                            className="cursor-pointer rounded text-xs font-semibold text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        >
                             {comment.author?.name || "User"}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                            @{comment.author?.handle || "user"}
-                        </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleOpenProfile}
+                            className="cursor-pointer rounded text-[11px] text-muted-foreground hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                        >
+                            {displayHandle(comment.author?.handle)}
+                        </button>
                         <span className="text-[11px] text-muted-foreground">·</span>
                         <span className="text-[11px] text-muted-foreground">
                             {formatRelative(comment.createdAt)}
@@ -158,7 +194,7 @@ function CommentRow({ comment, isNested = false, topLevelCommentId, onLike, onRe
                 {showReplyingTo && (
                     <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                         <CornerDownRight size={11} aria-hidden="true" />
-                        <span>Replying to @{comment.parentAuthor.handle}</span>
+                        <span>Replying to @{cleanHandle(comment.parentAuthor.handle)}</span>
                     </p>
                 )}
 
@@ -201,7 +237,8 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
     const router = useRouter();
     const { user, status } = useAuth();
     // Threaded comments: top-level comments, each with a flat `replies` array
-    // holding ALL of its descendants (depth >= 2 flattened, Facebook-style).
+    // holding all of its descendants. Replies render in ONE level of simple
+    // nesting under their comment — no connector/thread lines.
     const [comments, setComments] = useState(initialReplies);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -209,6 +246,11 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
     const [isDeleting, setIsDeleting] = useState(false);
     // The comment currently being replied to via the inline composer.
     const [replyTo, setReplyTo] = useState(null);
+    // Comments whose reply group is expanded. Collapsed by default: a comment
+    // with replies shows a "See N Replies" toggle instead.
+    const [expandedCommentIds, setExpandedCommentIds] = useState(() => new Set());
+
+    const inlineInputRef = useRef(null);
 
     const {
         register,
@@ -221,7 +263,7 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
         defaultValues: { content: "" },
     });
 
-    // Separate form instance for the inline per-thread reply composer.
+    // Separate form instance for the inline per-comment reply composer.
     const {
         register: registerInline,
         handleSubmit: handleSubmitInline,
@@ -245,6 +287,28 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
         }
         return true;
     }, [status, user, router, tweetId]);
+
+    const setCommentExpanded = useCallback((commentId, expanded) => {
+        setExpandedCommentIds((prev) => {
+            const next = new Set(prev);
+            if (expanded) {
+                next.add(commentId);
+            } else {
+                next.delete(commentId);
+            }
+            return next;
+        });
+    }, []);
+
+    // An auto-prefixed `@handle ` must not leave the caret before the mention:
+    // focus the inline composer with the caret parked at the end of the text.
+    useEffect(() => {
+        const input = inlineInputRef.current;
+        if (!replyTo || !input) return;
+        const end = input.value.length;
+        input.focus();
+        input.setSelectionRange(end, end);
+    }, [replyTo]);
 
     const fetchThread = useCallback(async () => {
         setLoading(true);
@@ -345,6 +409,7 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
                 parentAuthor: target.author || null,
             };
             const ownerId = target.rootCommentId || target.id;
+            setCommentExpanded(ownerId, true);
             const nextComments = comments.map((top) => {
                 if (top.id !== ownerId) return top;
                 return { ...top, replies: [...(top.replies || []), newReply] };
@@ -358,10 +423,30 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
         }
     };
 
+    /**
+     * Opening a reply composer on a COMMENT pre-fills the input with that
+     * commenter's `@handle ` (editable, removable — plain input text). A brand
+     * new top-level comment on the tweet never gets a prefix.
+     */
     const handleReplyTo = (comment) => {
         if (!requireAuthOrRedirect()) return;
-        resetInline({ content: "" });
+        const mention = cleanHandle(comment.author?.handle);
+        resetInline({ content: mention ? `@${mention} ` : "" });
+        setCommentExpanded(comment.rootCommentId || comment.id, true);
         setReplyTo(comment);
+    };
+
+    /** Expand/collapse a comment's reply group; collapsing dismisses its composer. */
+    const handleToggleReplies = (commentId, isVisible) => {
+        setCommentExpanded(commentId, !isVisible);
+        if (
+            isVisible &&
+            replyTo &&
+            (replyTo.id === commentId || replyTo.rootCommentId === commentId)
+        ) {
+            setReplyTo(null);
+            resetInline({ content: "" });
+        }
     };
 
     /**
@@ -413,50 +498,57 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
     };
 
     // Renders the inline reply composer scoped to a comment's thread.
-    const renderInlineComposer = () => (
-        <form
-            key={replyTo ? replyTo.id : "inline-reply"}
-            onSubmit={handleSubmitInline(onSubmitInlineReply)}
-            className="flex items-start gap-2 pt-1"
-        >
-            <ReplyAvatar name={user?.name} avatarUrl={user?.avatarUrl} />
-            <div className="flex-1">
-                <div className="relative flex items-center rounded-xl border border-border/70 bg-secondary/20 px-3 py-1.5 focus-within:border-cyan-500/60 focus-within:ring-1 focus-within:ring-cyan-500/60">
-                    <input
-                        {...registerInline("content")}
-                        type="text"
-                        autoFocus
-                        placeholder={`Reply to ${replyTo?.author?.name || "this comment"}...`}
-                        className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
-                    />
+    const renderInlineComposer = () => {
+        const contentRegistration = registerInline("content");
+        return (
+            <form
+                key={replyTo ? replyTo.id : "inline-reply"}
+                onSubmit={handleSubmitInline(onSubmitInlineReply)}
+                className="flex items-start gap-2 pt-1"
+            >
+                <ReplyAvatar name={user?.name} avatarUrl={user?.avatarUrl} />
+                <div className="flex-1">
+                    <div className="relative flex items-center rounded-xl border border-border/70 bg-secondary/20 px-3 py-1.5 focus-within:border-cyan-500/60 focus-within:ring-1 focus-within:ring-cyan-500/60">
+                        <input
+                            {...contentRegistration}
+                            ref={(el) => {
+                                contentRegistration.ref(el);
+                                inlineInputRef.current = el;
+                            }}
+                            type="text"
+                            autoFocus
+                            placeholder={`Reply to ${replyTo?.author?.name || "this comment"}...`}
+                            className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
+                        />
 
-                    <div className="flex items-center gap-2 pl-2">
-                        <span
-                            className={cn(
-                                "text-[10px] font-mono",
-                                inlineRemainingChars < 0
-                                    ? "text-destructive font-bold"
-                                    : "text-muted-foreground"
-                            )}
-                        >
-                            {inlineRemainingChars}
-                        </span>
-                        <button
-                            type="submit"
-                            disabled={isSubmittingInline || !inlineContentValue.trim() || inlineRemainingChars < 0}
-                            className="cursor-pointer text-cyan-600 hover:text-cyan-500 disabled:opacity-40 dark:text-cyan-400"
-                            aria-label="Send reply"
-                        >
-                            <Send size={13} />
-                        </button>
+                        <div className="flex items-center gap-2 pl-2">
+                            <span
+                                className={cn(
+                                    "text-[10px] font-mono",
+                                    inlineRemainingChars < 0
+                                        ? "text-destructive font-bold"
+                                        : "text-muted-foreground"
+                                )}
+                            >
+                                {inlineRemainingChars}
+                            </span>
+                            <button
+                                type="submit"
+                                disabled={isSubmittingInline || !inlineContentValue.trim() || inlineRemainingChars < 0}
+                                className="cursor-pointer text-cyan-600 hover:text-cyan-500 disabled:opacity-40 dark:text-cyan-400"
+                                aria-label="Send reply"
+                            >
+                                <Send size={13} />
+                            </button>
+                        </div>
                     </div>
+                    {inlineErrors.content && (
+                        <p className="mt-1 text-[11px] text-destructive">{inlineErrors.content.message}</p>
+                    )}
                 </div>
-                {inlineErrors.content && (
-                    <p className="mt-1 text-[11px] text-destructive">{inlineErrors.content.message}</p>
-                )}
-            </div>
-        </form>
-    );
+            </form>
+        );
+    };
 
     return (
         <div className="mt-3 border-t border-border/40 pt-3">
@@ -467,10 +559,12 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
                 <div className="space-y-3 pb-3">
                     {comments.map((topLevel) => {
                         const nested = topLevel.replies || [];
+                        const isExpanded = expandedCommentIds.has(topLevel.id);
                         const replyingHere = Boolean(
                             replyTo &&
                             (replyTo.id === topLevel.id || replyTo.rootCommentId === topLevel.id)
                         );
+                        const repliesVisible = isExpanded || replyingHere;
 
                         return (
                             <div key={topLevel.id}>
@@ -482,27 +576,47 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
                                     onDelete={setDeleteTargetId}
                                 />
 
-                                {/* Nested replies — flattened into ONE indented
-                                    group under the top-level comment, connected
-                                    by the vertical thread line (border-l). */}
-                                {(nested.length > 0 || replyingHere) && (
-                                    <div className="mt-2 ml-4 space-y-3 border-l-2 border-border/60 pl-3">
-                                        {nested.map((reply) => (
-                                            <div key={reply.id}>
-                                                <CommentRow
-                                                    comment={reply}
-                                                    isNested
-                                                    topLevelCommentId={topLevel.id}
-                                                    onLike={handleCommentLike}
-                                                    onReply={handleReplyTo}
-                                                    onDelete={setDeleteTargetId}
-                                                />
-                                                {replyTo?.id === reply.id && renderInlineComposer()}
-                                            </div>
-                                        ))}
-                                        {replyTo?.id === topLevel.id && renderInlineComposer()}
+                                {/* Simple one-level nesting: replies sit in a
+                                    column aligned with the parent comment's
+                                    text. No connector/thread lines. */}
+                                <div className="ml-10">
+                                    {nested.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => handleToggleReplies(topLevel.id, repliesVisible)}
+                                            aria-expanded={repliesVisible}
+                                            aria-controls={`comment-replies-${topLevel.id}`}
+                                            id={`comment-replies-toggle-${topLevel.id}`}
+                                            className="mt-1 cursor-pointer rounded text-[11px] font-semibold text-cyan-600 transition-colors hover:text-cyan-500 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 dark:text-cyan-400"
+                                        >
+                                            {repliesVisible
+                                                ? "Hide Replies"
+                                                : `See ${nested.length} ${nested.length === 1 ? "Reply" : "Replies"}`}
+                                        </button>
+                                    )}
+
+                                    {replyTo?.id === topLevel.id && renderInlineComposer()}
+
+                                    <div
+                                        id={`comment-replies-${topLevel.id}`}
+                                        className={cn(repliesVisible && "mt-2 space-y-3")}
+                                    >
+                                        {repliesVisible &&
+                                            nested.map((reply) => (
+                                                <div key={reply.id}>
+                                                    <CommentRow
+                                                        comment={reply}
+                                                        isNested
+                                                        topLevelCommentId={topLevel.id}
+                                                        onLike={handleCommentLike}
+                                                        onReply={handleReplyTo}
+                                                        onDelete={setDeleteTargetId}
+                                                    />
+                                                    {replyTo?.id === reply.id && renderInlineComposer()}
+                                                </div>
+                                            ))}
                                     </div>
-                                )}
+                                </div>
                             </div>
                         );
                     })}
@@ -517,7 +631,8 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
                 </div>
             )}
 
-            {/* Top-level comment composer (direct replies to the tweet) */}
+            {/* Top-level comment composer (direct replies to the tweet) — no
+                @mention prefix here, only on replies to existing comments. */}
             <form onSubmit={handleSubmit(onSubmitReply)} className="flex items-start gap-2 pt-1">
                 <ReplyAvatar name={user?.name} avatarUrl={user?.avatarUrl} />
                 <div className="flex-1">
