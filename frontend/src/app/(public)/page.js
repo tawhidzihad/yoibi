@@ -19,6 +19,7 @@ import { AuroraText } from "../../shared/ui/AuroraText";
 import { Marquee } from "../../shared/ui/Marquee";
 import { NumberTicker } from "../../shared/ui/NumberTicker";
 import { Reveal } from "./Reveal";
+import { HomeHeaderNav } from "../../features/auth/ui/HomeHeaderNav";
 
 export const metadata = {
     title: "Yoibi — Be You, Be Yoibi",
@@ -144,26 +145,7 @@ export default function HomePage() {
                         <YoibiLogo className="h-8 w-8 text-cyan-500" />
                         <span className="text-lg font-bold tracking-tight text-foreground">Yoibi</span>
                     </Link>
-                    <nav aria-label="Primary" className="flex items-center gap-1 sm:gap-2">
-                        <Link
-                            href="/login"
-                            className={cn(
-                                "rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground",
-                                focusRing
-                            )}
-                        >
-                            Sign in
-                        </Link>
-                        <Link
-                            href="/signup"
-                            className={cn(
-                                "inline-flex items-center rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-cyan-700",
-                                focusRing
-                            )}
-                        >
-                            Join Yoibi
-                        </Link>
-                    </nav>
+                    <HomeHeaderNav focusRing={focusRing} />
                 </div>
             </header>
 

@@ -6,9 +6,9 @@ This file prevents a new AI model from restarting work from zero.
 At the end of every meaningful session/task, the active model must update this file. A new model must read it before changing code.
 
 ## Current Snapshot
-- Last updated: 2026-09-13
-- Active task: TASK-021 — Mobile Edit Profile Spacing & Past Meet-Up Room Card Information Hierarchy
-- Overall phase: Phase 5 — TASK-021 implemented, verified across viewports, deployed to Vercel production, and smoke-tested live
+- Last updated: 2026-09-15
+- Active task: TASK-022 — Stale Frontend URL Cleanup + Auth-Aware Home Page Nav Button
+- Overall phase: Phase 5 — TASK-022 implemented, verified live, deployed to Vercel production
 - Completion status: `Implemented, Deployed & Verified`
 - Git repository status: Committed on `main`; see latest commits
 - Current branch: `main`
@@ -81,20 +81,20 @@ An interrupted session left uncommitted production-preparation work. It was veri
 - Zero secrets committed to git (`.env` files are gitignored; only variable names inspected, never printed)
 
 ## Production Auth Verification Status (TASK-013, 2026-09-11)
-- **JWT pipeline**: FIXED — frontend uses official Better Auth 1.7.4 `authClient.token()` centralized in `frontend/src/lib/api/client.js`; REST client reuses it. Deployed JWKS endpoint `https://yoibi-frontend.vercel.app/api/auth/jwks` verified live (EdDSA/Ed25519); deployed `GET /api/auth/token` verified to exist (401 without session). Backend strictly validates `iss`/`aud` (= `BETTER_AUTH_BASE_URL`) and `exp`.
+- **JWT pipeline**: FIXED — frontend uses official Better Auth 1.7.4 `authClient.token()` centralized in `frontend/src/lib/api/client.js`; REST client reuses it. Deployed JWKS endpoint `https://www.yoibi.com/api/auth/jwks` verified live (EdDSA/Ed25519); deployed `GET /api/auth/token` verified to exist (401 without session). Backend strictly validates `iss`/`aud` (= `BETTER_AUTH_BASE_URL`) and `exp`.
 - **Email confirmation step**: REMOVED (2026-09-11, auth simplification). The Resend delivery stack, the confirmation-email Better Auth block, and the `/verify-email` route were deleted. Email/password signup now creates an immediately usable account (no confirmation step); password reset was also removed and `RESEND_API_KEY`/`EMAIL_FROM` are no longer used. See `docs/ENVIRONMENT.md`.
 - **Google OAuth → MongoDB sync**: FIXED as a consequence of the JWT fix; the backend auto-provisions the YOIBI `users` profile from verified JWT claims on the first authenticated request. Real disposable Google-account smoke test (OAuth → `/auth/me` → MongoDB profile → tweet/video) still requires redeploy + owner go-ahead.
-- **Production env requirements**: Railway `BETTER_AUTH_BASE_URL`/`FRONTEND_URL`/`CORS_ORIGIN` = `https://yoibi-frontend.vercel.app`; Vercel `NEXT_PUBLIC_BETTER_AUTH_URL` = same origin; Google redirect URI `https://yoibi-frontend.vercel.app/api/auth/callback/google`.
+- **Production env requirements**: Railway `BETTER_AUTH_BASE_URL`/`FRONTEND_URL`/`CORS_ORIGIN` = `https://www.yoibi.com`; Vercel `NEXT_PUBLIC_BETTER_AUTH_URL` = same origin; Google redirect URI `https://www.yoibi.com/api/auth/callback/google`.
 
 ## Persistent Auth Storage Verification (TASK-014, 2026-09-11)
 Completed the persistent Better Auth user-storage work and verified it end-to-end on the LIVE stack:
 1. **Frontend Better Auth → MongoDB (commit `3e06f69`)**: `frontend/src/lib/auth.js` now uses the official Better Auth Mongo adapter (`betterAuth/adapters/mongodb`) pinned to `yoibi_database` with `transaction:false` (works on standalone and replica-set MongoDB). Passwords live only in Better Auth's `account` collection as `"<salt>:<hash>"` — never on the YOIBI app `users` profile.
 2. **Lazy auth initialization (build fix)**: `betterAuth(...)` is created on the FIRST REQUEST via `getAuth()`, not at module evaluation — Next.js imports route modules during the production build's "collecting page data" phase, when runtime env vars are unavailable on the build host. A module-level init failed the Vercel build (or would bake in fallback secrets). `frontend/src/app/api/auth/[...all]/route.js` builds the Next handlers lazily the same way.
 3. **Production env wiring**: `MONGODB_URI` was MISSING from the Vercel project (the pre-fix deployed frontend never used MongoDB → all `/api/auth/*` routes 500ed with the intentional production guard). The Atlas connection string was transferred from the Railway backend env to Vercel Production via `vercel env add` over stdin (never printed/committed); redeployed with `vercel --prod`.
-4. **Deployments**: frontend redeployed (aliased `https://yoibi-frontend.vercel.app`); backend redeployed via `railway up` (auto-provisioning + reservation race fix now live, fresh boot confirmed via uptime).
+4. **Deployments**: frontend redeployed (aliased `https://www.yoibi.com`); backend redeployed via `railway up` (auto-provisioning + reservation race fix now live, fresh boot confirmed via uptime).
 5. **Live smoke verification (disposable account, cleaned up afterwards)**: `POST /api/auth/sign-up/email` → 200 with `emailVerified:false` (no verification gate); re-login with the same credentials → 200 (persistence); wrong password → 401 (hashed verification); `GET /api/auth/token` without session → 401 (was 500 pre-fix); `GET /api/auth/jwks` → 200 EdDSA/Ed25519; removed routes `/verify-email`, `/forgot-password`, `/reset-password` → 404; backend `/api/v1/health` → 200 with `database: connected`.
 6. **Database-level verification (direct Atlas connection)**: cluster contains ONLY `yoibi_database` (plus `admin`/`local`) — the database-name enforcement (`backend/src/config/mongoUri.js`, Better Auth adapter pin) works with the transferred URI; Better Auth collections (`user`, `account`, `session`, `jwks`) coexist with YOIBI app collections in the SAME single database; NO `verification`/resend collections exist (feature removed). All disposable smoke data (2 users, 2 accounts, 3 sessions) was deleted afterwards — final counts `user=0, session=0, account=0`.
-7. **Better Auth CSRF note**: `MISSING_OR_NULL_ORIGIN` (403) is returned for POSTs without an `Origin` header — scripts must send `Origin: https://yoibi-frontend.vercel.app`; browsers always do (production UI unaffected).
+7. **Better Auth CSRF note**: `MISSING_OR_NULL_ORIGIN` (403) is returned for POSTs without an `Origin` header — scripts must send `Origin: https://www.yoibi.com`; browsers always do (production UI unaffected).
 8. **Tests added**: `frontend/tests/better-auth-persistence.test.js` (real MongoDB via `mongodb-memory-server`: signup → logout → login → wrong-password → hash-only storage); `backend/tests/auth-architecture.test.js` (URI normalization, handle rules, profile auto-provisioning, role system, no-credential schema contract). All suites, lint, and audit pass 100% after the changes.
 
 ## Exact Resume Instruction
@@ -110,7 +110,7 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 6. **Signup/Login UI**: redesigned with RHF + Zod; Signup fields = Full Name, Email, Telephone (optional), Password, Confirm Password, Age (>=16), Say About You (optional), Country (canonical selector), Community Values Agreement (required, exact 7 values); no profile-picture upload on signup (`avatarUrl` starts null — add later from profile page); legacy-inspired `GlowBorderCard` hover-border sections; both pages have Back to Home. `/verify-email`, `/forgot-password`, `/reset-password` remain 404.
 7. **Contracts**: `API-CONTRACT.md` + `openapi.yaml` synchronized (no `isEmailVerified`; `bio/country/age/phone` on `/auth/me`; PATCH body documented; field classification table). Frontend tests updated (`auth-simplified.test.js`).
 8. **Tests/gates**: backend `npm test` 100%, lint clean, audit 0 vulns; frontend vitest 37/37, lint clean, build success.
-9. **Deployment**: DONE — Railway backend (`https://yoibi-backend-production.up.railway.app`) and Vercel frontend (`https://yoibi-frontend.vercel.app`) redeployed with this architecture; health 200 `database: connected`; removed routes 404. Production Email-user smoke PASSED (signup → JWT → `/auth/me` 200 → Tweet 201 → Video upload-signature 200 → role/ID spoof rejected 422 → re-login same profile). Remaining: live Google OAuth browser smoke (needs a real Google test account + owner go-ahead); disposable smoke account `yoibi-smoke-20260912@example.com` left for audit.
+9. **Deployment**: DONE — Railway backend (`https://yoibi-backend-production.up.railway.app`) and Vercel frontend (`https://www.yoibi.com`) redeployed with this architecture; health 200 `database: connected`; removed routes 404. Production Email-user smoke PASSED (signup → JWT → `/auth/me` 200 → Tweet 201 → Video upload-signature 200 → role/ID spoof rejected 422 → re-login same profile). Remaining: live Google OAuth browser smoke (needs a real Google test account + owner go-ahead); disposable smoke account `yoibi-smoke-20260912@example.com` left for audit.
 
 ## User Profile System Architecture (TASK-014, 2026-09-12)
 
@@ -199,7 +199,7 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 ### Production Deployment & Verification
 - **Vercel Frontend**:
   - Project: `yoibi-frontend` (`prj_VyIT8GPfkKbiO2o2lt25uKGZGeqq`)
-  - Deployment: `https://yoibi-frontend-94wpke2zc-yoibi.vercel.app` (Aliased to `https://yoibi-frontend.vercel.app`)
+  - Deployment: `https://www.yoibi.com` (custom production domain for the Vercel frontend)
   - Status: **● Ready / Production**
   - Verification: `/videos` page verified live via browser subagent. Collapsed state on initial load, smooth inline expansion upon clicking "Upload Video", interactive form controls, smooth toggle collapse, and Cancel button closing verified.
 - **Railway Backend**:
@@ -232,7 +232,36 @@ Completed the persistent Better Auth user-storage work and verified it end-to-en
 - Frontend tests (`npm test`): **75/75 passing** across all 5 test suites
 - Frontend lint (`npm run lint`): **0 errors, 0 warnings**
 - Frontend build (`npm run build`): Clean production compile
-- Vercel Deployment: Production deployed (`https://yoibi-frontend.vercel.app`)
+- Vercel Deployment: Production deployed (`https://www.yoibi.com`)
 - Railway Backend: Online (`https://yoibi-backend-production.up.railway.app`, `/api/v1/health` → 200 `connected`)
 - Live Browser Verification: Passed on desktop (1280x800), tablet (768x1024), and mobile (390x844, 375x812) viewports.
 
+
+## Stale Frontend URL Cleanup & Auth-Aware Home Nav (TASK-022, 2026-09-15)
+
+### Task 1 — Stale Frontend URL Cleanup
+1. **Finding**: The retired Vercel project URL (`https://yoibi-frontend.vercel.app`) was hardcoded **only in documentation**. A full sweep of `frontend/src`, `frontend/.env.example`, `frontend/next.config.js`, `frontend/src/app/layout.js` (OpenGraph/metadata), root `vercel.json`, and contracts found **zero** application-code, env, metadata, OG, sitemap, or robots occurrences. There are no `robots.js`/`sitemap.js` route files in this app.
+2. **Replaced with** `https://www.yoibi.com` in: `frontend/README.md` (Production Google redirect URI) and root docs `docs/ENVIRONMENT.md` (Google redirect URI, Production JWKS, `NEXT_PUBLIC_BETTER_AUTH_URL`, and the Railway `BETTER_AUTH_BASE_URL`/`FRONTEND_URL`/`CORS_ORIGIN` production values), `docs/WORKBASE.md`, `docs/MODEL-HANDOFF.md`.
+3. **Deliberately untouched** (per owner decision): `backend/README.md` and every backend-side env var — the backend link and its configuration stay exactly as they are.
+4. Note: `docs/ENVIRONMENT.md` documents the *production values* that the Railway variables must hold. `BETTER_AUTH_BASE_URL`/`FRONTEND_URL`/`CORS_ORIGIN` are documentation of what those must be set to (they must match the frontend origin for JWKS + `iss`/`aud` validation); no backend code or live variable was modified in this task.
+
+### Task 2 — Auth-Aware Home Page Nav Button
+1. **Before**: the root home page header (`frontend/src/app/(public)/page.js`) unconditionally rendered "Sign in" (`/login`) + "Join Yoibi" (`/signup`), even for an authenticated visitor.
+2. **Now**: the header nav is extracted into a dedicated Client Component `frontend/src/features/auth/ui/HomeHeaderNav.js` that reads session state from the **existing** `useAuth()` hook (`frontend/src/features/auth/context/AuthContext.js`) — the same mechanism `(protected)/layout.js` already uses. No new auth mechanism, hook, or endpoint was introduced.
+3. **Three states**:
+   - `status === "authenticated"` → a single on-brand cyan pill button **"Go to Feed"** → `/feed`.
+   - `status === "loading"` → a neutral pulsing placeholder (`h-9 w-24 animate-pulse rounded-xl bg-secondary`) plus an `sr-only` "Checking session…" status. **Neither button set renders**, so a logged-in user never sees a flash of "Sign in"/"Join Yoibi".
+   - `status === "unauthenticated"` → the original "Sign in" + "Join Yoibi" buttons, unchanged.
+4. **Server/client shape preserved**: `page.js` remains a Server Component (still prerenders as static `○ /`) and simply delegates to `<HomeHeaderNav focusRing={focusRing} />`; the `focusRing` token is passed down so focus-visible styling matches the rest of the homepage.
+5. **Tests**: new `frontend/tests/home-nav.test.js` (5 static-contract tests, matching the repo's established source-assertion convention) covering: the component lives in the auth feature and reuses `useAuth` (and does NOT use `useSession`/`authClient` directly); the authenticated branch shows "Go to Feed" → `/feed` with no sign-in/signup CTAs; the loading branch renders neither button set; the logged-out branch preserves both original buttons; the home page delegates instead of hardcoding CTAs.
+
+### Quality Gates & Live Verification
+- Frontend tests (`npm test`): **93/93 passing** across 7 test files (88 existing + 5 new).
+- Frontend lint (`npm run lint`): **0 errors** (1 pre-existing React Compiler warning in the unrelated `frontend/src/features/streams/ui/CreateStreamComposer.js`, intentionally not modified to respect the "do not modify unrelated files" rule; lint exits 0).
+- Frontend build (`npm run build`): **clean** — 17 static + 3 dynamic routes, `/` remains static.
+- Vercel Deployment: production, aliased to `https://www.yoibi.com`.
+- Live browser verification against the deployed bundle:
+  - Logged-out (desktop 1280x800 + mobile 390x844): nav renders exactly `"Sign in" / "Join Yoibi"`, no "Go to Feed".
+  - Logged-in (desktop 1280x800 + mobile 390x844): nav renders exactly `"Go to Feed"` → `/feed`, no "Sign in"/"Join Yoibi".
+  - No stale Vercel URL present anywhere in the served homepage HTML.
+  - The logged-in check mocked the Better Auth session and `/auth/me` responses **browser-side only** — no production accounts were created and no production data was written.

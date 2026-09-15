@@ -42,7 +42,7 @@ cp .env.example .env.local
 - **Authentication model**: YOIBI uses ONLY email + password (no login gate after signup — signup creates an immediately usable account) and Google OAuth. Password reset is removed (`/forgot-password` and `/reset-password` are 404).
 - **Signup flow**: Signup does NOT auto sign in (approved rule); the user is redirected to `/login` and signs in immediately after creating the account.
 - **Session vs JWT**: The Better Auth session cookie stays with Better Auth; the JWKS-verifiable JWT (1d TTL, `iss` = `aud` = Better Auth baseURL) authenticates Railway Express API calls only.
-- **Production Google redirect URI**: `https://yoibi-frontend.vercel.app/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update when adopting a custom domain).
+- **Production Google redirect URI**: `https://www.yoibi.com/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update when adopting a custom domain).
 
 See [docs/ENVIRONMENT.md](/docs/ENVIRONMENT.md) for the complete cross-application environment variable matrix.
 

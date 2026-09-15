@@ -16,7 +16,7 @@ YOIBI is architected as two decoupled, independently deployable applications:
 | `NEXT_PUBLIC_BETTER_AUTH_URL` | Frontend | Public (Client) | **Yes** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Base URL for Better Auth authentication client & server endpoints. |
 | `NEXT_PUBLIC_SOCKET_URL` | Frontend | Public (Client) | **Yes** | No (Optional/Ignored) | `http://localhost:5000` (or empty) | Ignored | Deprecated — Socket.IO realtime was removed from YOIBI. Realtime media uses LiveKit WebRTC. |
 | `BETTER_AUTH_SECRET` | Frontend & Backend | Server-Only Secret | **NO** | **Yes** | `replace_with_secure_random_32_character_secret` | Random 32+ char cryptographic secret | Signs Better Auth sessions/JWTs on frontend and verifies them / signs admin API calls on backend. |
-| `GOOGLE_CLIENT_ID` | Frontend | Server-Only Config | **NO** | No (Optional) | `your_google_oauth_client_id` | Valid Google OAuth Client ID | Google Social Login OAuth Client ID. Production redirect URI: `https://yoibi-frontend.vercel.app/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update it if a custom domain is adopted). |
+| `GOOGLE_CLIENT_ID` | Frontend | Server-Only Config | **NO** | No (Optional) | `your_google_oauth_client_id` | Valid Google OAuth Client ID | Google Social Login OAuth Client ID. Production redirect URI: `https://www.yoibi.com/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update it if a custom domain is adopted). |
 | `GOOGLE_CLIENT_SECRET` | Frontend | Server-Only Secret | **NO** | No (Optional) | `your_google_oauth_client_secret` | Valid Google OAuth Client Secret | Google Social Login OAuth Client Secret. |
 | `MONGODB_URI` (Frontend) | Frontend | Server-Only Secret | **NO** | **Yes** | `mongodb://localhost:27017/yoibi_database` | `mongodb+srv://<user>:<pass>@cluster.mongodb.net/yoibi_database?retryWrites=true&w=majority` | Server-only connection string for the **Better Auth Mongo adapter** (persistent user/account/session storage in `yoibi_database`). Same Atlas cluster/database as the backend. NEVER exposed to the browser. |
 | `NODE_ENV` | Backend | Server-Only Config | **NO** | **Yes** | `development` | `production` | Node execution environment mode (`development`, `production`, `test`). |
@@ -43,7 +43,7 @@ YOIBI is architected as two decoupled, independently deployable applications:
 - **JWT acquisition (single centralized path)**: The frontend acquires the external-service JWT exclusively via the official Better Auth JWT plugin client API — `authClient.token()` (`GET /api/auth/token`, session-cookie authenticated) — implemented once in `frontend/src/lib/api/client.js` (`getJwtToken()`) and reused by REST calls. The previous `authClient.getJwtToken()` call resolved to a non-existent route in Better Auth v1.7.4 and produced no token at all.
 - **Session vs JWT distinction**: The primary Better Auth session cookie stays with Better Auth. The JWT plugin issues a separate, JWKS-verifiable token (`iss` = `aud` = Better Auth baseURL, `sub` = Better Auth user ID, `exp` = 1d) used ONLY for `Authorization: Bearer` calls to the Railway Express API. The session cookie is never used as the external-service token.
 - **Backend**: Express verifies incoming JWT tokens (`Authorization: Bearer <token>`) against the Better Auth public JWKS endpoint (`createRemoteJWKSet`, default `${BETTER_AUTH_BASE_URL}/api/auth/jwks`, override with `BETTER_AUTH_JWKS_URL`) and uses `BETTER_AUTH_SECRET` for HMAC signature verification on administrative actions (`auth.api.banUser`, `unbanUser`, `removeUser`).
-- **Production JWKS**: `https://yoibi-frontend.vercel.app/api/auth/jwks` (verified live: EdDSA/Ed25519 key with `kid`). Railway's `BETTER_AUTH_BASE_URL` must be `https://yoibi-frontend.vercel.app` (never `http://localhost:3000`), because it determines both the JWKS URL and the strictly validated `iss`/`aud` claims.
+- **Production JWKS**: `https://www.yoibi.com/api/auth/jwks` (verified live: EdDSA/Ed25519 key with `kid`). Railway's `BETTER_AUTH_BASE_URL` must be `https://www.yoibi.com` (never `http://localhost:3000`), because it determines both the JWKS URL and the strictly validated `iss`/`aud` claims.
 - **Rule**: `BETTER_AUTH_SECRET` must be identical on both Frontend and Backend environments.
 - **Persistent storage (single authority)**: Better Auth stores users, email/password credentials (hashed), authentication sessions, and OAuth provider accounts in MongoDB via the official Better Auth **MongoDB adapter** (`better-auth/adapters/mongodb`). The adapter targets the same `MONGODB_URI` → `yoibi_database` (collections `user`, `session`, `account`, `verification`). Without this adapter Better Auth falls back to an **in-memory** store and users could not log in after a restart — the adapter is required in every environment. The YOIBI application `users` collection NEVER stores passwords or verification state.
 - **No verification / no password reset**: Email verification and password reset are removed from YOIBI (no emailer, no hooks, no routes). Email/password signup creates an immediately usable account; the only login methods are email+password and Google OAuth.
@@ -117,7 +117,7 @@ LIVEKIT_API_SECRET=your_livekit_api_secret
 ### Vercel (Frontend)
 Configure in Vercel Dashboard -> Project Settings -> Environment Variables:
 - `NEXT_PUBLIC_API_BASE_URL` = Railway Express API URL + `/api/v1`
-- `NEXT_PUBLIC_BETTER_AUTH_URL` = `https://yoibi-frontend.vercel.app` (actual deployed frontend origin)
+- `NEXT_PUBLIC_BETTER_AUTH_URL` = `https://www.yoibi.com` (actual deployed frontend origin)
 - `BETTER_AUTH_SECRET` = `<production-random-32-char-secret>`
 - `MONGODB_URI` = `mongodb+srv://<user>:<password>@cluster.mongodb.net/yoibi_database?retryWrites=true&w=majority` (SECRET, server-only — powers the Better Auth Mongo adapter persistent storage. Must target `yoibi_database`.)
 - `GOOGLE_CLIENT_ID` = `<production-google-client-id>` (Optional)
@@ -130,10 +130,10 @@ Configure in Railway Dashboard -> Variables:
 - `NODE_ENV` = `production`
 - `HOST` = `0.0.0.0`
 - `MONGODB_URI` = `mongodb+srv://<user>:<password>@cluster.mongodb.net/yoibi_database?retryWrites=true&w=majority` (must include `yoibi_database`; the backend enforces it)
-- `BETTER_AUTH_BASE_URL` = `https://yoibi-frontend.vercel.app` (JWKS + issuer/audience derivation — never localhost)
+- `BETTER_AUTH_BASE_URL` = `https://www.yoibi.com` (JWKS + issuer/audience derivation — never localhost)
 - `BETTER_AUTH_SECRET` = `<production-random-32-char-secret>` (Matches Vercel value)
-- `FRONTEND_URL` = `https://yoibi-frontend.vercel.app`
-- `CORS_ORIGIN` = `https://yoibi-frontend.vercel.app`
+- `FRONTEND_URL` = `https://www.yoibi.com`
+- `CORS_ORIGIN` = `https://www.yoibi.com`
 - `CLOUDINARY_CLOUD_NAME` = `<production-cloud-name>`
 - `CLOUDINARY_API_KEY` = `<production-api-key>`
 - `CLOUDINARY_API_SECRET` = `<production-api-secret>`
