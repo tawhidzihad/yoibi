@@ -9,13 +9,9 @@ router.use(globalLimiter);
 const healthRoutes = require("./health.routes");
 router.use(healthRoutes);
 
-// Authentication routes (Better Auth proxy + our extensions)
+// Authentication routes (Better Auth proxy + email verification extensions)
 const authRoutes = require("./auth.routes");
 router.use(authRoutes);
-
-// Email verification routes (our own endpoints)
-const verificationRoutes = require("./verification.routes");
-router.use(verificationRoutes);
 
 // User profile routes
 const usersRoutes = require("./users.routes");
