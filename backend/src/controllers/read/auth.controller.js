@@ -1,7 +1,7 @@
 const User = require("../../models/user.model");
 const { findProfileOrCreate } = require("../../services/userProfile.service");
 const { collectProfileCounts } = require("./users.controller");
-const { normalizeMeRole } = require("../../middleware/auth");
+const { normalizeRole } = require("../../middleware/auth");
 const { HANDLE_PREFIX, deriveHandleBaseFor } = require("../../utils/handles");
 
 /**
@@ -100,7 +100,7 @@ async function getMe(req, res) {
         country: profile?.country || "",
         age: profile?.age ?? null,
         phone: profile?.phone || "",
-        role: normalizeMeRole((profile?.role || jwtRole || "user")),
+        role: normalizeRole((profile?.role || jwtRole || "user")),
         isBlocked: profile ? Boolean(profile.isBlocked) : Boolean(isBlocked),
         // Email verification status
         emailVerified: profile?.emailVerified ?? Boolean(emailVerified),

@@ -359,6 +359,9 @@ async function verifyJwtToken(token) {
 /**
  * Optional authentication middleware:
  * If Bearer token is provided, verify and attach req.user; if missing, proceed as guest.
+ * Email verification is NOT enforced here — public profile/search routes use
+ * optionalAuth so that unverified-but-authenticated users can still browse
+ * public content (posting/following remain gated by verifyJwt on those routes).
  */
 async function optionalAuth(req, res, next) {
     const authHeader = req.headers.authorization;
@@ -366,7 +369,7 @@ async function optionalAuth(req, res, next) {
         req.user = null;
         return next();
     }
-    return verifyJwt(req, res, next);
+    return verifyJwt(req, res, next, { skipEmailCheck: true });
 }
 
 /**

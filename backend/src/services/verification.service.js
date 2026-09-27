@@ -142,19 +142,36 @@ async function verifyCode({ userId, code }) {
             };
         }
 
-        // Mark user as verified
-        await User.updateOne(
+        // Mark user as verified — use findOneAndUpdate so we can confirm via an
+        // actual database read that emailVerified was persisted, not just assume
+        // the API response.
+        const verifiedUser = await User.findOneAndUpdate(
             { _id: userId },
             {
                 $set: {
                     emailVerified: true,
                     emailVerifiedAt: new Date(),
                 },
-            }
+            },
+            { new: true }
         );
 
         // Delete the used code (single-use)
         await EmailVerification.deleteOne({ _id: verification._id });
+
+        if (!verifiedUser) {
+            return {
+                success: false,
+                error: "Could not find user account to verify.",
+            };
+        }
+
+        if (!verifiedUser.emailVerified) {
+            return {
+                success: false,
+                error: "Failed to update email verification status.",
+            };
+        }
 
         return {
             success: true,

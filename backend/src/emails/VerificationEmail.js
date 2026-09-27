@@ -11,7 +11,6 @@
  */
 function VerificationEmail({ code = "000000", email = "" }) {
     const displayCode = String(code).padStart(6, "0");
-    const fromEmail = "contact@yoibi.com";
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -20,8 +19,8 @@ function VerificationEmail({ code = "000000", email = "" }) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>YOIBI Verification Code</title>
 </head>
-<body style="background-color: #0f172a; margin: 0; padding: 40px 0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-    <div style="background-color: #1e293b; border-radius: 16px; padding: 40px; max-width: 480px; margin: 0 auto;">
+<body style="background-color: #ffffff; margin: 0; padding: 40px 0; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+    <div style="background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 40px; max-width: 480px; margin: 0 auto;">
         <!-- Brand -->
         <h1 style="color: #22d3ee; font-size: 28px; font-weight: 700; margin: 0 0 8px 0; text-align: center;">
             YOIBI
@@ -31,15 +30,15 @@ function VerificationEmail({ code = "000000", email = "" }) {
         </p>
 
         <!-- Greeting -->
-        <p style="color: #e2e8f0; font-size: 16px; margin: 0 0 16px 0;">
+        <p style="color: #1e2e3b; font-size: 16px; margin: 0 0 16px 0;">
             Hi there,
         </p>
-        <p style="color: #cbd5e1; font-size: 14px; line-height: 1.7; margin: 0 0 28px 0;">
-            You requested to verify your YOIBI account email address. Use the code below to complete verification. This code expires in <strong style="color: #e2e8f0;">15 minutes</strong>.
+        <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 0 0 28px 0;">
+            You requested to verify your YOIBI account email address. Use the code below to complete verification. This code expires in <strong style="color: #1e2e3b;">15 minutes</strong>.
         </p>
 
         <!-- Code box -->
-        <div style="background-color: #0f172a; border-radius: 12px; padding: 24px; text-align: center; margin: 0 0 28px 0;">
+        <div style="background-color: #f1f5f9; border-radius: 12px; padding: 24px; text-align: center; margin: 0 0 28px 0;">
             <div style="
                 color: #22d3ee;
                 font-size: 36px;
@@ -57,7 +56,7 @@ function VerificationEmail({ code = "000000", email = "" }) {
         </div>
 
         <p style="color: #64748b; font-size: 13px; line-height: 1.7; margin: 0 0 24px 0;">
-            If you did not request this, you can safely ignore this email. This code was sent to <strong style="color: #94a3b8">${fromEmail}</strong> on your behalf.
+            If you did not request this code, you can safely ignore this email &mdash; no action is needed and your account remains secure.
         </p>
 
         <p style="color: #475569; font-size: 12px; text-align: center; margin: 0;">

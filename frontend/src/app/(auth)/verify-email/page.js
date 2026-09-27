@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -61,6 +61,29 @@ export default function VerifyEmailPage() {
             setIsSubmitting(false);
         }
     };
+
+    // Auto-send a verification code on first mount (right after signup or
+    // redirect from a blocked login) so the user never has to click anything.
+    // The backend enforces the 60-second resend cooldown — a 429 means a recent
+    // code is already in flight and the user just needs to wait.
+    useEffect(() => {
+        let isCancelled = false;
+        async function sendOnMount() {
+            try {
+                const res = await authApi.sendVerificationCode();
+                if (isCancelled) return;
+                if (!res.success && res.error?.code !== "RATE_LIMITED") {
+                    setError(res.error?.message || "Failed to send verification email.");
+                }
+            } catch (err) {
+                if (!isCancelled) {
+                    setError(err?.message || "Failed to send verification email.");
+                }
+            }
+        }
+        sendOnMount();
+        return () => { isCancelled = true; };
+    }, []);
 
     const handleResend = async () => {
         setError("");

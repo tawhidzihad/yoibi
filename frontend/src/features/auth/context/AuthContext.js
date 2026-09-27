@@ -43,6 +43,22 @@ export function AuthProvider({ children }) {
                     if (res.success && res.data) {
                         setUser(res.data);
                         setStatus("authenticated");
+                    } else if (res.error?.code === "EMAIL_NOT_VERIFIED") {
+                        // Authenticated but email not verified — keep the user
+                        // object so the protected layout can redirect to
+                        // /verify-email. emailVerified must be false so the
+                        // route guard never admits an unverified user.
+                        const partialUser = {
+                            id: sessionData.user.id,
+                            email: sessionData.user.email,
+                            name: sessionData.user.name || "",
+                            handle: sessionData.user.handle || (sessionData.user.email ? `@${sessionData.user.email.split("@")[0]}` : ""),
+                            avatarUrl: sessionData.user.image || "",
+                            role: sessionData.user.role || "user",
+                            emailVerified: false,
+                        };
+                        setUser(partialUser);
+                        setStatus("authenticated");
                     } else {
                         const fallbackUser = {
                             id: sessionData.user.id,
@@ -113,8 +129,15 @@ export function AuthProvider({ children }) {
             if (res.success && res.data) {
                 setUser(res.data);
                 setStatus("authenticated");
+            } else if (res.error?.code === "EMAIL_NOT_VERIFIED") {
+                // Email not verified — throw so the LoginForm can redirect to
+                // /verify-email (matching the existing error-code handler there).
+                const err = new Error("Email verification required");
+                err.code = "EMAIL_NOT_VERIFIED";
+                throw err;
             }
         } catch (err) {
+            if (err?.code === "EMAIL_NOT_VERIFIED") throw err;
             console.warn("[AuthContext] Post-login hydration retry:", err?.message);
             await refreshUser();
         }

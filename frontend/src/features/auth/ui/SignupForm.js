@@ -19,6 +19,7 @@ import {
 } from "../../../shared/constants/communityValues";
 import { YoibiLogo } from "../../../shared/ui/YoibiLogo";
 import { useAuth } from "../context/AuthContext";
+import { authApi } from "@/lib/api/authApi";
 
 const signupSchema = z
     .object({

@@ -315,6 +315,10 @@ export default function ProtectedLayout({ children }) {
             router.replace(`/login?redirect=${encodeURIComponent(safeRedirect)}`);
         } else if (status === "authenticated" && user?.isBlocked) {
             router.replace(`/account-blocked?reason=${encodeURIComponent(user.blockReason || "")}`);
+        } else if (status === "authenticated" && user?.emailVerified !== true) {
+            // Unverified users must never reach authenticated routes — redirect
+            // on every navigation attempt, not just during login.
+            router.replace("/verify-email");
         }
     }, [status, user, pathname, router]);
 
@@ -326,7 +330,7 @@ export default function ProtectedLayout({ children }) {
         );
     }
 
-    if (status === "unauthenticated" || (status === "authenticated" && user?.isBlocked)) {
+    if (status === "unauthenticated" || (status === "authenticated" && user?.isBlocked) || (status === "authenticated" && user?.emailVerified !== true)) {
         return null;
     }
 
