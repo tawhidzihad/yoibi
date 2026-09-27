@@ -11,6 +11,10 @@ import { Button } from "@/shared/ui/Button";
 import { Input } from "@/shared/ui/Input";
 import { YoibiLogo } from "@/shared/ui/YoibiLogo";
 import { useAuth } from "@/features/auth/context/AuthContext";
+import {
+    markEmailVerificationCompleted,
+    isEmailVerificationCompleted,
+} from "@/features/auth/lib/emailVerificationSession";
 import { authApi } from "@/lib/api/authApi";
 
 const verifySchema = z.object({
@@ -26,7 +30,7 @@ export default function VerifyEmailPage() {
     const [showResendCooldown, setShowResendCooldown] = useState(false);
     const [copied, setCopied] = useState(false);
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, refreshUser } = useAuth();
 
     const {
         register,
@@ -48,10 +52,26 @@ export default function VerifyEmailPage() {
         try {
             const res = await authApi.verifyCode(data.code);
             if (res.success) {
-                // Refresh user to get updated emailVerified status
-                await authApi.getMe();
-                router.push("/feed");
-                router.refresh();
+                // From here on this tab must never auto-send again.
+                markEmailVerificationCompleted();
+                // Refresh the auth context BEFORE navigating. The protected
+                // layout's route guard admits only users whose emailVerified is
+                // true, so navigating while the context still holds the stale
+                // false value bounced the user straight back here — remounting
+                // this page and re-firing the auto-send effect below, which sent
+                // a duplicate verification email.
+                const refreshed = await refreshUser();
+                if (refreshed?.success && refreshed?.data?.emailVerified !== true) {
+                    // The context could not be refreshed to a verified state.
+                    // Navigating now would bounce back here, so surface it
+                    // instead of silently looping.
+                    setError("Email verified, but we could not refresh your session. Please reload the page.");
+                    return;
+                }
+                // replace() (not push) so the verify step leaves no history
+                // entry to return to. No router.refresh(): the context is
+                // already current and refreshing re-evaluates the guard.
+                router.replace("/feed");
             } else {
                 setError(res.error?.message || "Invalid verification code. Please try again.");
             }
@@ -67,6 +87,10 @@ export default function VerifyEmailPage() {
     // The backend enforces the 60-second resend cooldown — a 429 means a recent
     // code is already in flight and the user just needs to wait.
     useEffect(() => {
+        // Never auto-send once a code has already been accepted in this tab: a
+        // successful verification must not produce a second email.
+        if (isEmailVerificationCompleted()) return;
+
         let isCancelled = false;
         async function sendOnMount() {
             try {

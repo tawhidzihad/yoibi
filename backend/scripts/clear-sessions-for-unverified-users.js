@@ -22,7 +22,7 @@
 
 const mongoose = require("mongoose");
 const { env } = require("../src/config/env");
-const User = require("../src/models/user.model");
+const BetterAuthUser = require("../src/models/betterAuthUser.model");
 const { getLiveUserModeration } = require("../src/middleware/auth");
 
 // Better Auth API client for session management
@@ -41,8 +41,9 @@ async function connectToDatabase() {
 async function clearSessionsForUnverifiedUsers() {
     console.log("[Migration] Starting session clearance for unverified users...");
 
-    // Find all unverified users
-    const unverifiedUsers = await User.find({
+    // Find all unverified users. Verification state lives on Better Auth's
+    // `user` (singular) collection — the single source of truth.
+    const unverifiedUsers = await BetterAuthUser.find({
         emailVerified: false,
         email: { $exists: true, $ne: "" }
     }).select("_id email name").lean();
@@ -54,9 +55,14 @@ async function clearSessionsForUnverifiedUsers() {
 
     for (const user of unverifiedUsers) {
         try {
+            // Better Auth stores _id as a BSON ObjectId, but every other layer
+            // identifies a user by its hex string (the JWT `sub` claim and the
+            // `users` profile _id). Normalize before calling across.
+            const userId = String(user._id);
+
             // Call the live moderation check which will auto-provision profiles
             // and verify their unverified status from DB
-            const liveUser = await getLiveUserModeration(user._id, {
+            const liveUser = await getLiveUserModeration(userId, {
                 email: user.email,
                 name: user.name || ""
             });
@@ -65,7 +71,7 @@ async function clearSessionsForUnverifiedUsers() {
                 // Note: Better Auth sessions are invalidated client-side when
                 // they detect the EMAIL_NOT_VERIFIED error
                 // This script logs the users who need session refresh
-                console.log(`[Migration] User ${user.email} (${user._id}) needs session refresh`);
+                console.log(`[Migration] User ${user.email} (${userId}) needs session refresh`);
                 clearedSessions++;
             }
         } catch (error) {

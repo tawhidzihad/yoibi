@@ -1,5 +1,6 @@
 const User = require("../../models/user.model");
 const { findProfileOrCreate } = require("../../services/userProfile.service");
+const { getEmailVerificationStatus } = require("../../repositories/authUser.repository");
 const { collectProfileCounts } = require("./users.controller");
 const { normalizeRole } = require("../../middleware/auth");
 const { HANDLE_PREFIX, deriveHandleBaseFor } = require("../../utils/handles");
@@ -71,6 +72,19 @@ async function getMe(req, res) {
         console.warn("[getMe] MongoDB profile query warning:", err.message);
     }
 
+    // Verification status is authentication state and lives ONLY on Better
+    // Auth's `user` (singular) collection — the same source the auth gate
+    // reads. The JWT claim is only a last-resort fallback.
+    let authEmailVerified = Boolean(emailVerified);
+    try {
+        const verification = await getEmailVerificationStatus(id);
+        if (verification.exists) {
+            authEmailVerified = verification.emailVerified;
+        }
+    } catch (err) {
+        console.warn("[getMe] email verification lookup warning:", err.message);
+    }
+
     const fallbackHandle = `${HANDLE_PREFIX}${deriveHandleBaseFor({
         name: jwtName,
         email,
@@ -102,9 +116,8 @@ async function getMe(req, res) {
         phone: profile?.phone || "",
         role: normalizeRole((profile?.role || jwtRole || "user")),
         isBlocked: profile ? Boolean(profile.isBlocked) : Boolean(isBlocked),
-        // Email verification status
-        emailVerified: profile?.emailVerified ?? Boolean(emailVerified),
-        emailVerifiedAt: profile?.emailVerifiedAt || null,
+        // Email verification status (from the Better Auth `user` account)
+        emailVerified: authEmailVerified,
         // Live follower/following counts from the canonical users document
         followersCount: profile?.followersCount || 0,
         followingCount: profile?.followingCount || 0,

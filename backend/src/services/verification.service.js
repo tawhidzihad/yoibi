@@ -1,5 +1,5 @@
 const EmailVerification = require("../models/emailVerification.model");
-const User = require("../models/user.model");
+const { getEmailVerificationStatus, setEmailVerified } = require("../repositories/authUser.repository");
 const {
     sendVerificationEmail,
     generateVerificationCode,
@@ -142,31 +142,23 @@ async function verifyCode({ userId, code }) {
             };
         }
 
-        // Mark user as verified — use findOneAndUpdate so we can confirm via an
-        // actual database read that emailVerified was persisted, not just assume
-        // the API response.
-        const verifiedUser = await User.findOneAndUpdate(
-            { _id: userId },
-            {
-                $set: {
-                    emailVerified: true,
-                    emailVerifiedAt: new Date(),
-                },
-            },
-            { new: true }
-        );
+        // Mark the email as verified. This writes to Better Auth's `user`
+        // (singular) collection — the single source of truth for verification
+        // status. The repository uses returnDocument:'after' so this is a real
+        // post-write database read, not an assumption that the write landed.
+        const verified = await setEmailVerified(userId);
 
         // Delete the used code (single-use)
         await EmailVerification.deleteOne({ _id: verification._id });
 
-        if (!verifiedUser) {
+        if (!verified.exists) {
             return {
                 success: false,
                 error: "Could not find user account to verify.",
             };
         }
 
-        if (!verifiedUser.emailVerified) {
+        if (!verified.emailVerified) {
             return {
                 success: false,
                 error: "Failed to update email verification status.",
@@ -195,13 +187,14 @@ async function verifyCode({ userId, code }) {
  * @returns {Promise<{ success: boolean, message: string, error?: string }>}
  */
 async function resendVerificationCode({ userId, email, name }) {
-    // First check if user is already verified
-    const user = await User.findById(userId);
-    if (!user) {
+    // First check if the email is already verified on the Better Auth `user`
+    // (singular) account — the same source the auth gate reads.
+    const status = await getEmailVerificationStatus(userId);
+    if (!status.exists) {
         return { success: false, error: "User not found" };
     }
 
-    if (user.emailVerified) {
+    if (status.emailVerified) {
         return { success: false, error: "Email is already verified" };
     }
 

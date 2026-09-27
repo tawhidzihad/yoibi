@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const { jwtVerify, createRemoteJWKSet } = require("jose");
 const { env } = require("../config/env");
 const { findProfileOrCreate } = require("../services/userProfile.service");
+const { getEmailVerificationStatus } = require("../repositories/authUser.repository");
 const { HANDLE_PREFIX, deriveHandleBaseFor } = require("../utils/handles");
 
 let remoteJWKS = null;
@@ -59,6 +60,18 @@ async function getLiveUserModeration(userId, payload = null) {
         // findProfileOrCreate returns lean docs only when the DB is connected.
         userDoc = userDoc && typeof userDoc.toObject === "function" ? userDoc.toObject() : userDoc;
 
+        // Email verification status is authentication state, so it is read from
+        // Better Auth's `user` (singular) collection — never from the YOIBI
+        // `users` profile, which does not (and must not) carry it.
+        let emailVerified = false;
+        try {
+            const verification = await getEmailVerificationStatus(userId);
+            emailVerified = verification.emailVerified;
+        } catch {
+            // Fail closed: an unreadable auth store must not admit the user.
+            emailVerified = false;
+        }
+
         const entry = userDoc
             ? {
                 exists: true,
@@ -68,7 +81,7 @@ async function getLiveUserModeration(userId, payload = null) {
                 handle: userDoc.handle || null,
                 name: typeof userDoc.name === "string" ? userDoc.name : null,
                 avatarUrl: typeof userDoc.avatarUrl === "string" ? userDoc.avatarUrl : null,
-                emailVerified: Boolean(userDoc.emailVerified),
+                emailVerified,
                 expiresAt: now + 30000
             }
             : {

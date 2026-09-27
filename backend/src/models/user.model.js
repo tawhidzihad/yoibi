@@ -56,19 +56,13 @@ const userSchema = new mongoose.Schema({
     blockedBy: { type: String, default: null },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
-
-    // === EMAIL VERIFICATION FIELDS ===
-    // Whether the user's email has been verified via verification code.
-    // When false, the user cannot fully access authenticated features until true.
-    emailVerified: { type: Boolean, default: false },
-    // When the email was verified (set on successful code verification).
-    emailVerifiedAt: { type: Date, default: null },
-    // Timestamp of the last verification code sent (for cooldown enforcement).
-    emailVerificationSentAt: { type: Date, default: null },
+    // NOTE: this profile carries NO email-verification state. `emailVerified`
+    // lives only on Better Auth's `user` (singular) collection — see
+    // models/betterAuthUser.model.js. Mirroring it here created a second,
+    // divergent source of truth and is deliberately absent.
 }, { collection: "users", _id: false });
 
 userSchema.index({ isBlocked: 1 });
-userSchema.index({ emailVerified: 1 });
 // `handle` carries a unique index (declared above) — the database is the final
 // authority for handle uniqueness.
 

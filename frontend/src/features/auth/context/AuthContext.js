@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import { useSession, signIn, signUp, signOut } from "@/lib/auth-client";
 import { authApi } from "@/lib/api/authApi";
 import { PROFILE_CHANGED_EVENT } from "@/lib/profileSync";
+import { clearEmailVerificationCompleted } from "@/features/auth/lib/emailVerificationSession";
 
 const AuthContext = createContext({
     status: "loading", // "loading" | "authenticated" | "unauthenticated"
@@ -193,6 +194,9 @@ export function AuthProvider({ children }) {
     };
 
     const logout = async () => {
+        // The next account to sign in on this tab will need its own code, so
+        // the "already verified" marker must not outlive this session.
+        clearEmailVerificationCompleted();
         await signOut();
         setUser(null);
         setStatus("unauthenticated");
