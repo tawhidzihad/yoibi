@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,18 +19,6 @@ const verifySchema = z.object({
         .length(6, "Verification code must be 6 digits")
         .regex(/^\d{6}$/, "Verification code must contain only numbers"),
 });
-
-// Auto-submit when all 6 digits are entered
-function useAutoSubmit(value, onSubmit, minLength = 6) {
-    const isSubmittingRef = useRef(false);
-
-    if (value?.length >= minLength && !isSubmittingRef.current) {
-        isSubmittingRef.current = true;
-        onSubmit();
-    }
-
-    return isSubmittingRef.current;
-}
 
 export default function VerifyEmailPage() {
     const [error, setError] = useState("");
@@ -202,7 +190,7 @@ export default function VerifyEmailPage() {
             {/* Resend section */}
             <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">
-                    Didn't receive the email?{" "}
+                    Did&#39;t receive the email?{" "}
                     {showResendCooldown ? (
                         <span className="text-muted-foreground">
                             Resend available in 60 seconds
