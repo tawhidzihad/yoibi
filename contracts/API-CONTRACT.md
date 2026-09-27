@@ -1578,4 +1578,66 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 - **Query Parameters:** `page`, `limit`, `action` (`"all"`, `"BAN_USER"`, `"BLOCK_USER"`, `"UNBLOCK_USER"`, `"DELETE_CONTENT"`)
 - **Response (200):** Paginated audit log records.
 
+---
+
+## 13. Email Verification
+
+Email verification is required for full platform access. Users with `emailVerified: false` receive a 6-digit verification code via email that expires in 15 minutes.
+
+### Error Codes (Email Verification)
+
+- `EMAIL_NOT_VERIFIED`: User's email has not been verified (HTTP 403)
+- `CODE_EXPIRED`: Verification code has expired or already used (HTTP 400)
+- `INVALID_CODE`: Verification code is incorrect (HTTP 400)
+- `CODE_RATE_LIMITED`: Too many verification attempts (HTTP 429)
+
+### `POST /api/v1/auth/verification/send`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Sends a 6-digit email verification code to the user's registered email address. Rate-limited: 1 request per 60 seconds per user.
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": { "sent": true },
+      "message": "Verification code sent to your email"
+  }
+  ```
+- **Error (429 `RATE_LIMITED`):** Already sent a code in the last 60 seconds.
+
+### `POST /api/v1/auth/verification/verify`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Verifies the 6-digit code submitted by the user.
+- **Request Body:**
+  ```json
+  {
+      "code": "123456"
+  }
+  ```
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": { 
+          "verified": true,
+          "emailVerified": true
+      },
+      "message": "Email verified successfully"
+  }
+  ```
+- **Error (400 `INVALID_CODE`):** Code is incorrect or malformed.
+- **Error (400 `CODE_EXPIRED`):** Code has expired (15 minutes) or already used.
+
+### `POST /api/v1/auth/verification/resend`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Resends a verification code. Enforces 60-second cooldown between sends.
+- **Response (200):**
+  ```json
+  {
+      "success": true,
+      "data": { "resent": true },
+      "message": "Verification code resent"
+  }
+  ```
+- **Error (429 `RATE_LIMITED`):** Already sent a code in the last 60 seconds.
+
 

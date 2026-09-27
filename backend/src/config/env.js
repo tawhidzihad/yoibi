@@ -20,7 +20,11 @@ const env = {
     CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET || "",
     LIVEKIT_URL: process.env.LIVEKIT_URL || "",
     LIVEKIT_API_KEY: process.env.LIVEKIT_API_KEY || "",
-    LIVEKIT_API_SECRET: process.env.LIVEKIT_API_SECRET || ""
+    LIVEKIT_API_SECRET: process.env.LIVEKIT_API_SECRET || "",
+    // Resend email delivery for transactional emails (verification codes, etc.)
+    RESEND_API_KEY: process.env.RESEND_API_KEY || "",
+    // The verified sending address configured in the Resend dashboard (e.g. contact@yoibi.com)
+    EMAIL_FROM_ADDRESS: process.env.EMAIL_FROM_ADDRESS || "contact@yoibi.com",
 };
 
 /**

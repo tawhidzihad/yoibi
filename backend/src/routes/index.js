@@ -1,47 +1,48 @@
-const { Router } = require("express");
-const healthRoutes = require("./health.routes");
-const authRoutes = require("./auth.routes");
-const usersRoutes = require("./users.routes");
-const tweetsRoutes = require("./tweets.routes");
-const videosRoutes = require("./videos.routes");
-const streamsRoutes = require("./streams.routes");
-const meetupRoutes = require("./meetup.routes");
-const reportsRoutes = require("./reports.routes");
-const adminRoutes = require("./admin.routes");
+const express = require("express");
+const router = express.Router();
 
+// Global rate limiter: 300 requests per minute per IP
 const { globalLimiter } = require("../middleware/rate-limiter");
+router.use(globalLimiter);
 
-const apiRouter = Router();
+// System routes
+const healthRoutes = require("./health.routes");
+router.use(healthRoutes);
 
-// Apply global rate limiting across all API endpoints (300 req/min/IP)
-apiRouter.use(globalLimiter);
+// Authentication routes (Better Auth proxy + our extensions)
+const authRoutes = require("./auth.routes");
+router.use(authRoutes);
 
-// Mount system routes
-apiRouter.use(healthRoutes);
+// Email verification routes (our own endpoints)
+const verificationRoutes = require("./verification.routes");
+router.use(verificationRoutes);
 
-// Mount authentication verification routes
-apiRouter.use(authRoutes);
+// User profile routes
+const usersRoutes = require("./users.routes");
+router.use(usersRoutes);
 
-// Mount user profile routes
-apiRouter.use(usersRoutes);
+// Tweets and feed routes (Tweet = YOIBI social content; POST = HTTP method)
+const tweetsRoutes = require("./tweets.routes");
+router.use(tweetsRoutes);
 
-// Mount tweets and feed routes (Tweet = YOIBI social content; POST = HTTP method)
-apiRouter.use(tweetsRoutes);
+// Videos routes (Shorts & Longform community videos)
+const videosRoutes = require("./videos.routes");
+router.use(videosRoutes);
 
-// Mount videos routes (Shorts & Longform community videos)
-apiRouter.use(videosRoutes);
+// Streams routes (LiveKit live realtime broadcasts)
+const streamsRoutes = require("./streams.routes");
+router.use(streamsRoutes);
 
-// Mount streams routes (LiveKit live realtime broadcasts)
-apiRouter.use(streamsRoutes);
+// Meet-up routes (LiveKit collaborative multi-peer rooms)
+const meetupRoutes = require("./meetup.routes");
+router.use(meetupRoutes);
 
-// Mount meetup routes (LiveKit collaborative multi-peer rooms)
-apiRouter.use(meetupRoutes);
+// Moderation reports routes
+const reportsRoutes = require("./reports.routes");
+router.use(reportsRoutes);
 
-// Mount moderation reports routes
-apiRouter.use(reportsRoutes);
+// Admin dashboard and moderation routes
+const adminRoutes = require("./admin.routes");
+router.use(adminRoutes);
 
-// Mount admin dashboard and moderation routes
-apiRouter.use(adminRoutes);
-
-module.exports = apiRouter;
-
+module.exports = router;

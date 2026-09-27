@@ -8,6 +8,7 @@
         "test": "node tests/index.js"
     },
     "dependencies": {
+        "@react-email/render": "^2.1.0",
         "cors": "^2.8.6",
         "dotenv": "^17.4.2",
         "express": "^5.2.1",
@@ -16,6 +17,7 @@
         "jose": "^6.2.12",
         "livekit-server-sdk": "^2.19.0",
         "mongoose": "^9.10.0",
+        "resend": "^6.30.0",
         "zod": "^4.6.2"
     },
     "devDependencies": {

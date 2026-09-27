@@ -33,6 +33,11 @@ export function LoginForm() {
     const returnUrl = searchParams.get("returnUrl") || searchParams.get("redirect") || "/feed";
     const safeReturnUrl = getSafeReturnUrl(returnUrl);
 
+    const handleEmailNotVerified = (redirectUrl) => {
+        const verifyUrl = redirectUrl ? `/verify-email?returnUrl=${encodeURIComponent(redirectUrl)}` : "/verify-email";
+        router.push(verifyUrl);
+    };
+
     const {
         register,
         handleSubmit,
@@ -48,7 +53,12 @@ export function LoginForm() {
             await loginEmail({ email: data.email, password: data.password });
             router.push(safeReturnUrl);
         } catch (err) {
-            setAuthError(err?.message || "Invalid email or password.");
+            const errorCode = err?.code || err?.error?.code;
+            if (errorCode === "EMAIL_NOT_VERIFIED" || err?.message === "Email verification required") {
+                handleEmailNotVerified(safeReturnUrl);
+            } else {
+                setAuthError(err?.message || "Invalid email or password.");
+            }
         }
     }
 
@@ -57,7 +67,12 @@ export function LoginForm() {
         try {
             await loginGoogle();
         } catch (err) {
-            setAuthError(err?.message || "Google sign-in failed.");
+            const errorCode = err?.code || err?.error?.code;
+            if (errorCode === "EMAIL_NOT_VERIFIED" || err?.message === "Email verification required") {
+                handleEmailNotVerified(safeReturnUrl);
+            } else {
+                setAuthError(err?.message || "Google sign-in failed.");
+            }
         }
     }
 

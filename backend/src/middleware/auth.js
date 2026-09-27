@@ -1,8 +1,8 @@
-const mongoose = require('mongoose');
-const { jwtVerify, createRemoteJWKSet } = require('jose');
-const { env } = require('../config/env');
-const { findProfileOrCreate } = require('../services/userProfile.service');
-const { HANDLE_PREFIX, deriveHandleBaseFor } = require('../utils/handles');
+const mongoose = require("mongoose");
+const { jwtVerify, createRemoteJWKSet } = require("jose");
+const { env } = require("../config/env");
+const { findProfileOrCreate } = require("../services/userProfile.service");
+const { HANDLE_PREFIX, deriveHandleBaseFor } = require("../utils/handles");
 
 let remoteJWKS = null;
 
@@ -18,7 +18,7 @@ const userModerationCache = new Map();
  * @returns {'user'|'admin'}
  */
 function normalizeRole(value) {
-    return value === 'admin' ? 'admin' : 'user';
+    return value === "admin" ? "admin" : "user";
 }
 
 /**
@@ -52,12 +52,12 @@ async function getLiveUserModeration(userId, payload = null) {
         // missing (server-side, handle/role derived — never trusted from client).
         let userDoc = await findProfileOrCreate({
             userId,
-            name: payload ? (payload.name || '') : '',
-            email: payload ? (payload.email || '') : '',
-            avatarUrl: payload ? (payload.avatarUrl || payload.image || '') : ''
+            name: payload ? (payload.name || "") : "",
+            email: payload ? (payload.email || "") : "",
+            avatarUrl: payload ? (payload.avatarUrl || payload.image || "") : ""
         });
         // findProfileOrCreate returns lean docs only when the DB is connected.
-        userDoc = userDoc && typeof userDoc.toObject === 'function' ? userDoc.toObject() : userDoc;
+        userDoc = userDoc && typeof userDoc.toObject === "function" ? userDoc.toObject() : userDoc;
 
         const entry = userDoc
             ? {
@@ -66,8 +66,9 @@ async function getLiveUserModeration(userId, payload = null) {
                 blockedReason: userDoc.blockedReason || null,
                 role: normalizeRole(userDoc.role) || null,
                 handle: userDoc.handle || null,
-                name: typeof userDoc.name === 'string' ? userDoc.name : null,
-                avatarUrl: typeof userDoc.avatarUrl === 'string' ? userDoc.avatarUrl : null,
+                name: typeof userDoc.name === "string" ? userDoc.name : null,
+                avatarUrl: typeof userDoc.avatarUrl === "string" ? userDoc.avatarUrl : null,
+                emailVerified: Boolean(userDoc.emailVerified),
                 expiresAt: now + 30000
             }
             : {
@@ -78,6 +79,7 @@ async function getLiveUserModeration(userId, payload = null) {
                 handle: null,
                 name: null,
                 avatarUrl: null,
+                emailVerified: false,
                 expiresAt: now + 30000
             };
         userModerationCache.set(userId, entry);
@@ -100,7 +102,7 @@ function getJWKS() {
         remoteJWKS = createRemoteJWKSet(new URL(jwksUrl));
         return remoteJWKS;
     } catch (err) {
-        console.error('[Auth] Failed to initialize JWKS endpoint:', err.message);
+        console.error("[Auth] Failed to initialize JWKS endpoint:", err.message);
         return null;
     }
 }
@@ -108,16 +110,19 @@ function getJWKS() {
 /**
  * Middleware: Verifies Bearer JWT token from Authorization header against Better Auth JWKS.
  * Attaches the verified user payload to req.user.
+ *
+ * If email verification is required (EMAIL_VERIFICATION_REQUIRED=true), rejects with 403
+ * when emailVerified is false.
  */
 async function verifyJwt(req, res, next) {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return res.status(401).json({
             success: false,
             error: {
-                code: 'UNAUTHORIZED',
-                message: 'Authentication token is missing or malformed.'
+                code: "UNAUTHORIZED",
+                message: "Authentication token is missing or malformed."
             }
         });
     }
@@ -128,8 +133,8 @@ async function verifyJwt(req, res, next) {
         return res.status(401).json({
             success: false,
             error: {
-                code: 'UNAUTHORIZED',
-                message: 'Bearer token is empty.'
+                code: "UNAUTHORIZED",
+                message: "Bearer token is empty."
             }
         });
     }
@@ -141,8 +146,8 @@ async function verifyJwt(req, res, next) {
             return res.status(500).json({
                 success: false,
                 error: {
-                    code: 'AUTH_SERVICE_UNAVAILABLE',
-                    message: 'Authentication verification service is not configured.'
+                    code: "AUTH_SERVICE_UNAVAILABLE",
+                    message: "Authentication verification service is not configured."
                 }
             });
         }
@@ -162,8 +167,8 @@ async function verifyJwt(req, res, next) {
             return res.status(403).json({
                 success: false,
                 error: {
-                    code: 'ACCOUNT_BLOCKED',
-                    message: 'Your account has been suspended by an administrator.'
+                    code: "ACCOUNT_BLOCKED",
+                    message: "Your account has been suspended by an administrator."
                 }
             });
         }
@@ -177,8 +182,8 @@ async function verifyJwt(req, res, next) {
                 return res.status(401).json({
                     success: false,
                     error: {
-                        code: 'UNAUTHORIZED',
-                        message: 'User account no longer exists.'
+                        code: "UNAUTHORIZED",
+                        message: "User account no longer exists."
                     }
                 });
             }
@@ -186,44 +191,56 @@ async function verifyJwt(req, res, next) {
                 return res.status(403).json({
                     success: false,
                     error: {
-                        code: 'ACCOUNT_BLOCKED',
-                        message: liveUser.blockedReason || 'Your account has been suspended by an administrator.'
+                        code: "ACCOUNT_BLOCKED",
+                        message: liveUser.blockedReason || "Your account has been suspended by an administrator."
                     }
                 });
             }
         }
 
-        // req.user carries the server-verified identity plus the canonical
-        // application profile truth (handle, name, avatarUrl) so downstream
-        // writes (ownership, mentions) stay consistent without extra lookups.
-        // The avatar always prefers the DB profile truth (which stores the
-        // trusted Google provider image URL at creation) over the raw JWT
-        // claim; the client never influences these values.
         const handleBase = deriveHandleBaseFor({
             name: payload.name,
             email: payload.email,
             userId
         });
-        req.user = {
+
+        // Build req.user with all necessary context
+        const userContext = {
             id: userId,
             email: payload.email,
-            name: (liveUser && liveUser.name) || payload.name || '',
+            name: (liveUser && liveUser.name) || payload.name || "",
             handle: (liveUser && liveUser.handle) || `${HANDLE_PREFIX}${handleBase}`,
             username: payload.username || handleBase,
-            role: normalizeRole((liveUser && liveUser.role) || payload.role || 'user'),
+            role: normalizeRole((liveUser && liveUser.role) || payload.role || "user"),
             isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked),
-            avatarUrl: (liveUser && liveUser.avatarUrl) || payload.avatarUrl || payload.image || '',
-            createdAt: payload.createdAt
+            avatarUrl: (liveUser && liveUser.avatarUrl) || payload.avatarUrl || payload.image || "",
+            createdAt: payload.createdAt,
+            // Email verification status from DB profile
+            emailVerified: Boolean(liveUser ? liveUser.emailVerified : payload.emailVerified),
         };
+
+        // Check email verification if required (set via env variable)
+        // This can be enabled/disabled per-environment without code changes
+        if (env.EMAIL_VERIFICATION_REQUIRED === "true" && !userContext.emailVerified) {
+            return res.status(403).json({
+                success: false,
+                error: {
+                    code: "EMAIL_NOT_VERIFIED",
+                    message: "Please verify your email address to continue."
+                }
+            });
+        }
+
+        req.user = userContext;
 
         return next();
     } catch (error) {
         // Safe logging without exposing token content
-        const isExpired = error.code === 'ERR_JWT_EXPIRED';
-        const errorCode = isExpired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN';
+        const isExpired = error.code === "ERR_JWT_EXPIRED";
+        const errorCode = isExpired ? "TOKEN_EXPIRED" : "INVALID_TOKEN";
         const message = isExpired
-            ? 'Authentication token has expired. Please log in again.'
-            : 'Authentication token verification failed.';
+            ? "Authentication token has expired. Please log in again."
+            : "Authentication token verification failed.";
 
         return res.status(401).json({
             success: false,
@@ -242,24 +259,24 @@ async function verifyJwt(req, res, next) {
  */
 async function verifyJwtToken(token) {
     if (!token) {
-        const err = new Error('Bearer token is empty.');
-        err.code = 'UNAUTHORIZED';
+        const err = new Error("Bearer token is empty.");
+        err.code = "UNAUTHORIZED";
         err.status = 401;
         throw err;
     }
 
-    const cleanToken = token.startsWith('Bearer ') ? token.substring(7).trim() : token.trim();
+    const cleanToken = token.startsWith("Bearer ") ? token.substring(7).trim() : token.trim();
     if (!cleanToken) {
-        const err = new Error('Bearer token is empty.');
-        err.code = 'UNAUTHORIZED';
+        const err = new Error("Bearer token is empty.");
+        err.code = "UNAUTHORIZED";
         err.status = 401;
         throw err;
     }
 
     const jwks = getJWKS();
     if (!jwks) {
-        const err = new Error('Authentication verification service is not configured.');
-        err.code = 'AUTH_SERVICE_UNAVAILABLE';
+        const err = new Error("Authentication verification service is not configured.");
+        err.code = "AUTH_SERVICE_UNAVAILABLE";
         err.status = 500;
         throw err;
     }
@@ -273,8 +290,8 @@ async function verifyJwtToken(token) {
         });
 
         if (payload.isBlocked === true) {
-            const err = new Error('Your account has been suspended by an administrator.');
-            err.code = 'ACCOUNT_BLOCKED';
+            const err = new Error("Your account has been suspended by an administrator.");
+            err.code = "ACCOUNT_BLOCKED";
             err.status = 403;
             throw err;
         }
@@ -285,14 +302,14 @@ async function verifyJwtToken(token) {
         const liveUser = await getLiveUserModeration(userId, payload);
         if (liveUser) {
             if (!liveUser.exists) {
-                const err = new Error('User account no longer exists.');
-                err.code = 'UNAUTHORIZED';
+                const err = new Error("User account no longer exists.");
+                err.code = "UNAUTHORIZED";
                 err.status = 401;
                 throw err;
             }
             if (liveUser.isBlocked) {
-                const err = new Error(liveUser.blockedReason || 'Your account has been suspended by an administrator.');
-                err.code = 'ACCOUNT_BLOCKED';
+                const err = new Error(liveUser.blockedReason || "Your account has been suspended by an administrator.");
+                err.code = "ACCOUNT_BLOCKED";
                 err.status = 403;
                 throw err;
             }
@@ -306,13 +323,14 @@ async function verifyJwtToken(token) {
         return {
             id: userId,
             email: payload.email,
-            name: (liveUser && liveUser.name) || payload.name || '',
+            name: (liveUser && liveUser.name) || payload.name || "",
             handle: (liveUser && liveUser.handle) || `${HANDLE_PREFIX}${handleBase}`,
             username: payload.username || handleBase,
-            role: normalizeRole((liveUser && liveUser.role) || payload.role || 'user'),
+            role: normalizeRole((liveUser && liveUser.role) || payload.role || "user"),
             isBlocked: Boolean(liveUser ? liveUser.isBlocked : payload.isBlocked),
-            avatarUrl: (liveUser && liveUser.avatarUrl) || payload.avatarUrl || payload.image || '',
-            createdAt: payload.createdAt
+            avatarUrl: (liveUser && liveUser.avatarUrl) || payload.avatarUrl || payload.image || "",
+            createdAt: payload.createdAt,
+            emailVerified: Boolean(liveUser ? liveUser.emailVerified : payload.emailVerified),
         };
     } catch (error) {
         // Keep the explicit error shape above as-is; normalize raw jose errors
@@ -321,13 +339,13 @@ async function verifyJwtToken(token) {
         if (error && error.status && error.code) {
             throw error;
         }
-        const isExpired = error.code === 'ERR_JWT_EXPIRED';
+        const isExpired = error.code === "ERR_JWT_EXPIRED";
         const err = new Error(
             isExpired
-                ? 'Authentication token has expired. Please log in again.'
-                : 'Authentication token verification failed.'
+                ? "Authentication token has expired. Please log in again."
+                : "Authentication token verification failed."
         );
-        err.code = isExpired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN';
+        err.code = isExpired ? "TOKEN_EXPIRED" : "INVALID_TOKEN";
         err.status = 401;
         err.cause = error;
         throw err;
@@ -340,7 +358,7 @@ async function verifyJwtToken(token) {
  */
 async function optionalAuth(req, res, next) {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
         req.user = null;
         return next();
     }
@@ -355,8 +373,8 @@ function requireAuth(req, res, next) {
         return res.status(401).json({
             success: false,
             error: {
-                code: 'UNAUTHORIZED',
-                message: 'Authentication required'
+                code: "UNAUTHORIZED",
+                message: "Authentication required"
             }
         });
     }
@@ -371,17 +389,17 @@ function requireAdmin(req, res, next) {
         return res.status(401).json({
             success: false,
             error: {
-                code: 'UNAUTHORIZED',
-                message: 'Authentication required'
+                code: "UNAUTHORIZED",
+                message: "Authentication required"
             }
         });
     }
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== "admin") {
         return res.status(403).json({
             success: false,
             error: {
-                code: 'FORBIDDEN',
-                message: 'Administrator privileges required'
+                code: "FORBIDDEN",
+                message: "Administrator privileges required"
             }
         });
     }
@@ -404,5 +422,7 @@ module.exports = {
     requireAdmin,
     getJWKS,
     invalidateJWKS,
-    invalidateUserModerationCache
+    invalidateUserModerationCache,
+    normalizeRole,
+    getLiveUserModeration
 };

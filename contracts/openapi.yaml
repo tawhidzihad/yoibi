@@ -39,6 +39,90 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '403':
+          description: Email not verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmailNotVerifiedError'
+
+  /auth/verification:
+    post:
+      summary: Send email verification code
+      description: Sends a 6-digit verification code to the user's registered email address. Rate-limited to 1 request per 60 seconds.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Verification code sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationSendResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitedError'
+
+  /auth/verification/verify:
+    post:
+      summary: Verify email with code
+      description: Verifies the 6-digit code submitted by the user.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  pattern: '^\d{6}$'
+                  example: "123456"
+      responses:
+        '200':
+          description: Email verified successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationVerifyResponse'
+        '400':
+          description: Invalid or expired code
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidCodeError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/verification/resend:
+    post:
+      summary: Resend verification code
+      description: Resends a verification code with 60-second cooldown enforcement.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Verification code resent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResendResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          description: Cooldown active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitedError'
 
   /users/search:
     get:
@@ -2486,6 +2570,106 @@ components:
         message:
           type: string
 
+  # Email Verification Schemas
+    VerificationSendResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            sent:
+              type: boolean
+              example: true
+        message:
+          type: string
+          example: Verification code sent to your email
+
+    VerificationVerifyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            verified:
+              type: boolean
+              example: true
+            emailVerified:
+              type: boolean
+              example: true
+        message:
+          type: string
+          example: Email verified successfully
+
+    VerificationResendResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            resent:
+              type: boolean
+              example: true
+        message:
+          type: string
+          example: Verification code resent
+
+    EmailNotVerifiedError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: EMAIL_NOT_VERIFIED
+            message:
+              type: string
+              example: Please verify your email address to continue.
+
+    InvalidCodeError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: INVALID_CODE
+            message:
+              type: string
+              example: Invalid verification code.
+
+    RateLimitedError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: RATE_LIMITED
+            message:
+              type: string
+              example: Too many requests. Please wait before sending again.
+
   responses:
     UnauthorizedError:
       description: Access token missing or invalid
@@ -2505,3 +2689,9 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
+    EmailNotVerifiedError:
+      description: Email verification required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/EmailNotVerifiedError'

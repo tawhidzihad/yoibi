@@ -1,9 +1,8 @@
-const User = require('../../models/user.model');
-const { findProfileOrCreate } = require('../../services/userProfile.service');
-// Same canonical count helper the profile page uses — the sidebar/right-side
-// user card must never compute its own duplicated statistics.
-const { collectProfileCounts } = require('./users.controller');
-const { HANDLE_PREFIX, deriveHandleBaseFor } = require('../../utils/handles');
+const User = require("../../models/user.model");
+const { findProfileOrCreate } = require("../../services/userProfile.service");
+const { collectProfileCounts } = require("./users.controller");
+const { normalizeMeRole } = require("../../middleware/auth");
+const { HANDLE_PREFIX, deriveHandleBaseFor } = require("../../utils/handles");
 
 /**
  * Controller: Handles GET /api/v1/auth/me
@@ -18,19 +17,20 @@ async function getMe(req, res) {
     if (!req.user) {
         return res.status(500).json({
             success: false,
-            error: { code: 'INTERNAL_SERVER_ERROR', message: 'User context not available' }
+            error: { code: "INTERNAL_SERVER_ERROR", message: "User context not available" }
         });
     }
 
     const {
         id,
         email,
-        name: jwtName = '',
-        handle: jwtHandle = '',
+        name: jwtName = "",
+        handle: jwtHandle = "",
         role: jwtRole,
         isBlocked = false,
-        avatarUrl: jwtAvatar = '',
-        createdAt: jwtCreatedAt
+        avatarUrl: jwtAvatar = "",
+        createdAt: jwtCreatedAt,
+        emailVerified = false,
     } = req.user;
 
     let profile = null;
@@ -40,20 +40,20 @@ async function getMe(req, res) {
             const profileDoc = await findProfileOrCreate({
                 userId: id,
                 name: jwtName,
-                email: email || '',
+                email: email || "",
                 avatarUrl: jwtAvatar,
                 // Google/OAuth JWT claims are unreliable server-side — the
                 // service derives the canonical handle from name/email only.
             });
             if (profileDoc) {
-                profile = profileDoc && typeof profileDoc.toObject === 'function' ? profileDoc.toObject() : profileDoc;
+                profile = profileDoc && typeof profileDoc.toObject === "function" ? profileDoc.toObject() : profileDoc;
                 // Defensive repair for legacy rows: if a profile exists but its
                 // handle carries a literal "@" prefix, the public lookup (which
                 // queries the bare normalized form) can never match it. Repair
                 // the row to its canonical bare form (best-effort).
-                if (profile && typeof profile.handle === 'string' && profile.handle.startsWith('@')) {
+                if (profile && typeof profile.handle === "string" && profile.handle.startsWith("@")) {
                     try {
-                        const bare = profile.handle.replace(/^@+/, '').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 24);
+                        const bare = profile.handle.replace(/^@+/, "").toLowerCase().replace(/[^a-z0-9]/g, "").substring(0, 24);
                         if (bare && bare.length >= 3) {
                             const collision = await User.findOne({ handle: bare, _id: { $ne: profile._id } }).lean().catch(() => null);
                             if (!collision) {
@@ -68,7 +68,7 @@ async function getMe(req, res) {
             }
         }
     } catch (err) {
-        console.warn('[getMe] MongoDB profile query warning:', err.message);
+        console.warn("[getMe] MongoDB profile query warning:", err.message);
     }
 
     const fallbackHandle = `${HANDLE_PREFIX}${deriveHandleBaseFor({
@@ -84,7 +84,7 @@ async function getMe(req, res) {
     try {
         counts = await collectProfileCounts(id);
     } catch (err) {
-        console.warn('[getMe] profile counts warning:', err.message);
+        console.warn("[getMe] profile counts warning:", err.message);
     }
 
     const tweetsCount = Number(counts.tweetsCount) || 0;
@@ -92,16 +92,19 @@ async function getMe(req, res) {
     const data = {
         id,
         email,
-        name: profile?.name || jwtName || '',
+        name: profile?.name || jwtName || "",
         handle: profile?.handle || jwtHandle || fallbackHandle,
-        avatarUrl: profile?.avatarUrl || jwtAvatar || '',
-        bannerUrl: profile?.bannerUrl || '',
-        bio: profile?.bio || '',
-        country: profile?.country || '',
+        avatarUrl: profile?.avatarUrl || jwtAvatar || "",
+        bannerUrl: profile?.bannerUrl || "",
+        bio: profile?.bio || "",
+        country: profile?.country || "",
         age: profile?.age ?? null,
-        phone: profile?.phone || '',
-        role: normalizeMeRole((profile?.role || jwtRole || 'user')),
+        phone: profile?.phone || "",
+        role: normalizeMeRole((profile?.role || jwtRole || "user")),
         isBlocked: profile ? Boolean(profile.isBlocked) : Boolean(isBlocked),
+        // Email verification status
+        emailVerified: profile?.emailVerified ?? Boolean(emailVerified),
+        emailVerifiedAt: profile?.emailVerifiedAt || null,
         // Live follower/following counts from the canonical users document
         followersCount: profile?.followersCount || 0,
         followingCount: profile?.followingCount || 0,
@@ -115,17 +118,7 @@ async function getMe(req, res) {
         updatedAt: profile?.updatedAt || new Date().toISOString()
     };
 
-    return res.status(200).json({ success: true, data, message: '' });
-}
-
-/**
- * Restricts the /auth/me role to the only two YOIBI application roles.
- *
- * @param {string} [value]
- * @returns {'user'|'admin'}
- */
-function normalizeMeRole(value) {
-    return value === 'admin' ? 'admin' : 'user';
+    return res.status(200).json({ success: true, data, message: "" });
 }
 
 module.exports = {
