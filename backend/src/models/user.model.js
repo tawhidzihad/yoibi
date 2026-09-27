@@ -60,7 +60,7 @@ const userSchema = new mongoose.Schema({
     // === EMAIL VERIFICATION FIELDS ===
     // Whether the user's email has been verified via verification code.
     // When false, the user cannot fully access authenticated features until true.
-    emailVerified: { type: Boolean, default: false, index: true },
+    emailVerified: { type: Boolean, default: false },
     // When the email was verified (set on successful code verification).
     emailVerifiedAt: { type: Date, default: null },
     // Timestamp of the last verification code sent (for cooldown enforcement).
