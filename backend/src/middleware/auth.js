@@ -111,10 +111,13 @@ function getJWKS() {
  * Middleware: Verifies Bearer JWT token from Authorization header against Better Auth JWKS.
  * Attaches the verified user payload to req.user.
  *
+ * @param {Object} options
+ * @param {boolean} options.skipEmailCheck - If true, skip email verification check
+ *
  * If email verification is required (EMAIL_VERIFICATION_REQUIRED=true), rejects with 403
- * when emailVerified is false.
+ * when emailVerified is false (unless skipEmailCheck is true).
  */
-async function verifyJwt(req, res, next) {
+async function verifyJwt(req, res, next, options = {}) {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -221,7 +224,8 @@ async function verifyJwt(req, res, next) {
 
         // Check email verification if required (set via env variable)
         // This can be enabled/disabled per-environment without code changes
-        if (env.EMAIL_VERIFICATION_REQUIRED === "true" && !userContext.emailVerified) {
+        // Unless specifically skipped via options.skipEmailCheck
+        if (!options.skipEmailCheck && env.EMAIL_VERIFICATION_REQUIRED === "true" && !userContext.emailVerified) {
             return res.status(403).json({
                 success: false,
                 error: {

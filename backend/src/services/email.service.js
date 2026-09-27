@@ -1,4 +1,3 @@
-const { render } = require("@react-email/render");
 const { VerificationEmail } = require("../emails/VerificationEmail");
 const { env } = require("../config/env");
 
@@ -43,11 +42,11 @@ function getVerificationExpiry() {
 /**
  * Renders the verification email template to HTML.
  * @param {string} code - The 6-digit verification code
- * @param {string} name - Recipient's display name (optional)
+ * @param {string} email - Recipient's email address
  * @returns {string} HTML string
  */
-function renderVerificationEmail({ code, name }) {
-    return render(VerificationEmail({ code, name: name || "" }));
+function renderVerificationEmail({ code, email }) {
+    return VerificationEmail({ code, email: email || "" });
 }
 
 /**
@@ -77,7 +76,7 @@ async function sendVerificationEmail({ to, name, code }) {
     }
 
     const fromAddress = env.EMAIL_FROM_ADDRESS || "contact@yoibi.com";
-    const htmlContent = renderVerificationEmail({ code, name });
+    const htmlContent = renderVerificationEmail({ code, email: to });
 
     try {
         const response = await resend.emails.send({

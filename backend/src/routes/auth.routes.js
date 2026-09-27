@@ -8,11 +8,16 @@ const { authLimiter } = require("../middleware/rate-limiter");
 const router = Router();
 
 /**
- * Email verification endpoints
+ * Verification endpoints - skip email verification check to allow sending code to unverified users
  */
-router.post("/auth/verification/send", authLimiter, verifyJwt, requireAuth, sendVerification);
-router.post("/auth/verification/verify", authLimiter, verifyJwt, requireAuth, verifyVerification);
-router.post("/auth/verification/resend", authLimiter, verifyJwt, requireAuth, resendVerification);
+const verifyJwtSkipEmail = (req, res, next) => verifyJwt(req, res, next, { skipEmailCheck: true });
+
+// Send verification code (allows unverified users to get their code)
+router.post("/auth/verification/send", authLimiter, verifyJwtSkipEmail, requireAuth, sendVerification);
+// Verify the code and mark email as verified
+router.post("/auth/verification/verify", authLimiter, verifyJwtSkipEmail, requireAuth, verifyVerification);
+// Resend verification code (with 60-second cooldown)
+router.post("/auth/verification/resend", authLimiter, verifyJwtSkipEmail, requireAuth, resendVerification);
 
 /**
  * Core auth endpoint

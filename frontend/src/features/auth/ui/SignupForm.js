@@ -107,10 +107,24 @@ export function SignupForm() {
                     bio: data.bio || "",
                 },
             });
-            // Signup signs the user in immediately; AuthContext
-            // hydrates the canonical users profile before navigation.
-            router.push("/feed");
-            router.refresh();
+
+            // Check if user needs email verification (blocked by middleware if not verified)
+            // If EMAIL_VERIFICATION_REQUIRED is enabled, we need to send verification email
+            // and redirect to verify-email page
+            try {
+                const verificationResult = await authApi.sendVerificationCode();
+                if (verificationResult.success) {
+                    // Redirect to verification page
+                    router.push("/verify-email");
+                    return;
+                }
+            } catch (verifyErr) {
+                // If verification send fails, still redirect - the user will need to verify
+                console.warn("Verification email send warning:", verifyErr?.message);
+            }
+
+            // Fallback: if verification email couldn't be sent, still redirect to verify-email
+            router.push("/verify-email");
         } catch (err) {
             setSignupError(err?.message || "Signup failed. Please try again.");
         }
