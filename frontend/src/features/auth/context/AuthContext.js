@@ -61,6 +61,17 @@ export function AuthProvider({ children }) {
                         setUser(partialUser);
                         setStatus("authenticated");
                     } else {
+                        // Transient failure (token race, 5xx, network hiccup) —
+                        // NOT an EMAIL_NOT_VERIFIED signal, so this is not
+                        // proof the user is unverified. Carry the real
+                        // verification state from the DB-backed Better Auth
+                        // session record instead of omitting it: omitting
+                        // emailVerified made `user?.emailVerified !== true`
+                        // true for a genuinely-verified user, which the
+                        // protected layout's route guard treated as "must be
+                        // bounced to /verify-email". Verified users stay in;
+                        // genuinely unverified sessions (emailVerified=false)
+                        // are still blocked.
                         const fallbackUser = {
                             id: sessionData.user.id,
                             email: sessionData.user.email,
@@ -68,6 +79,7 @@ export function AuthProvider({ children }) {
                             handle: sessionData.user.handle || (sessionData.user.email ? `@${sessionData.user.email.split("@")[0]}` : ""),
                             avatarUrl: sessionData.user.image || "",
                             role: sessionData.user.role || "user",
+                            emailVerified: sessionData.user.emailVerified === true,
                         };
                         setUser(fallbackUser);
                         setStatus("authenticated");

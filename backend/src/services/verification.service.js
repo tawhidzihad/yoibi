@@ -1,5 +1,9 @@
 const EmailVerification = require("../models/emailVerification.model");
 const { getEmailVerificationStatus, setEmailVerified } = require("../repositories/authUser.repository");
+// The auth middleware caches live moderation state (including emailVerified)
+// for 30s. It must be invalidated on verification so a just-verified user is
+// not momentarily still reported EMAIL_NOT_VERIFIED and bounced back.
+const { invalidateUserModerationCache } = require("../middleware/auth");
 const {
     sendVerificationEmail,
     generateVerificationCode,
@@ -164,6 +168,11 @@ async function verifyCode({ userId, code }) {
                 error: "Failed to update email verification status.",
             };
         }
+
+        // The auth gate caches emailVerified for 30s; drop that stale entry so
+        // the very next authenticated request reads the fresh verified state
+        // instead of bouncing the user back to /verify-email.
+        invalidateUserModerationCache(userId);
 
         return {
             success: true,
