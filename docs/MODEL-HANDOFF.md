@@ -25,7 +25,7 @@ Every session writes to this file in EXACTLY this section structure:
 3. **Live-test verification (actual HTTP requests made):**
    - `https://www.yoibi.com/privacy-policy` — **✓ HTTP 200**, renders correct Privacy Policy content with 12 sections.
    - `https://www.yoibi.com/terms` — **✓ HTTP 200**, renders correct Terms of Service content with 11 sections.
-   - `https://www.yoibi.com/privacy` — **✓ HTTP 301 Redirect** → `https://www.yoibi.com/privacy-policy` (correct permanent redirect).
+   - `https://www.yoibi.com/privacy` — **✓ HTTP 308 Permanent Redirect** → `https://www.yoibi.com/privacy-policy` (correct permanent redirect).
    - Sign-up form Privacy Policy link — **✓ Points to `/privacy-policy`** and opens correctly.
 
 4. **Code cleanup:**
@@ -52,6 +52,8 @@ Every session writes to this file in EXACTLY this section structure:
 - ✅ Vercel deploy succeeds (production URL active)
 - ✅ All 4 live-test checks pass (privacy-policy, terms, privacy redirect, signup link)
 - ✅ Email verification regression fix remains deployed and verified
+
+## Reference
 - Entry point for any agent: root `AGENTS.md`
 - Resume command: `/yoibi-resume` (`.claude/commands/yoibi-resume.md`)
 - Historical session logs + architecture notes (auth, profile, media provenance, reply flow, hardening): `docs/MODEL-HANDOFF-ARCHIVE.md`
