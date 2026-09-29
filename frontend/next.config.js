@@ -9,6 +9,15 @@ const nextConfig = {
             { protocol: "https", hostname: "lh3.googleusercontent.com" },
         ],
     },
+    async redirects() {
+        return [
+            {
+                source: "/privacy",
+                destination: "/privacy-policy",
+                permanent: true,
+            },
+        ];
+    },
     async headers() {
         return [
             {
