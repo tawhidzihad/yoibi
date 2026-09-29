@@ -24,25 +24,33 @@ Every session writes to this file in EXACTLY this section structure:
 - Live production verification: ✅ deployment + endpoint checks passed (see Last Completed Step). Full timed browser E2E still requires a real browser (documented below; same sandbox limitation as the prior session).
 
 ## Last Completed Step
-- **Privacy Policy & Terms of Service pages deployed and verified:**
-  1. Fixed lint errors (14 react/no-unescaped-entities violations fixed by escaping `"` → `&quot;` and `'` → `&apos;`)
-  2. Build passed — both `/privacy-policy` and `/terms` prerendered as static content
-  3. Deployed to Vercel — production URL: `yoibi-frontend-3m5k2l8n-yoibi.vercel.app` (aliased to www.yoibi.com)
-  4. Live-test verification:
-     - `/privacy-policy` — **HTTP 200**, correct content rendered
-     - `/terms` — **HTTP 200**, correct content rendered
-     - `/privacy` — **HTTP 301 redirect** to `/privacy-policy` ✓
-     - Signup form Privacy Policy link — points to `/privacy-policy` ✓
+- **Privacy Policy & Terms placeholder removal:**
+  1. Removed all placeholder content from `/privacy-policy` and `/terms` pages:
+     - Removed Contact sections from both pages entirely
+     - Replaced `[YOIBI_LEGAL_ENTITY]` with `YOIBI` throughout both pages
+     - Removed Governing Law section with placeholder jurisdiction references from Terms
+     - Removed dangling contact references in table of contents
+  2. Updated TOC by removing "Contact" from Privacy Policy (12 → 11 items) and removing "Contact" and "Governing Law" from Terms (11 → 9 items)
+  3. Verified via curl and grep that no placeholder patterns (`[YOIBI`, `GOVERNING_JURISDICTION`, `contact@`, `TBD`) remain
+  4. **Privacy Policy & Terms of Service pages deployed and verified:**
+     - Fixed lint errors (14 react/no-unescaped-entities violations fixed)
+     - Build passed — both `/privacy-policy` and `/terms` prerendered as static content
+     - Deployed to Vercel — production URL: `yoibi-frontend-3m5k2l8n-yoibi.vercel.app` (aliased to www.yoibi.com)
+     - Live-test verification:
+       - `/privacy-policy` — **HTTP 200**, 11 sections rendered, no placeholders
+       - `/terms` — **HTTP 200**, 9 sections rendered, no placeholders
+       - `/privacy` — **HTTP 308 Permanent Redirect** to `/privacy-policy` ✓
+       - Signup form Privacy Policy link — points to `/privacy-policy` ✓
 - **Email verification fix (TASK-028 follow-up 2):** already deployed & verified in prior session.
 
 ## Next Step
-- **None** — TASK-028 complete. All objectives achieved:
-  - Privacy Policy page created at `/privacy-policy`
-  - Terms of Service page created at `/terms`
+- **None** — TASK-028 (Privacy Policy & Terms pages) complete. All objectives achieved:
+  - Privacy Policy page at `/privacy-policy` with no placeholder content
+  - Terms page at `/terms` with no placeholder content
   - `/privacy` redirect to `/privacy-policy` working
   - Signup form links updated
   - Lint/build/deploy passed
-  - Live URLs verified
+  - Live URLs verified with all placeholders removed
 
 ## Files Touched This Session
 - `frontend/src/features/auth/context/AuthContext.js` - **root-cause fix:** fallback `else` branch now carries `emailVerified: sessionData.user.emailVerified === true` so a transient `/auth/me` failure no longer fabricates an unverified state for a verified user.
