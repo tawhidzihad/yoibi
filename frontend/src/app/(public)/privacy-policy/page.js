@@ -41,7 +41,7 @@ export default function PrivacyPolicyPage() {
                     <LegalProse>
                         <h2 id="intro">Introduction</h2>
                         <p>
-                            YOIBI ("we", "us", "our") is a social media platform for tweets, videos, live streams,
+                            YOIBI (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a social media platform for tweets, videos, live streams,
                             and meet-up rooms. This Privacy Policy explains how we collect, use, disclose, and
                             safeguard your information when you use our platform at <a href="https://www.yoibi.com">www.yoibi.com</a>.
                         </p>
@@ -88,7 +88,7 @@ export default function PrivacyPolicyPage() {
                             <strong>Service providers:</strong> We use third-party service providers to help us operate YOIBI:
                         </p>
                         <ul>
-                            <li><strong>Media hosting:</strong> We use Cloudinary to store and serve video files, images, and thumbnails. Your media files are stored on Cloudinary's secure servers.</li>
+                            <li><strong>Media hosting:</strong> We use Cloudinary to store and serve video files, images, and thumbnails. Your media files are stored on Cloudinary&apos;s secure servers.</li>
                             <li><strong>Email delivery:</strong> We use Resend to send you verification emails and important notifications.</li>
                             <li><strong>Video/streaming infrastructure:</strong> We use LiveKit for WebRTC-based live streams and meet-up rooms.</li>
                             <li><strong>Database storage:</strong> We use MongoDB Atlas for persistent data storage.</li>
@@ -96,7 +96,7 @@ export default function PrivacyPolicyPage() {
 
                         <h2 id="data-storage-security">Data storage and security</h2>
                         <p>
-                            <strong>Your data location:</strong> Your information is stored on MongoDB Atlas, a managed cloud database service. The exact location of the database servers is determined by MongoDB's infrastructure.
+                            <strong>Your data location:</strong> Your information is stored on MongoDB Atlas, a managed cloud database service. The exact location of the database servers is determined by MongoDB&apos;s infrastructure.
                         </p>
                         <p>
                             <strong>Security measures:</strong> We implement appropriate technical and organizational measures to protect your information, including:
@@ -113,7 +113,7 @@ export default function PrivacyPolicyPage() {
                         <ul>
                             <li><strong>Access:</strong> You can request a copy of the personal data we hold about you.</li>
                             <li><strong>Correction:</strong> You can update your profile information at any time through your account settings.</li>
-                            <li><strong>Deletion:</strong> You can request deletion of your account and associated personal data. Learn more in our Terms of Service under "Account Deletion".</li>
+                            <li><strong>Deletion:</strong> You can request deletion of your account and associated personal data. Learn more in our Terms of Service under &quot;Account Deletion&quot;.</li>
                             <li><strong>Objection:</strong> You can object to certain processing activities, such as marketing communications.</li>
                         </ul>
                         <p>
@@ -133,7 +133,7 @@ export default function PrivacyPolicyPage() {
                             <strong>Your choices:</strong> You can manage your cookie preferences through your browser settings. Most browsers allow you to refuse cookies or alert you when they are being set. However, if you do this, some parts of YOIBI may not work properly.
                         </p>
 
-                        <h2 id="children-privacy">Children's privacy</h2>
+                        <h2 id="children-privacy">Children&apos;s privacy</h2>
                         <p>
                             YOIBI is not intended for users under the age of 16. We do not knowingly collect personal information from children under 16. If we become aware that a child under 16 has provided us with personal information, we will take steps to delete such information in accordance with applicable law.
                         </p>
@@ -155,12 +155,12 @@ export default function PrivacyPolicyPage() {
 
                         <h2 id="international-transfers">International data transfers</h2>
                         <p>
-                            Your information may be transferred to, stored, and processed in countries outside your own. We use Cloudinary, MongoDB's global infrastructure, and other third-party services that operate globally. We take appropriate safeguards to protect your information in accordance with applicable data protection laws, including standard contractual clauses approved by relevant authorities.
+                            Your information may be transferred to, stored, and processed in countries outside your own. We use Cloudinary, MongoDB&apos;s global infrastructure, and other third-party services that operate globally. We take appropriate safeguards to protect your information in accordance with applicable data protection laws, including standard contractual clauses approved by relevant authorities.
                         </p>
 
                         <h2 id="changes-to-this-policy">Changes to this policy</h2>
                         <p>
-                            We may update this Privacy Policy from time to time. When we do, we will revise the "Last updated" date at the top of this page. For material changes, we will provide a more prominent notice (such as posting a notice on our website or sending a notice to the email address you have provided).
+                            We may update this Privacy Policy from time to time. When we do, we will revise the &quot;Last updated&quot; date at the top of this page. For material changes, we will provide a more prominent notice (such as posting a notice on our website or sending a notice to the email address you have provided).
                         </p>
                         <p>
                             We encourage you to review this Privacy Policy periodically to stay informed about how we collect, use, and share your information.

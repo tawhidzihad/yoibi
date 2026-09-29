@@ -40,10 +40,10 @@ export default function TermsOfServicePage() {
                     <LegalProse>
                         <h2 id="acceptance">Acceptance of Terms</h2>
                         <p>
-                            By accessing or using YOIBI (the "Platform"), you agree to be bound by these Terms of Service ("Terms"). These Terms constitute a legal agreement between you and YOIBI governing your use of the service. If you do not agree to these Terms, you may not access or use the Platform.
+                            By accessing or using YOIBI (the &quot;Platform&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). These Terms constitute a legal agreement between you and YOIBI governing your use of the service. If you do not agree to these Terms, you may not access or use the Platform.
                         </p>
                         <p>
-                            By continuing to use the Platform after any changes to these Terms, you accept the revised Terms. No separate notice will be provided for each modification. The "Last updated" date at the top of this page indicates when these Terms were last revised.
+                            By continuing to use the Platform after any changes to these Terms, you accept the revised Terms. No separate notice will be provided for each modification. The &quot;Last updated&quot; date at the top of this page indicates when these Terms were last revised.
                         </p>
 
                         <h2 id="eligibility">Account Eligibility</h2>
@@ -74,7 +74,7 @@ export default function TermsOfServicePage() {
 
                         <h2 id="your-content">Your Content and License</h2>
                         <p>
-                            <strong>Ownership:</strong> You retain all ownership rights in the content you create and post on YOIBI ("Your Content"). This includes tweets, videos, live streams, comments, profile information, and any other material you submit.
+                            <strong>Ownership:</strong> You retain all ownership rights in the content you create and post on YOIBI (&quot;Your Content&quot;). This includes tweets, videos, live streams, comments, profile information, and any other material you submit.
                         </p>
                         <p>
                             <strong>License to YOIBI:</strong> By posting Your Content, you grant YOIBI a worldwide, royalty-free, perpetual, irrevocable, non-exclusive license to use, reproduce, modify, adapt, publish, translate, create derivative works from, distribute, perform, and display Your Content (in whole or in part) worldwide and/or to incorporate it in other works in any media, format, or technology now known or later developed.
@@ -85,7 +85,7 @@ export default function TermsOfServicePage() {
 
                         <h2 id="intellectual-property">Intellectual Property Rights</h2>
                         <p>
-                            The YOIBI brand, logo, name, and the Platform's design, user interface, and underlying software code are owned by [YOIBI_LEGAL_ENTITY] and protected by copyright, trademark, and other intellectual property laws.
+                            The YOIBI brand, logo, name, and the Platform&apos;s design, user interface, and underlying software code are owned by [YOIBI_LEGAL_ENTITY] and protected by copyright, trademark, and other intellectual property laws.
                         </p>
                         <p>
                             All content, features, and functionality on YOIBI, including but not limited to software, text, graphics, logos, images, audio clips, digital downloads, data compilations, and code, are owned by [YOIBI_LEGAL_ENTITY] or its licensors and protected by intellectual property rights.
@@ -111,7 +111,7 @@ export default function TermsOfServicePage() {
 
                         <h2 id="disclaimer-limitation">Disclaimers and Limitation of Liability</h2>
                         <p>
-                            <strong>AS IS:</strong> THE PLATFORM IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. WE DISCLAIM ALL WARRANTIES, INCLUDING WITHOUT LIMITATION ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
+                            <strong>AS IS:</strong> THE PLATFORM IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE&quot; WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. WE DISCLAIM ALL WARRANTIES, INCLUDING WITHOUT LIMITATION ANY IMPLIED WARRANTY OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT.
                         </p>
                         <p>
                             <strong>NO GUARANTEES:</strong> WE DO NOT GUARANTEE THAT THE PLATFORM WILL BE UNINTERRUPTED, SECURE, OR ERROR-FREE, THAT DEFECTS WILL BE CORRECTED, OR THAT THE PLATFORM WILL BE FREE FROM VIRUSES OR OTHER HARMFUL COMPONENTS.
@@ -136,7 +136,7 @@ export default function TermsOfServicePage() {
 
                         <h2 id="changes">Changes to Terms</h2>
                         <p>
-                            We may revise these Terms at any time. When we do, we will update the "Last updated" date at the top of this page. For material changes, we may provide additional notice through the Platform or via email if you provide one.
+                            We may revise these Terms at any time. When we do, we will update the &quot;Last updated&quot; date at the top of this page. For material changes, we may provide additional notice through the Platform or via email if you provide one.
                         </p>
                         <p>
                             Your continued use of the Platform after any changes to the Terms constitutes your acceptance of the revised Terms. If you do not agree to the revised Terms, you must stop using the Platform.
@@ -147,7 +147,7 @@ export default function TermsOfServicePage() {
                             These Terms are governed by the laws of [GOVERNING_JURISDICTION], without regard to its conflict of law principles. Any legal action or proceeding arising out of or relating to your use of the Platform shall be exclusively brought in the state or federal courts located in [GOVERNING_JURISDICTION], and you hereby consent to the personal jurisdiction and venue of such courts.
                         </p>
                         <p>
-                            <strong>Placeholder notice:</strong> Please replace [GOVERNING_JURISDICTION] with the appropriate governing jurisdiction for YOIBI's legal entity.
+                            <strong>Placeholder notice:</strong> Please replace [GOVERNING_JURISDICTION] with the appropriate governing jurisdiction for YOIBI&apos;s legal entity.
                         </p>
 
                         <h2 id="contact">Contact Us</h2>
