@@ -27,13 +27,16 @@ async function findById(id) {
 /**
  * Retrieves paginated top-level tweets (replyToId === null).
  */
-async function findPaginated({ authorIds = null, skip = 0, limit = 20 }) {
+async function findPaginated({ authorIds = null, excludeTweetIds = null, skip = 0, limit = 20 }) {
     if (mongoose.connection.readyState !== 1) {
         return [];
     }
     const query = { replyToId: null };
     if (Array.isArray(authorIds) && authorIds.length > 0) {
         query.authorId = { $in: authorIds };
+    }
+    if (Array.isArray(excludeTweetIds) && excludeTweetIds.length > 0) {
+        query._id = { $nin: excludeTweetIds };
     }
 
     return Tweet.find(query)
@@ -46,13 +49,16 @@ async function findPaginated({ authorIds = null, skip = 0, limit = 20 }) {
 /**
  * Counts total top-level tweets matching query.
  */
-async function count({ authorIds = null }) {
+async function count({ authorIds = null, excludeTweetIds = null }) {
     if (mongoose.connection.readyState !== 1) {
         return 0;
     }
     const query = { replyToId: null };
     if (Array.isArray(authorIds) && authorIds.length > 0) {
         query.authorId = { $in: authorIds };
+    }
+    if (Array.isArray(excludeTweetIds) && excludeTweetIds.length > 0) {
+        query._id = { $nin: excludeTweetIds };
     }
 
     return Tweet.countDocuments(query);

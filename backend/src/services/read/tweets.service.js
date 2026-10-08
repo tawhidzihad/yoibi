@@ -6,7 +6,7 @@ const {
     FEED_DISCOVERY_POOL_SIZE,
     FEED_OWN_PIN_MINUTES
 } = require("../../config/constants");
-const { selectDiscoveryForPage } = require("../../utils/prng");
+const { mulberry32, weightedRandomSelect } = require("../../utils/prng");
 
 /**
  * Service: List paginated top-level feed tweets
@@ -82,14 +82,7 @@ async function listTweets({
         ? seed
         : Math.floor(Math.random() * 2147483647) + 1;
 
-    // 1. Fetch base chronological tweets and total count
-    const skip = (page - 1) * limit;
-    const [rawTweets, totalItems] = await Promise.all([
-        tweetsRepository.findPaginated({ authorIds: null, skip, limit }),
-        tweetsRepository.count({ authorIds: null })
-    ]);
-
-    // 2. Own-post pinning on page 1 only (last FEED_OWN_PIN_MINUTES)
+    // 1. Own-post pinning on page 1 only (last FEED_OWN_PIN_MINUTES)
     let pinnedRaw = [];
     if (page === 1 && currentUserId) {
         const pinCutoff = new Date(Date.now() - FEED_OWN_PIN_MINUTES * 60 * 1000);
@@ -101,10 +94,7 @@ async function listTweets({
 
     const pinnedIdSet = new Set(pinnedRaw.map((t) => (t._id ? t._id.toString() : t.id)));
 
-    // Exclude viewer's pinned tweets from base tweets so they do not repeat
-    const baseRaw = rawTweets.filter((t) => !pinnedIdSet.has(t._id ? t._id.toString() : t.id));
-
-    // 3. Fetch discovery candidates (last FEED_DISCOVERY_WINDOW_DAYS)
+    // 2. Fetch discovery candidates (last FEED_DISCOVERY_WINDOW_DAYS)
     const windowCutoff = new Date(Date.now() - FEED_DISCOVERY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
     const rawCandidates = await tweetsRepository.findDiscoveryCandidates({
         windowCutoff,
@@ -112,7 +102,7 @@ async function listTweets({
         excludeAuthorId: currentUserId
     });
 
-    // 4. Exclude blocked / banned / deleted authors from discovery pool
+    // 3. Exclude blocked / banned / deleted authors from discovery pool
     let blockedUserIds = new Set();
     let validUserIds = new Set();
     const candidateAuthorIds = [...new Set(rawCandidates.map((c) => c.authorId).filter(Boolean))];
@@ -135,25 +125,34 @@ async function listTweets({
         return true;
     });
 
-    // 5. Select discovery tweets for this page using deterministic PRNG
-    const discoveryPerPage = Math.floor(limit / FEED_DISCOVERY_EVERY);
-    const pageIndex = page - 1;
+    // 4. Select deterministic discovery tweets for this seed session
     const referenceTime = Math.floor(Date.now() / 3600000) * 3600000;
-    const rawDiscoveryPicks = selectDiscoveryForPage(
+    const prng = mulberry32(feedSeed);
+    const allDiscoveryPicks = weightedRandomSelect(
         candidatePool,
-        discoveryPerPage,
-        feedSeed,
-        pageIndex,
+        candidatePool.length,
+        prng,
         referenceTime
     );
 
-    // Exclude any discovery pick that happens to be in current page's base stream
-    const baseIdSet = new Set(baseRaw.map((t) => (t._id ? t._id.toString() : t.id)));
-    const discoveryPicks = rawDiscoveryPicks.filter(
-        (d) => !baseIdSet.has(d._id ? d._id.toString() : d.id)
-    );
+    const discoveryIdSet = new Set(allDiscoveryPicks.map((d) => (d._id ? d._id.toString() : d.id)));
+    // Discovery and pinned tweets are strictly excluded from base query to guarantee disjoint sets
+    const excludeFromBase = [...Array.from(discoveryIdSet), ...Array.from(pinnedIdSet)];
 
-    // 6. Enrich all tweets with author profiles
+    // 5. Fetch base chronological stream (excluding discovery picks & pinned items)
+    const skip = (page - 1) * limit;
+    const [baseRaw, totalItems] = await Promise.all([
+        tweetsRepository.findPaginated({ authorIds: null, excludeTweetIds: excludeFromBase, skip, limit }),
+        tweetsRepository.count({ authorIds: null, excludeTweetIds: excludeFromBase })
+    ]);
+
+    // 6. Slice discovery picks for this specific page
+    const discoveryPerPage = Math.floor(limit / FEED_DISCOVERY_EVERY);
+    const pageIndex = page - 1;
+    const startIdx = pageIndex * discoveryPerPage;
+    const discoveryPicks = allDiscoveryPicks.slice(startIdx, startIdx + discoveryPerPage);
+
+    // 7. Enrich all tweets with author profiles
     const allToEnrich = [...pinnedRaw, ...baseRaw, ...discoveryPicks];
     const enrichedAll = await tweetsRepository.attachAuthors(allToEnrich);
     const enrichedMap = new Map(enrichedAll.map((t) => [t.id, t]));

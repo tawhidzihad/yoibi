@@ -111,10 +111,15 @@ async function runFeedDiscoveryTests({ request } = {}) {
             createdAt: new Date(now - (i + 10) * 3600000)
         }));
 
-        tweetsRepository.findPaginated = async ({ skip = 0, limit = 20 }) => {
-            return baseTweets.slice(skip, skip + limit);
+        tweetsRepository.findPaginated = async ({ skip = 0, limit = 20, excludeTweetIds = null } = {}) => {
+            const excludeSet = new Set(excludeTweetIds || []);
+            const filtered = baseTweets.filter((t) => !excludeSet.has(t._id || t.id));
+            return filtered.slice(skip, skip + limit);
         };
-        tweetsRepository.count = async () => baseTweets.length;
+        tweetsRepository.count = async ({ excludeTweetIds = null } = {}) => {
+            const excludeSet = new Set(excludeTweetIds || []);
+            return baseTweets.filter((t) => !excludeSet.has(t._id || t.id)).length;
+        };
         tweetsRepository.findDiscoveryCandidates = async () => [...discoveryCandidates];
         tweetsRepository.findPinnedTweets = async () => [];
         tweetsRepository.attachAuthors = async (tweets) => {
