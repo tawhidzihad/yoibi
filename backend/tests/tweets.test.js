@@ -4,6 +4,7 @@ const app = require("../src/app");
 const tweetsRepository = require("../src/repositories/tweets.repository");
 const { createTweet } = require("../src/services/create/tweets.service");
 const { runTweetMediaContractTests } = require("./tweet-media-contract.test");
+const { runFeedDiscoveryTests } = require("./feed-discovery.test");
 const { listTweets, getTweetById, getReplies } = require("../src/services/read/tweets.service");
 const { likeTweet, unlikeTweet, retweetTweet, undoRetweet } = require("../src/services/update/tweets.service");
 const { deleteTweet } = require("../src/services/delete/tweets.service");
@@ -357,6 +358,9 @@ async function runTweetsTests() {
             assert.strictEqual(reply381Res.body.success, false);
             assert.strictEqual(reply381Res.body.error.code, "VALIDATION_ERROR");
             console.log("✓ POST /api/v1/tweets/:id/replies with 381 characters rejected with 400 VALIDATION_ERROR.");
+
+            // Feed Discovery & Own-Post Pinning test suite
+            await runFeedDiscoveryTests({ request });
         } finally {
             // Restore repository methods and auth environment for later suites.
             tweetsRepository.findById = httpOriginalFindById;

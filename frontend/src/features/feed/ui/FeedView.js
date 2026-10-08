@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { TweetList } from "@/features/tweets/ui/TweetList";
 import { tweetsApi } from "@/features/tweets/api/tweetsApi";
 
@@ -11,16 +11,23 @@ export function FeedView() {
     const [page, setPage] = useState(1);
     const [hasNextPage, setHasNextPage] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
+    const feedSeedRef = useRef(null);
 
     const fetchTweets = useCallback(async (pageNum = 1, append = false) => {
         if (append) {
             setLoadingMore(true);
+        } else {
+            setLoading(true);
+            setError("");
+            feedSeedRef.current = null;
         }
 
         try {
             const res = await tweetsApi.getTweets({
                 page: pageNum,
                 limit: 20,
+                mode: "feed",
+                seed: append ? feedSeedRef.current : undefined,
             });
 
             if (!res.success) {
@@ -28,8 +35,16 @@ export function FeedView() {
             } else {
                 const items = res.data?.items || [];
                 const pagination = res.data?.pagination;
+                if (res.data?.feedSeed) {
+                    feedSeedRef.current = res.data.feedSeed;
+                }
+
                 if (append) {
-                    setTweets((prev) => [...prev, ...items]);
+                    setTweets((prev) => {
+                        const existingIds = new Set(prev.map((t) => t.id));
+                        const uniqueNew = items.filter((t) => !existingIds.has(t.id));
+                        return [...prev, ...uniqueNew];
+                    });
                 } else {
                     setTweets(items);
                 }
@@ -49,15 +64,20 @@ export function FeedView() {
         async function load() {
             setLoading(true);
             setError("");
+            feedSeedRef.current = null;
             try {
                 const res = await tweetsApi.getTweets({
                     page: 1,
                     limit: 20,
+                    mode: "feed",
                 });
                 if (!isCancelled) {
                     if (!res.success) {
                         setError(res.error?.message || "Failed to load feed tweets.");
                     } else {
+                        if (res.data?.feedSeed) {
+                            feedSeedRef.current = res.data.feedSeed;
+                        }
                         setTweets(res.data?.items || []);
                         setHasNextPage(Boolean(res.data?.pagination?.hasNextPage));
                         setPage(1);

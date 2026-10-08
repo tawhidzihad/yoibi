@@ -396,11 +396,14 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 - Auth: Optional (personalizes `liked` and `retweeted` state if authenticated)
 - Query Parameters:
-  - `page` (default `1`)
-  - `limit` (default `20`, max `50`)
-  - `authorId` (optional)
+  - `page` (default `1`, min `1`)
+  - `limit` (default `20`, max `50`, min `1`)
   - `filter`: `all` | `following`
-- Response (200): Paginated list of tweets with author details, media URLs, like count, retweet count, and reply count.
+  - `authorHandle` (optional string, resolves to user ID for profile Tweets tab)
+  - `mode`: `feed` | `tweets` (optional; when `feed`, enables seeded discovery mixing and own-post pinning)
+  - `seed`: optional integer (session PRNG seed for deterministic discovery pagination across pages)
+  - `cursor`: optional alphanumeric string
+- Response (200): Paginated list of tweets (`items`), `pagination` envelope (`page`, `limit`, `totalItems`, `totalPages`, `hasNextPage`), and `feedSeed` (integer returned when `mode=feed`). Pinned own tweets appear at the top of page 1 in `mode=feed`. Base tweets remain strictly chronological without opt-in `mode=feed`.
 
 ### `POST /api/v1/tweets/media-signature`
 

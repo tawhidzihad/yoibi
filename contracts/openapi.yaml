@@ -362,6 +362,31 @@ paths:
           schema:
             type: integer
             default: 20
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [feed, tweets]
+          description: Opt-in feed discovery mode with seeded randomization and own-post pinning
+        - name: seed
+          in: query
+          schema:
+            type: integer
+          description: Feed session PRNG seed for deterministic pagination
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, following]
+            default: all
+        - name: authorHandle
+          in: query
+          schema:
+            type: string
       responses:
         '200':
           description: Paginated tweets list

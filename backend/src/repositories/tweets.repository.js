@@ -292,11 +292,59 @@ async function attachAuthors(tweets) {
     return isArray ? enriched : enriched[0];
 }
 
+/**
+ * Finds discovery candidate tweets:
+ * - replyToId: null (top-level tweets only)
+ * - createdAt: >= windowCutoff (e.g. last 14 days)
+ * - authorId: != excludeAuthorId (if excludeAuthorId provided, e.g. viewer)
+ * Sorted by createdAt: -1, bounded by limit (e.g. 100).
+ * Uses the existing compound index { createdAt: -1 }.
+ */
+async function findDiscoveryCandidates({ windowCutoff, limit = 100, excludeAuthorId = null }) {
+    if (mongoose.connection.readyState !== 1) {
+        return [];
+    }
+    const query = {
+        replyToId: null,
+        createdAt: { $gte: windowCutoff }
+    };
+    if (excludeAuthorId) {
+        query.authorId = { $ne: excludeAuthorId };
+    }
+    return Tweet.find(query)
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean();
+}
+
+/**
+ * Finds viewer's own pinned tweets from the last FEED_OWN_PIN_MINUTES.
+ * - replyToId: null
+ * - authorId: authorId
+ * - createdAt: >= since
+ * Sorted by createdAt: -1.
+ * Uses existing compound index { authorId: 1, createdAt: -1 }.
+ */
+async function findPinnedTweets({ authorId, since }) {
+    if (mongoose.connection.readyState !== 1 || !authorId) {
+        return [];
+    }
+    return Tweet.find({
+        replyToId: null,
+        authorId,
+        createdAt: { $gte: since }
+    })
+        .sort({ createdAt: -1 })
+        .lean();
+}
+
 module.exports = {
     create,
     findById,
     findPaginated,
     count,
+    findDiscoveryCandidates,
+    findPinnedTweets,
     findReplies,
     findThreadComments,
     findManyByIds,
@@ -311,3 +359,4 @@ module.exports = {
     decrementRepliesCount,
     attachAuthors
 };
+

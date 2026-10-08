@@ -55,6 +55,9 @@ const listTweetsQuerySchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
     limit: z.coerce.number().int().min(1).max(50).default(20),
     filter: z.enum(["all", "following"]).default("all"),
+    mode: z.enum(["feed", "tweets"]).optional(),
+    seed: z.coerce.number().int().min(1).optional(),
+    cursor: z.string().regex(/^[a-zA-Z0-9_-]+$/, "Cursor must be alphanumeric").max(100).optional(),
     authorHandle: z
         .string()
         .max(30)

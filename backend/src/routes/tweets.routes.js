@@ -26,7 +26,7 @@ router.get("/tweets/config", handleGetTweetConfig);
 router.post("/tweets/media-signature", expensiveLimiter, verifyJwt, handleGetTweetImageSignature);
 
 // Feed & Tweet Listing
-router.get("/tweets", optionalAuth, validate(listTweetsQuerySchema, "query"), handleListTweets);
+router.get("/tweets", optionalAuth, validate(listTweetsQuerySchema, "query", { statusCode: 400 }), handleListTweets);
 router.post("/tweets", writeLimiter, verifyJwt, validate(createTweetSchema, "body", { statusCode: 400 }), handleCreateTweet);
 
 // Single Tweet Details & Deletion
