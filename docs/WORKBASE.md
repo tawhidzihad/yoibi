@@ -11,65 +11,77 @@ Every session writes to this file in EXACTLY this section structure:
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Status
-- Task ID: TASK-029
-- Title: Complete Removal of Streams Feature
-- Status: **COMPLETE** — All Streams code, endpoints, database collection, contracts, tests, and documentation completely removed; backend & frontend deployed and live-verified.
+- Task ID: TASK-030
+- Title: Raise Tweet limit to 380, server-enforced limit, auto-grow textarea, clean /tweets header
+- Status: **COMPLETE** — Tweet limit raised to 380 with backend single source of truth, dynamic config endpoint, grapheme cluster character counting, header removed from /tweets, reusable AutoGrowTextarea created and integrated, deployed to Railway & Vercel, live-verified.
 - Completion Level: `COMPLETE`
 - Summary:
-  - Removed all Streams feature code across frontend (`src/app/(protected)/streams/`, `src/features/streams/`, navigation links, stream report options, stats card, feed/user mock data) and backend (`routes/streams.routes.js`, 4 streams controllers, 4 streams services, `streams.repository.js`, `stream.model.js`, `streams.validator.js`, `integrations/livekit/livekit.js` host/viewer token generators, admin moderation stream actions).
-  - Preserved all shared Meet-Up LiveKit integration code (`terminateLiveKitRoom`, `generateMeetupParticipantToken`, token reservation, slot management, LiveKit environment variables).
-  - Executed production database cleanup script: dropped `streams` collection, verified 0 orphaned reports, verified all 7 preserved collections (`users`, `user`, `tweets`, `videos`, `meetup_rooms`, `follows`, `audit_logs`) completely intact.
-  - Contract & doc synchronization: removed Section 8 from `contracts/API-CONTRACT.md` (renumbered 8-12), removed `/streams*` from `contracts/openapi.yaml`, updated `AGENTS.md`, `README.md`, `PROJECT-STRUCTURE.md`, `docs/MIGRATION-PLAN.md`, `docs/BAN-DELETION-PLAN.md`, `docs/SECURITY-RULES.md`, `docs/ENVIRONMENT.md`, `docs/FRONTEND-GUIDE.md`.
-  - Verification: local tests passed 100%, backend & frontend lint passed (0 errors), frontend build passed (19 pages, zero stream routes).
-  - Production deployments: Railway backend deployment `9d7725ae-644b-428e-afe5-9da435071023` Online; Vercel frontend deployment `dpl_4LRZ7LyHqQMGk1hETgzUm43w8nc5` live at `https://www.yoibi.com`.
-  - Live smoke tests: `/streams` returns 404, `/api/v1/streams` returns 404, health check 200 OK, core routes (`/`, `/tweets`, `/videos`, `/meetup`, `/privacy-policy`, `/terms`) all return 200 OK.
+  - Raised Tweet length limit from 280 to 380 characters across the platform. Single source of truth on the backend (`TWEET_MAX_LENGTH = 380` in `backend/src/config/constants.js`), exposed via public endpoint `GET /api/v1/tweets/config` returning `{ success: true, data: { maxLength: 380, maxMediaCount: 5 } }`. Over-limit requests rejected with HTTP 400 `VALIDATION_ERROR`.
+  - Consistent character counting using `Intl.Segmenter` with grapheme cluster granularity and NFC normalization on both server (`backend/src/utils/charCount.js`) and client (`frontend/src/shared/utils/charCount.js`), treating complex multi-byte sequences and compound emojis (e.g., 👍🏽, 😀) accurately as 1 character.
+  - Cleaned up `/tweets` header: completely removed `<h1>Tweets</h1>` and subtext ("Concise thoughts · 280-character limit · Real-time conversations"). Maintained balanced page spacing on desktop and mobile.
+  - Created reusable `AutoGrowTextarea` component in `src/shared/ui/AutoGrowTextarea.js` (forwardRef, controlled/uncontrolled safe, RHF compatible, auto-grow on typing/Enter/paste, auto-shrink on delete, hidden native resize handle, hidden scrollbars) and integrated into `CreateTweetCard` (used on `/tweets`).
+  - Integrated dynamic `useTweetConfig()` hook in `CreateTweetCard.js` and `TweetReplySection.js`, eliminating hardcoded tweet length limits in UI code.
+  - Contracts & Docs synced: `contracts/API-CONTRACT.md`, `contracts/openapi.yaml`, `README.md`, `docs/SECURITY-RULES.md`.
+  - Full local test suites passed: backend `npm test` 100%, backend `npm run lint` 0 errors, backend `npm audit` 0 vulnerabilities, frontend `npm run lint` 0 errors, frontend `npm run build` 19/19 pages prerendered/compiled cleanly, vitest suites passed.
+  - Production deployments: Railway backend deployment `0954ac8c-52c2-4689-b951-75158ef37a68` Online; Vercel frontend deployment `dpl_FLm8ynE7GNibrCqgJj2WG2RkUt2X` Ready aliased to `https://www.yoibi.com`.
+  - Live production verification: verified header cleanly gone on desktop & mobile; 380 character limit correctly served by `/tweets/config`; UI over-limit (381 chars) disables submit with red counter `-1`; direct API bypass attempt rejected with HTTP 400 `VALIDATION_ERROR`; 380-char tweet creation succeeded and was cleanly deleted; auto-growing and shrinking verified; feeds, replies, profiles, and meetups intact.
 
 ## Last Completed Step
-1. **Production deployment & verification:**
-   - Deployed backend to Railway via `railway up` from `backend/` (deployment `9d7725ae-644b-428e-afe5-9da435071023` Online).
-   - Verified backend health endpoint `GET /api/v1/health` (HTTP 200, db connected) and streams route `GET /api/v1/streams` (HTTP 404 NOT_FOUND).
-   - Deployed frontend to Vercel via `vercel --prod --yes` from repo root (deployment `dpl_4LRZ7LyHqQMGk1hETgzUm43w8nc5` aliased to `https://www.yoibi.com`).
-   - Ran database cleanup script `cleanup-streams-db.js --execute`: dropped `streams` collection, confirmed 0 stream reports, verified baseline counts for all preserved collections. Deleted cleanup script.
-   - Live production verification:
-     - `https://www.yoibi.com/streams` — **✓ HTTP 404** (Page not found)
-     - `https://yoibi-backend-production.up.railway.app/api/v1/streams` — **✓ HTTP 404** (Endpoint does not exist)
-     - `https://www.yoibi.com/` — **✓ HTTP 200**, verified 0 stream links in HTML
-     - `https://www.yoibi.com/tweets` — **✓ HTTP 200**
-     - `https://www.yoibi.com/videos` — **✓ HTTP 200**
-     - `https://www.yoibi.com/meetup` — **✓ HTTP 200**
-     - `https://www.yoibi.com/privacy-policy` — **✓ HTTP 200**
-     - `https://www.yoibi.com/terms` — **✓ HTTP 200**
+1. **Audit & Single Source of Truth:**
+   - Audited all 280 occurrences across repository. Preserved unrelated numbers (280 bio limit, 280px widths). Replies share tweet constant.
+   - Defined `TWEET_MAX_LENGTH = 380` in `backend/src/config/constants.js`.
+   - Exposed `GET /api/v1/tweets/config` returning `{ success: true, data: { maxLength: 380, maxMediaCount: 5 } }`.
+   - Integrated `countGraphemes` using `Intl.Segmenter` in `backend/src/utils/charCount.js` and `frontend/src/shared/utils/charCount.js`.
+   - Backend validation in `tweets.validator.js`, `tweet.model.js`, and `tweets.service.js` updated to enforce 380 max characters with HTTP 400 `VALIDATION_ERROR`.
+
+2. **Frontend UI & Shared Component:**
+   - Cleanly removed `<h1>Tweets</h1>` and subtext header block in `TweetsView.js`.
+   - Built `AutoGrowTextarea.js` in `src/shared/ui/` with auto-resizing, hidden scrollbars, hidden resize handle, and controlled/uncontrolled/RHF safety.
+   - Integrated `AutoGrowTextarea` into `CreateTweetCard.js`.
+   - Added `useTweetConfig.js` hook fetching server config dynamically; updated `CreateTweetCard.js` and `TweetReplySection.js` to eliminate hardcoded limits.
+
+3. **Contracts & Documentation:**
+   - Synchronized `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` with `/tweets/config` endpoint and 380 character limit.
+   - Updated `README.md` and `docs/SECURITY-RULES.md`.
+
+4. **Testing, Deployment & Live Verification:**
+   - Local quality gates passed: `npm test` 100%, backend lint 0 errors, backend audit 0 vulnerabilities, frontend lint 0 errors, frontend build 19/19 pages successful.
+   - Deployed Railway backend (`0954ac8c-52c2-4689-b951-75158ef37a68`) and Vercel frontend (`dpl_FLm8ynE7GNibrCqgJj2WG2RkUt2X`).
+   - Live API tested: direct API bypass attempt with 381 characters returned HTTP 400 `VALIDATION_ERROR`; 380-character tweet creation succeeded (201) and was immediately deleted.
+   - Live browser tested: `/tweets` header removed cleanly on desktop (1280x800) and mobile (390x844); textarea auto-grew on typing, Enter, and paste, and shrank on delete; 381 characters disabled submit with red counter; test tweet posted, verified, and deleted.
+   - Verified zero orphaned test tweets or test accounts in production database.
 
 ## Next Step
-- **None** — TASK-029 is COMPLETE.
+- **None** — TASK-030 is COMPLETE.
 
 ## Files Touched This Session
-- **Frontend deleted (16 files):** `frontend/src/app/(protected)/streams/page.js`, `frontend/src/app/(protected)/streams/[id]/page.js`, `frontend/src/features/streams/api/mock-streams.js`, `frontend/src/features/streams/api/streams.js`, `frontend/src/features/streams/context/StreamContext.js`, `frontend/src/features/streams/hooks/useActiveStreams.js`, `frontend/src/features/streams/hooks/useLiveKitRoom.js`, `frontend/src/features/streams/hooks/useStreamChat.js`, `frontend/src/features/streams/hooks/useStreams.js`, `frontend/src/features/streams/ui/ChatModerationControls.js`, `frontend/src/features/streams/ui/ChatPanel.js`, `frontend/src/features/streams/ui/EndStreamModal.js`, `frontend/src/features/streams/ui/GoLiveModal.js`, `frontend/src/features/streams/ui/StreamCard.js`, `frontend/src/features/streams/ui/StreamRoom.js`, `frontend/tests/streams-room.test.js`.
-- **Backend deleted (13 files):** `backend/src/routes/streams.routes.js`, `backend/src/controllers/create/streams.create.controller.js`, `backend/src/controllers/read/streams.controller.js`, `backend/src/controllers/update/streams.update.controller.js`, `backend/src/controllers/delete/streams.delete.controller.js`, `backend/src/services/create/streams.create.service.js`, `backend/src/services/read/streams.read.service.js`, `backend/src/services/update/streams.update.service.js`, `backend/src/services/delete/streams.delete.service.js`, `backend/src/repositories/streams.repository.js`, `backend/src/models/stream.model.js`, `backend/src/validators/streams.validator.js`, `backend/tests/streams.test.js`.
-- **Frontend modified (23 files):** `src/app/(protected)/layout.js`, `src/app/(protected)/tweets/[id]/page.js`, `src/app/(public)/page.js`, `src/app/(public)/privacy-policy/page.js`, `src/app/(public)/terms/page.js`, `src/app/globals.css`, `src/app/layout.js`, `src/features/admin/hooks/useAdminContent.js`, `src/features/admin/ui/BanUserModal.js`, `src/features/admin/ui/BlockUserModal.js`, `src/features/admin/ui/ContentModerator.js`, `src/features/admin/ui/StatsOverview.js`, `src/features/admin/ui/UnblockUserModal.js`, `src/features/feed/api/mock-feed.js`, `src/features/feed/ui/FeedView.js`, `src/features/profile/ui/ProfileContent.js`, `src/features/tweets/ui/TweetsView.js`, `src/features/users/api/mock-users.js`, `src/features/users/ui/UserSearch.js`, `src/lib/api/admin.js`, `src/lib/api/reports.js`, `frontend/tests/profile.test.js`, `frontend/README.md`.
-- **Backend modified (17 files):** `src/routes/index.js`, `src/controllers/read/auth.controller.js`, `src/controllers/read/users.controller.js`, `src/models/report.model.js`, `src/models/user.model.js`, `src/repositories/admin.repository.js`, `src/services/admin.service.js`, `src/services/contentModeration.service.js`, `src/services/reports.service.js`, `src/validators/admin.validator.js`, `src/validators/reports.validator.js`, `src/integrations/livekit/livekit.js`, `tests/admin.test.js`, `tests/users-profile.test.js`, `tests/index.js`, `backend/.env.example`, `backend/README.md`.
-- **Contracts & Documentation (11 files):** `contracts/API-CONTRACT.md`, `contracts/openapi.yaml`, `README.md`, `PROJECT-STRUCTURE.md`, `AGENTS.md`, `.agents/skills/skills0-livekit.md`, `docs/ENVIRONMENT.md`, `docs/FRONTEND-GUIDE.md`, `docs/MIGRATION-PLAN.md`, `docs/SECURITY-RULES.md`, `docs/BAN-DELETION-PLAN.md`.
-- **Session Docs:** `docs/WORKBASE.md`, `docs/MODEL-HANDOFF.md`.
+- **Backend Created:** `backend/src/config/constants.js`, `backend/src/utils/charCount.js`.
+- **Backend Modified:** `backend/src/validators/tweets.validator.js`, `backend/src/models/tweet.model.js`, `backend/src/services/create/tweets.service.js`, `backend/src/controllers/read/tweets.controller.js`, `backend/src/routes/tweets.routes.js`, `backend/src/middleware/validate.js`, `backend/tests/tweets.test.js`, `backend/package-lock.json`.
+- **Frontend Created:** `frontend/src/shared/ui/AutoGrowTextarea.js`, `frontend/src/shared/utils/charCount.js`, `frontend/src/features/tweets/hooks/useTweetConfig.js`.
+- **Frontend Modified:** `frontend/src/lib/api/tweetsApi.js`, `frontend/src/features/tweets/ui/CreateTweetCard.js`, `frontend/src/features/tweets/ui/TweetReplySection.js`, `frontend/src/features/tweets/ui/TweetsView.js`, `frontend/tests/tweets-media.test.js`.
+- **Contracts & Docs:** `contracts/API-CONTRACT.md`, `contracts/openapi.yaml`, `README.md`, `docs/SECURITY-RULES.md`, `docs/WORKBASE.md`, `docs/MODEL-HANDOFF.md`.
 
 ## Known Issues / Blockers
-- None — all steps completed successfully, tests pass, deployed, live-tested.
+- None — all deployment and verification steps completed successfully.
 
 ## Session Date
-- 2026-10-09 (TASK-029: Complete Removal of Streams Feature)
+- 2026-10-09 (TASK-030: Raise Tweet Limit to 380, Server-Enforced Limit, Auto-Grow Textarea, Clean Header)
 
 ## What Is Working
-- Core features completely functional: Tweets, Videos (Shorts/Longform), Meet-Up rooms, Profiles, Search, Auth, Moderation.
-- Shared LiveKit integration for Meet-Up intact and working.
-- Streams route returns 404 on both frontend and backend.
-- Admin dashboard metrics and content moderator tabs function cleanly with tweets and videos.
-- Database cleaned up: `streams` collection dropped; reports cleaned; all preserved collections untouched.
-
+- ✅ Tweet limit increased to 380 characters, enforced on server as single source of truth.
+- ✅ `GET /api/v1/tweets/config` serves `{ maxLength: 380, maxMediaCount: 5 }` dynamically to frontend.
+- ✅ Character counting using NFC normalized grapheme clusters via `Intl.Segmenter` on client and server.
+- ✅ Clean /tweets layout without header or subtext, perfectly responsive on desktop and mobile.
+- ✅ Reusable `AutoGrowTextarea` smoothly grows and shrinks with typing, newlines, pasting, and deletion.
+- ✅ Over-limit tweets (381+ chars) disabled in UI and rejected with HTTP 400 `VALIDATION_ERROR` on server.
+- ✅ Core social features (Feed, Tweets, Replies, Likes, Retweets, Search, Profiles, Meet-Up) 100% operational.
 
 ## Task History Index
 One line per task; full detail in `docs/WORKBASE-ARCHIVE.md`.
 
 | Task | Title | Status |
 |------|-------|--------|
+| TASK-030 | Raise Tweet limit to 380, server-enforced limit, auto-grow textarea, clean /tweets header | COMPLETE — server constant 380, dynamic config endpoint, grapheme counting, header removed, AutoGrowTextarea, deployed Rail + Vercel prod, live-verified |
 | TASK-029 | Complete Removal of Streams Feature | COMPLETE — all streams code/tests deleted, database collection dropped, contracts/docs synced, deployed Rail + Vercel prod, live-verified |
 | TASK-028 | Mandatory Email Verification (React Email + Resend) | COMPLETE — deployed; follow-up 1: emailVerified moved to `user` singular, redirect to /feed w/o duplicate email; follow-up 2 (this session): root-cause fix for verified users bounced to /verify-email mid-session (frontend fallback-branch emailVerified + backend moderation-cache invalidation), deployed Rail `37d05eb4` + Vercel prod |
 | TASK-027 | Comment UI revision: simple nesting + "See N Replies" toggle, comment-author profile nav, share-link fix, share modal, @username reply prefix (FE only) | COMPLETE — deployed & live-verified (real-browser E2E 35/35) |

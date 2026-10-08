@@ -7,67 +7,56 @@ Every session writes to this file in EXACTLY this section structure:
 
 ## Current Status
 - Session Date: 2026-10-09
-- Active task: TASK-029 — Complete Removal of Streams Feature
-- Overall phase: Phase 5 complete; Streams feature completely removed across full stack; platform live in production
-- Completion status: `DONE` — All Streams code, endpoints, database collection, contracts, tests, and documentation completely removed; backend & frontend deployed and live-verified.
-- Git repository status: commit created, production deployed and verified.
+- Active task: TASK-030 — Raise Tweet Limit to 380, Server-Enforced Limit, Auto-Grow Textarea, Clean Header
+- Overall phase: Production live; Tweet limit raised to 380 enforced on backend, dynamic config delivery, clean header, auto-grow textarea
+- Completion status: `DONE` — Backend and frontend updated, contracts/docs synced, deployed to Railway & Vercel, live production fully verified.
+- Git repository status: commits created, production deployed and verified, ready to push.
 - Current branch: `main`
 
 ## Last Completed Step
-1. **Scope and audit confirmation:**
-   - Audited all Streams code, endpoints, database schemas, and shared LiveKit usages.
-   - Confirmed `generateHostToken` and `generateViewerToken` had 0 references in Meet-Up or other features before removal.
-   - Retained all shared LiveKit helpers (`terminateLiveKitRoom`, `generateMeetupParticipantToken`, token reservation, slot management, LiveKit environment variables).
-   - In `admin.service.js` `banUser`, removed stream-specific Phase B and Phase C while preserving tweet, video, and meetup teardowns.
+1. **Audit & Server as Single Source of Truth:**
+   - Audited all 280 occurrences across repository. Preserved unrelated numbers (280 user bio limit, 280px drawer/table CSS widths).
+   - Confirmed replies are tweets (`replyToId` in same collection) and inherit the server limit.
+   - Defined `TWEET_MAX_LENGTH = 380` in `backend/src/config/constants.js`.
+   - Exposed `GET /api/v1/tweets/config` returning `{ success: true, data: { maxLength: 380, maxMediaCount: 5 } }`.
+   - Enforced 380 limit in `tweets.validator.js` (`createTweetSchema`, `createReplySchema`), `tweet.model.js` (Mongoose schema `maxlength: 380`), and `tweets.service.js` with HTTP 400 `VALIDATION_ERROR`.
+   - Created grapheme cluster character counting using `Intl.Segmenter` with NFC normalization in `backend/src/utils/charCount.js` and `frontend/src/shared/utils/charCount.js`, accurately treating multi-byte characters and compound emojis as 1 character.
 
-2. **Code and test deletions (29 files/folders deleted):**
-   - Frontend: `src/app/(protected)/streams/` directory, `src/features/streams/` directory (13 files), `frontend/tests/streams-room.test.js`.
-   - Backend: 13 files deleted (`streams.routes.js`, 4 controllers, 4 services, `streams.repository.js`, `stream.model.js`, `streams.validator.js`, `backend/tests/streams.test.js`).
+2. **Frontend UI & Shared Auto-Growing Component:**
+   - Created reusable `AutoGrowTextarea` in `src/shared/ui/AutoGrowTextarea.js` (forwardRef, controlled/uncontrolled safe, RHF compatible, auto-grow on typing/Enter/paste, auto-shrink on delete, hidden native resize handle, hidden scrollbars).
+   - Replaced standard textarea in `CreateTweetCard.js` with `AutoGrowTextarea`.
+   - Removed `<h1>Tweets</h1>` heading and subtext cleanly in `TweetsView.js`.
+   - Replaced hardcoded limits in `CreateTweetCard.js` and `TweetReplySection.js` with dynamic `useTweetConfig()` hook.
 
-3. **Code, contract, and documentation edits (51 files modified):**
-   - Frontend navigation links, stream report choices, admin stream moderation tabs/actions, feed & user search mock stream records removed.
-   - Backend route registrations, report model/validators, user model/validators, admin repository/service stream operations removed.
-   - Removed Section 8 from `contracts/API-CONTRACT.md` (renumbered 8-12) and `/streams*` from `contracts/openapi.yaml`.
-   - Updated `README.md`, `PROJECT-STRUCTURE.md`, `AGENTS.md`, `.agents/skills/skills0-livekit.md`, `docs/ENVIRONMENT.md`, `docs/FRONTEND-GUIDE.md`, `docs/MIGRATION-PLAN.md`, `docs/SECURITY-RULES.md`, `docs/BAN-DELETION-PLAN.md`.
+3. **Contracts, Quality Gates & Deployment:**
+   - Updated `contracts/API-CONTRACT.md`, `contracts/openapi.yaml`, `README.md`, `docs/SECURITY-RULES.md`.
+   - Backend tests (14 test cases including 380 allowed, 381 rejected with 400, direct API bypass rejected with 400, config endpoint, grapheme counting) passed 100%.
+   - Backend & frontend lint: 0 errors; backend audit: 0 vulnerabilities; frontend build: 19/19 pages compiled successfully.
+   - Deployed Railway backend (`0954ac8c-52c2-4689-b951-75158ef37a68`) and Vercel frontend (`dpl_FLm8ynE7GNibrCqgJj2WG2RkUt2X`).
 
-4. **Local verification:**
-   - Backend tests passed 100% (`npm test`).
-   - Backend & frontend lint passed 0 errors (`npm run lint`).
-   - Frontend build succeeded with 0 stream routes (`npm run build`).
-   - Committed changes locally (`78c506b`).
-
-5. **Production deployment & database cleanup:**
-   - Deployed backend to Railway (`yoibi-backend` Online deployment `9d7725ae-644b-428e-afe5-9da435071023`).
-   - Deployed frontend to Vercel (`yoibi-frontend` READY deployment `dpl_4LRZ7LyHqQMGk1hETgzUm43w8nc5` aliased to `https://www.yoibi.com`).
-   - Executed database cleanup script `cleanup-streams-db.js --execute`: dropped `streams` collection, 0 stream reports deleted, all 7 preserved collections (`users`, `user`, `tweets`, `videos`, `meetup_rooms`, `follows`, `audit_logs`) verified unchanged. Removed script.
-
-6. **Live production smoke tests (all passed):**
-   - `https://www.yoibi.com/streams` — **✓ HTTP 404**
-   - `https://yoibi-backend-production.up.railway.app/api/v1/streams` — **✓ HTTP 404**
-   - `https://yoibi-backend-production.up.railway.app/api/v1/health` — **✓ HTTP 200**
-   - `https://www.yoibi.com/` — **✓ HTTP 200** (0 stream links in HTML)
-   - `https://www.yoibi.com/tweets` — **✓ HTTP 200**
-   - `https://www.yoibi.com/videos` — **✓ HTTP 200**
-   - `https://www.yoibi.com/meetup` — **✓ HTTP 200**
-   - `https://www.yoibi.com/privacy-policy` — **✓ HTTP 200**
-   - `https://www.yoibi.com/terms` — **✓ HTTP 200**
+4. **Live Production Verification:**
+   - Direct API bypass attempt: `POST /api/v1/tweets` with 381 characters returned HTTP 400 `VALIDATION_ERROR` (`Tweet cannot exceed 380 characters`).
+   - Direct API 380 characters: created successfully with 201; cleaned up immediately.
+   - Live browser smoke: `/tweets` header cleanly absent on desktop and mobile; composer counter shows dynamic `/380`; auto-grow expands smoothly on newlines and pasted text and shrinks on delete; 381 characters disables submit with red `-1` counter; test tweet posted, verified in feed, and deleted cleanly.
+   - Database verified: 0 orphaned test tweets and 0 test accounts left in production.
 
 ## Exact Next Step
-- None — TASK-029 is COMPLETE.
+- None — TASK-030 is COMPLETE.
 
 ## Files Touched (this session)
 - Full list documented in `docs/WORKBASE.md`.
-- Summary: 29 files deleted, 51 code/docs/contract files updated, database collection dropped, session docs updated.
+- Summary: 5 files created, 16 files modified, backend & frontend deployed, production live-tested and verified clean.
 
 ## Known Issues / Blockers
 - None — all deployment and verification steps completed successfully.
 
 ## What Is Working
-- ✅ Tweets, Videos, Meet-Up, Profiles, Search, Moderation, Legal pages all fully functional
-- ✅ LiveKit Meet-Up room creation, participant joining, token minting intact
-- ✅ `/streams` returns 404 on frontend and backend
-- ✅ Production database has 0 stream records/collections
-- ✅ All builds, lints, and test suites passing cleanly
+- ✅ Tweet limit 380 enforced on server as single source of truth
+- ✅ Dynamic `/tweets/config` endpoint supplying constraints to client
+- ✅ Reusable `AutoGrowTextarea` with zero UI jumps, hidden scrollbars, and fluid resizing
+- ✅ Clean `/tweets` page layout on desktop and mobile with header removed
+- ✅ Over-limit tweets blocked client-side and rejected with HTTP 400 server-side
+- ✅ All core features (Feed, Tweets, Replies, Likes, Retweets, Search, Profiles, Meet-Up, Legal) 100% operational
 
 
 ## Reference
