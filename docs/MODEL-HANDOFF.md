@@ -6,59 +6,69 @@ Every session writes to this file in EXACTLY this section structure:
 `## Current Status` · `## Last Completed Step` · `## Exact Next Step` · `## Files Touched This Session` · `## Known Issues / Blockers` · `## Session Date` · `## What Is Working` · `## Reference`
 
 ## Current Status
-- Session Date: 2026-09-29
-- Active task: TASK-028 — Privacy Policy & Terms of Service Pages
-- Overall phase: Phase 5 complete; platform live in production; documentation hardening
-- Completion status: `DONE` — Privacy Policy and Terms pages created, lint/build passed, deployed to Vercel, verified live.
-- Git repository status: working tree clean; changes committed and pushed to `origin/main`.
-- Current branch: `main` (last 3 commits: ac7601e, 9638ec0, 5659939)
+- Session Date: 2026-10-09
+- Active task: TASK-029 — Complete Removal of Streams Feature
+- Overall phase: Phase 5 complete; Streams feature completely removed across full stack; platform live in production
+- Completion status: `DONE` — All Streams code, endpoints, database collection, contracts, tests, and documentation completely removed; backend & frontend deployed and live-verified.
+- Git repository status: commit created, production deployed and verified.
+- Current branch: `main`
 
 ## Last Completed Step
-1. **Placeholder content removal:**
-   - Removed Contact sections from both `/privacy-policy` and `/terms` entirely
-   - Replaced `[YOIBI_LEGAL_ENTITY]` with `YOIBI` throughout both pages
-   - Removed Governing Law section with `[GOVERNING_JURISDICTION]` placeholders from Terms
-   - Removed dangling contact references from table of contents
-   - Verified via curl/grep: no placeholder patterns remain (`[YOIBI`, `GOVERNING_JURISDICTION`, `contact@`, `TBD`)
+1. **Scope and audit confirmation:**
+   - Audited all Streams code, endpoints, database schemas, and shared LiveKit usages.
+   - Confirmed `generateHostToken` and `generateViewerToken` had 0 references in Meet-Up or other features before removal.
+   - Retained all shared LiveKit helpers (`terminateLiveKitRoom`, `generateMeetupParticipantToken`, token reservation, slot management, LiveKit environment variables).
+   - In `admin.service.js` `banUser`, removed stream-specific Phase B and Phase C while preserving tweet, video, and meetup teardowns.
 
-2. **Code quality verification:**
-   - `npm run lint` — **PASSED** after escaping `"` and `'` as `&quot;` and `&apos;` in JSX text (fixed 14 violations).
-   - `npm run build` — **PASSED** — Both `/privacy-policy` and `/terms` prerendered as static content.
+2. **Code and test deletions (29 files/folders deleted):**
+   - Frontend: `src/app/(protected)/streams/` directory, `src/features/streams/` directory (13 files), `frontend/tests/streams-room.test.js`.
+   - Backend: 13 files deleted (`streams.routes.js`, 4 controllers, 4 services, `streams.repository.js`, `stream.model.js`, `streams.validator.js`, `backend/tests/streams.test.js`).
 
-3. **Deployment to Vercel:**
-   - Ran `vercel --prod --yes` from `C:\projects\yoibi` (repo root per project's Vercel config where rootDirectory = `frontend`).
-   - **Result:** Deploy succeeded — Vercel CLI returned production URL: `https://yoibi-frontend-3m5k2l8n-yoibi.vercel.app` (aliased to `www.yoibi.com`).
+3. **Code, contract, and documentation edits (51 files modified):**
+   - Frontend navigation links, stream report choices, admin stream moderation tabs/actions, feed & user search mock stream records removed.
+   - Backend route registrations, report model/validators, user model/validators, admin repository/service stream operations removed.
+   - Removed Section 8 from `contracts/API-CONTRACT.md` (renumbered 8-12) and `/streams*` from `contracts/openapi.yaml`.
+   - Updated `README.md`, `PROJECT-STRUCTURE.md`, `AGENTS.md`, `.agents/skills/skills0-livekit.md`, `docs/ENVIRONMENT.md`, `docs/FRONTEND-GUIDE.md`, `docs/MIGRATION-PLAN.md`, `docs/SECURITY-RULES.md`, `docs/BAN-DELETION-PLAN.md`.
 
-4. **Live-test verification (actual HTTP requests made):**
-   - `https://www.yoibi.com/privacy-policy` — **✓ HTTP 200**, renders correct Privacy Policy with 11 sections, no placeholders.
-   - `https://www.yoibi.com/terms` — **✓ HTTP 200**, renders correct Terms of Service with 9 sections, no placeholders.
-   - `https://www.yoibi.com/privacy` — **✓ HTTP 308 Permanent Redirect** → `https://www.yoibi.com/privacy-policy` (correct permanent redirect).
-   - Sign-up form Privacy Policy link — **✓ Points to `/privacy-policy`** and opens correctly.
+4. **Local verification:**
+   - Backend tests passed 100% (`npm test`).
+   - Backend & frontend lint passed 0 errors (`npm run lint`).
+   - Frontend build succeeded with 0 stream routes (`npm run build`).
+   - Committed changes locally (`78c506b`).
 
-5. **Code cleanup:**
-   - Committed lint fixes (escaped entities) with message: `fix(legal): escape quotes/apostrophes in Privacy Policy & Terms copy`
-   - Pushed all changes to `main` (3 commits in last session).
+5. **Production deployment & database cleanup:**
+   - Deployed backend to Railway (`yoibi-backend` Online deployment `9d7725ae-644b-428e-afe5-9da435071023`).
+   - Deployed frontend to Vercel (`yoibi-frontend` READY deployment `dpl_4LRZ7LyHqQMGk1hETgzUm43w8nc5` aliased to `https://www.yoibi.com`).
+   - Executed database cleanup script `cleanup-streams-db.js --execute`: dropped `streams` collection, 0 stream reports deleted, all 7 preserved collections (`users`, `user`, `tweets`, `videos`, `meetup_rooms`, `follows`, `audit_logs`) verified unchanged. Removed script.
+
+6. **Live production smoke tests (all passed):**
+   - `https://www.yoibi.com/streams` — **✓ HTTP 404**
+   - `https://yoibi-backend-production.up.railway.app/api/v1/streams` — **✓ HTTP 404**
+   - `https://yoibi-backend-production.up.railway.app/api/v1/health` — **✓ HTTP 200**
+   - `https://www.yoibi.com/` — **✓ HTTP 200** (0 stream links in HTML)
+   - `https://www.yoibi.com/tweets` — **✓ HTTP 200**
+   - `https://www.yoibi.com/videos` — **✓ HTTP 200**
+   - `https://www.yoibi.com/meetup` — **✓ HTTP 200**
+   - `https://www.yoibi.com/privacy-policy` — **✓ HTTP 200**
+   - `https://www.yoibi.com/terms` — **✓ HTTP 200**
 
 ## Exact Next Step
-- None — TASK-028 (Privacy Policy & Terms pages) is COMPLETE. All verification steps passed, all placeholders removed.
+- None — TASK-029 is COMPLETE.
 
 ## Files Touched (this session)
-- `frontend/src/shared/layout/LegalLayout.js` — **NEW:** Shared legal page layout.
-- `frontend/src/app/(public)/terms/page.js` — **NEW:** Terms of Service page.
-- `frontend/src/app/(public)/privacy-policy/page.js` — **NEW:** Privacy Policy page.
-- `frontend/next.config.js` — **UPDATED:** Added redirect `/privacy` → `/privacy-policy`.
-- `frontend/src/features/auth/ui/SignupForm.js` — **UPDATED:** Link now points to `/privacy-policy`.
-- `docs/WORKBASE.md`, `docs/MODEL-HANDOFF.md` — **UPDATED:** Current status and verification results.
+- Full list documented in `docs/WORKBASE.md`.
+- Summary: 29 files deleted, 51 code/docs/contract files updated, database collection dropped, session docs updated.
 
 ## Known Issues / Blockers
 - None — all deployment and verification steps completed successfully.
 
 ## What Is Working
-- ✅ Lint passes (0 errors after escaping JSX entities)
-- ✅ Build succeeds (2 new static routes)
-- ✅ Vercel deploy succeeds (production URL active)
-- ✅ All 4 live-test checks pass (privacy-policy, terms, privacy redirect, signup link)
-- ✅ Email verification regression fix remains deployed and verified
+- ✅ Tweets, Videos, Meet-Up, Profiles, Search, Moderation, Legal pages all fully functional
+- ✅ LiveKit Meet-Up room creation, participant joining, token minting intact
+- ✅ `/streams` returns 404 on frontend and backend
+- ✅ Production database has 0 stream records/collections
+- ✅ All builds, lints, and test suites passing cleanly
+
 
 ## Reference
 - Entry point for any agent: root `AGENTS.md`
