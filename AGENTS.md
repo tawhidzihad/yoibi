@@ -1,6 +1,6 @@
 # YOIBI — AI Agent Entry Point
 
-YOIBI is a Twitter-like social platform with live streaming and meet-up rooms, live in production at **https://www.yoibi.com/** (frontend on Vercel, backend on Railway at `https://yoibi-backend-production.up.railway.app`).
+YOIBI is a Twitter-like social platform with meet-up rooms, live in production at **https://www.yoibi.com/** (frontend on Vercel, backend on Railway at `https://yoibi-backend-production.up.railway.app`).
 
 ## Read first, every session
 Before starting ANY new task, read `docs/MODEL-HANDOFF.md` and `docs/WORKBASE.md` first — they contain the current state of the project and the most recent unfinished work. Do not ask the user to re-explain context that is already in these files. `/yoibi-resume` automates this.
@@ -12,7 +12,7 @@ Before ending ANY task/session, you MUST update `docs/WORKBASE.md` (what changed
 - **Frontend** (`frontend/`): Next.js 16 App Router, React 19, Tailwind CSS v4, Better Auth 1.7.4 (JWT plugin + JWKS). JavaScript only — no TypeScript.
 - **Backend** (`backend/`): Node.js + Express 5 (CommonJS), Mongoose 9 / MongoDB Atlas (single `yoibi_database`), layered `routes → controllers → services → repositories`.
 - **Media**: Cloudinary with server-issued signed upload intents (`CLOUDINARY_API_SECRET` never leaves the server).
-- **Realtime**: LiveKit WebRTC for streams and meet-up rooms (short-lived server-minted tokens; Socket.IO is removed).
+- **Realtime**: LiveKit WebRTC for meet-up rooms (short-lived server-minted tokens; Socket.IO is removed).
 - **Auth**: Better Auth owns authentication; backend verifies Bearer JWTs against JWKS and is the final authorization boundary; one canonical `users` profile collection auto-provisioned from verified JWT claims.
 
 ## Repo layout

@@ -22,7 +22,6 @@ When a user is blocked:
 - existing user data is preserved;
 - owned Tweets remain;
 - owned Videos remain;
-- owned Streams remain according to the approved moderation policy;
 - Meet-Up records remain according to the approved moderation policy;
 - the user is shown the account-blocked state;
 - a block reason is stored;
@@ -68,7 +67,6 @@ All application-level ownership and user relationships MUST use that same identi
 - `Tweet.retweets[]`
 - `Video.authorId`
 - `Video.likes[]`
-- `Stream.authorId`
 - `MeetUp.ownerId`
 - `Follow.followerId`
 - `Follow.followingId`
@@ -140,13 +138,11 @@ The Ban process MUST evaluate all of the following domains.
 | Tweet retweets by user | `tweets.retweets[]` | Remove user ID; repair count |
 | Owned Videos | `authorId` | Delete |
 | Video likes by user | `videos.likes[]` | Remove user ID; repair count |
-| Owned Streams | `authorId` | Delete after realtime termination |
 | Owned Meet-Up rooms | `ownerId` | Delete after realtime termination |
 | Reports filed by user | `reporterId` | Preserve |
 | Reports targeting user | target reference | Preserve |
 | Cloudinary video assets | video `publicId` | Delete |
 | Cloudinary avatar | avatar `publicId`, when Cloudinary-hosted | Delete |
-| LiveKit Stream rooms | Stream `roomName` | Terminate |
 | LiveKit Meet-Up rooms | Meet-Up `roomName` | Terminate |
 | Admin audit logs | `targetUserId` | Preserve permanently |
 
@@ -192,22 +188,7 @@ A Ban MUST NOT report successful completion while known external media cleanup r
 
 ---
 
-# 8. Stream Cleanup Policy
-
-For Streams owned by the banned user:
-
-- identify all owned streams first;
-- if a Stream has an active/ready realtime session, terminate its LiveKit room first;
-- then remove the application record;
-- prevent future access to those streams.
-
-The LiveKit `roomName` MUST be captured durably before the Stream document is removed.
-
-If LiveKit termination fails, the failure MUST be retained in the Ban operation record so it can be reconciled later.
-
----
-
-# 9. Meet-Up Cleanup Policy
+# 8. Meet-Up Cleanup Policy
 
 For Meet-Up rooms owned by the banned user:
 
@@ -289,7 +270,7 @@ The Ban operation must retain enough information to retry failed Cloudinary clea
 
 # 15. LiveKit Cleanup
 
-Before deleting owned Stream/Meet-Up records:
+Before deleting owned Meet-Up records:
 
 - collect their room names;
 - terminate active rooms using the existing LiveKit integration;
@@ -370,12 +351,12 @@ At minimum retain:
 
 ### LiveKit cleanup item
 
-- resource type (`stream` / `meetup`)
+- resource type (`meetup`)
 - `roomName`
 - cleanup status
 - error information when failed
 
-This snapshot is required because the Video/Stream/Meet-Up MongoDB records may be deleted during Ban.
+This snapshot is required because the Video/Meet-Up MongoDB records may be deleted during Ban.
 
 The implementation MUST NOT rely on already-deleted domain records to retry failed external cleanup.
 
@@ -567,7 +548,6 @@ Recommended terminology:
 - `bannedUsers` (derived from durable Ban/audit history when appropriate)
 - `totalTweets`
 - `totalVideos`
-- `liveStreams`
 - `activeMeetUpRooms`
 - `pendingReports`
 
@@ -604,7 +584,7 @@ Before Ban code is considered complete, the implementation plan and tests MUST c
 ### External resources
 
 - Cloudinary identifiers snapshotted before Video deletion;
-- LiveKit room names snapshotted before Stream/Meet-Up deletion;
+- LiveKit room names snapshotted before Meet-Up deletion;
 - failed external cleanup can be reconciled later.
 
 ### Content
@@ -613,7 +593,6 @@ Before Ban code is considered complete, the implementation plan and tests MUST c
 - tweet interaction cleanup correct;
 - owned Videos deleted;
 - video interaction cleanup correct;
-- owned Stream records removed;
 - owned Meet-Up records removed;
 - Follows removed and counters repaired.
 

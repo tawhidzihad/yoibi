@@ -6,7 +6,7 @@ const reportSchema = new mongoose.Schema({
     targetType: {
         type: String,
         required: true,
-        enum: ["tweet", "video", "stream", "meetup", "user"],
+        enum: ["tweet", "video", "meetup", "user"],
         index: true
     },
     targetId: { type: String, required: true, index: true },

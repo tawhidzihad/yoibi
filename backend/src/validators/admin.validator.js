@@ -17,9 +17,9 @@ const listUsersQuerySchema = z.object({
 });
 
 const listContentQuerySchema = z.object({
-    type: z.enum(['tweets', 'videos', 'streams', 'meetups', 'tweet', 'video', 'stream', 'meetup'])
+    type: z.enum(['tweets', 'videos', 'meetups', 'tweet', 'video', 'meetup'])
         .transform((val) => {
-            const map = { tweet: 'tweets', video: 'videos', stream: 'streams', meetup: 'meetups' };
+            const map = { tweet: 'tweets', video: 'videos', meetup: 'meetups' };
             return map[val] || val;
         })
         .default('tweets'),

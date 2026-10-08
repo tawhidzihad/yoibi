@@ -13,7 +13,7 @@ const SEARCH_LIMIT = 10;
 
 /**
  * Loading skeleton for a search result row — same idiom as the other
- * feature skeletons (TweetSkeleton, StreamCardSkeleton, ...).
+ * feature skeletons (TweetSkeleton, VideoCardSkeleton, ...).
  */
 function SearchResultSkeleton() {
     return (

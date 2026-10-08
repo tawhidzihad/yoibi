@@ -7,7 +7,7 @@ const auditLogRepository = require('../repositories/auditLog.repository');
  *
  * @param {Object} params
  * @param {string} params.reporterId
- * @param {'tweet'|'video'|'stream'|'meetup'|'user'} params.targetType
+ * @param {'tweet'|'video'|'meetup'|'user'} params.targetType
  * @param {string} params.targetId
  * @param {string} params.reason
  * @param {string} [params.description]

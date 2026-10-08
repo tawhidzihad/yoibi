@@ -31,7 +31,7 @@
   - `globalLimiter`: 300 requests / 1 min per IP across all endpoints.
   - `authLimiter`: 15 requests / 15 min per IP on `GET /auth/me`.
   - `writeLimiter`: 60 requests / 1 min per IP on social/content mutations (tweets, replies, likes, follow).
-  - `expensiveLimiter`: 10 requests / 15 min per IP on media signatures, stream create/start/join, and meetup create/join.
+  - `expensiveLimiter`: 10 requests / 15 min per IP on media signatures and meetup create/join.
   - `reportLimiter`: 20 requests / 1 hour per IP on `POST /reports`.
   - `adminLimiter`: 60 requests / 1 min per IP on all `/admin/*` operations.
   - `searchLimiter`: 60 requests / 1 min per IP on `GET /users/search` (protected people search — no anonymous enumeration; query capped at 100 chars and regex-escaped server-side).
@@ -64,21 +64,16 @@ Only explicitly public client variables may use the `NEXT_PUBLIC_` prefix (`NEXT
   - `Permissions-Policy: camera=(self), microphone=(self), geolocation=(), interest-cohort=()` (permits LiveKit camera/mic on same-origin pages while blocking unauthorized third-party embeds)
 - **Content Security Policy (CSP)**:
   - Restrictive CSP is intentionally deferred for post-MVP hardening to prevent breakage of LiveKit WebRTC media transport, WebSocket upgrade protocols, inline Next.js Turbopack hydration scripts, and Cloudinary media delivery.
-- **Socket.IO Realtime Security**: YOIBI no longer uses Socket.IO — realtime communication for Streams and Meet-Up uses LiveKit WebRTC directly with short-lived tokens minted by the backend.
+- **Socket.IO Realtime Security**: YOIBI no longer uses Socket.IO — realtime communication for Meet-Up uses LiveKit WebRTC directly with short-lived tokens minted by the backend.
 
 ## 6. LiveKit & Realtime Media Access Policy
-- **Stream Discovery & Viewing**:
-  - Stream discovery (`GET /streams`, `GET /streams/:id`) is public.
-  - Stream join (`POST /streams/:id/join`) uses `optionalAuth`. Anonymous viewers receive viewer-only LiveKit tokens (`canPublish: false`, `canSubscribe: true`) with an opaque identity (`viewer_<uuid>`).
-  - Only authenticated users may create streams (`POST /streams`) or start broadcasting (`POST /streams/:id/start`).
-  - Anonymous viewers cannot publish media and cannot perform authenticated social actions (likes, comments, follows).
 - **Meet-Up Collaborative Rooms**:
   - All Meet-Up participants require authentication (`verifyJwt`).
   - Room capacity is strictly enforced with reservation TTLs and atomic slot management.
   - Presentation metadata contains only sanitized display attributes (`name`, `handle`, `avatarUrl`) with zero internal user IDs.
 - **Zero-PII Media Tokens**:
-  - LiveKit rooms use random UUIDs (`stream_<uuid>`, `meetup_<uuid>`).
-  - LiveKit identities are opaque (`host_<uuid>`, `viewer_<uuid>`, `participant_<uuid>`).
+  - LiveKit rooms use random UUIDs (`meetup_<uuid>`).
+  - LiveKit identities are opaque (`participant_<uuid>`).
 
 ## 7. Cloudinary Media Asset Provenance
 - Direct video uploads require a server-issued upload intent (`POST /videos/upload-signature`).

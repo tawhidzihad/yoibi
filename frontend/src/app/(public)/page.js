@@ -1,11 +1,9 @@
 import {
     Users,
     Video,
-    Radio,
     MessageCircle,
     ArrowRight,
     Play,
-    Mic,
     Hash,
     Users2,
     Shield,
@@ -24,7 +22,7 @@ import { HomeHeaderNav } from "../../features/auth/ui/HomeHeaderNav";
 export const metadata = {
     title: "Yoibi — Be You, Be Yoibi",
     description:
-        "One platform for everything social — videos, streams, tweets, and video calls. No algorithms, no manipulation, just people being real.",
+        "One platform for everything social — videos, tweets, and video calls. No algorithms, no manipulation, just people being real.",
 };
 
 const communityRules = [
@@ -40,14 +38,12 @@ const communityRules = [
 const stats = [
     { icon: Users,          label: "Active Users",   value: 24853  },
     { icon: Video,          label: "Videos Shared",  value: 182400 },
-    { icon: Radio,          label: "Live Streams",   value: 847    },
     { icon: MessageCircle,  label: "Daily Tweets",   value: 56290  },
 ];
 
 const features = [
     { icon: Hash,   title: "Feed & Tweets",  description: "Share your thoughts, start threads, and engage with a community that actually listens." },
     { icon: Play,   title: "Videos",         description: "Upload, discover, and binge content across 8 categories — from politics to pure fun." },
-    { icon: Mic,    title: "Live Streams",   description: "Go live in seconds. Build your audience in real-time with zero barriers to entry." },
     { icon: Users2, title: "Meet Up",        description: "Video rooms for real conversations. Join a room or create your own — no downloads needed." },
 ];
 
@@ -60,7 +56,7 @@ const values = [
 const steps = [
     { step: "1", title: "Sign up free",      description: "Create your profile in 30 seconds. No credit card, no catch." },
     { step: "2", title: "Find your people",  description: "Follow topics and creators you care about. Your feed, your rules." },
-    { step: "3", title: "Be you",            description: "Post, stream, tweet, or just vibe. There's no wrong way to use Yoibi." },
+    { step: "3", title: "Be you",            description: "Post, tweet, or just vibe. There's no wrong way to use Yoibi." },
 ];
 
 /* ── Homepage design tokens ────────────────────────────────
@@ -186,7 +182,7 @@ export default function HomePage() {
 
                         <HeroEntrance delay={260} className="mt-5">
                             <p className="mx-auto max-w-lg text-base leading-relaxed text-muted-foreground sm:text-lg">
-                                One platform for everything social — videos, streams, tweets, and video calls.
+                                One platform for everything social — videos, tweets, and video calls.
                                 No algorithms, no manipulation, just people being real.
                             </p>
                         </HeroEntrance>
@@ -203,7 +199,7 @@ export default function HomePage() {
                         </HeroEntrance>
 
                         <HeroEntrance delay={440} className="mt-14 w-full sm:mt-16">
-                            <div className="mx-auto grid w-full max-w-3xl grid-cols-2 gap-x-4 gap-y-6 rounded-2xl border border-border/60 bg-card/60 px-6 py-6 backdrop-blur-sm sm:grid-cols-4 sm:px-8 sm:py-7">
+                            <div className="mx-auto grid w-full max-w-2xl grid-cols-1 gap-x-4 gap-y-6 rounded-2xl border border-border/60 bg-card/60 px-6 py-6 backdrop-blur-sm sm:grid-cols-3 sm:px-8 sm:py-7">
                                 {stats.map(({ icon: Icon, label, value }) => (
                                     <div key={label} className="flex flex-col items-center gap-1.5">
                                         <Icon size={18} className="text-cyan-600" aria-hidden="true" />
@@ -221,9 +217,9 @@ export default function HomePage() {
                 {/* ─── FEATURES ─── */}
                 <section className={cn(container, sectionPad)}>
                     <Reveal>
-                        <SectionHeading eyebrow="Everything in one place" title="Four ways to connect" />
+                        <SectionHeading eyebrow="Everything in one place" title="Three ways to connect" />
                     </Reveal>
-                    <div className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-2 sm:gap-6">
+                    <div className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-3 sm:gap-6">
                         {features.map(({ icon: Icon, title, description }, i) => (
                             <Reveal key={title} delay={i * 80}>
                                 <div className="h-full rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/40 hover:shadow-lg hover:shadow-cyan-500/5 sm:p-8">

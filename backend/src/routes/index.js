@@ -25,10 +25,6 @@ router.use(tweetsRoutes);
 const videosRoutes = require("./videos.routes");
 router.use(videosRoutes);
 
-// Streams routes (LiveKit live realtime broadcasts)
-const streamsRoutes = require("./streams.routes");
-router.use(streamsRoutes);
-
 // Meet-up routes (LiveKit collaborative multi-peer rooms)
 const meetupRoutes = require("./meetup.routes");
 router.use(meetupRoutes);

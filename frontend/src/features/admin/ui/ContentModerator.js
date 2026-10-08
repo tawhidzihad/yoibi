@@ -7,7 +7,6 @@ import { z } from "zod";
 import {
     FileText,
     Play,
-    Radio,
     UsersRound,
     Search,
     Trash2,
@@ -59,7 +58,6 @@ export function ContentModerator({
     const contentTypes = [
         { type: "tweet",  label: "Tweets",  icon: FileText },
         { type: "video",  label: "Videos",  icon: Play },
-        { type: "stream", label: "Streams", icon: Radio },
         { type: "meetup", label: "Meet-Up", icon: UsersRound },
     ];
 
@@ -160,11 +158,6 @@ export function ContentModerator({
                                             {contentType === "video" && (
                                                 <span className="text-muted-foreground">
                                                     {item.likesCount ?? 0} likes • {item.viewsCount ?? 0} views
-                                                </span>
-                                            )}
-                                            {contentType === "stream" && (
-                                                <span className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase border ${item.status === "live" ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"}`}>
-                                                    {item.status || "ended"}
                                                 </span>
                                             )}
                                             {contentType === "meetup" && (

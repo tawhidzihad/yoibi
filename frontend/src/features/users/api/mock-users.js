@@ -33,7 +33,7 @@ export const mockUsers = [
         id: "user-3",
         name: "Jordan Lee",
         handle: "jordanlee",
-        bio: "Streamer. Entrepreneur. I make things and talk about it live. 🚀",
+        bio: "Creator. Entrepreneur. I make things and talk about it live. 🚀",
         avatarUrl: null,
         postsCount: 67,
         followersCount: 5400,

@@ -59,10 +59,10 @@ export async function banUser(id, { reason, confirmationHandle }) {
 
 /**
  * Browses platform content for moderation.
- * @param {{ type: "tweet"|"video"|"stream"|"meetup", page?: number, limit?: number, search?: string }} params
+ * @param {{ type: "tweet"|"video"|"meetup", page?: number, limit?: number, search?: string }} params
  */
 export async function getAdminContent({ type = "tweets", page = 1, limit = 20, search } = {}) {
-    const typeMap = { tweet: "tweets", video: "videos", stream: "streams", meetup: "meetups" };
+    const typeMap = { tweet: "tweets", video: "videos", meetup: "meetups" };
     const normalizedType = typeMap[type] || type;
     let url = `/admin/content?type=${normalizedType}&page=${page}&limit=${limit}`;
     if (search) {
@@ -78,7 +78,7 @@ export async function getAdminContent({ type = "tweets", page = 1, limit = 20, s
  * @param {{ reason: string }} body
  */
 export async function deleteAdminContent(type, id, { reason }) {
-    const typeMap = { tweet: "tweets", video: "videos", stream: "streams", meetup: "meetups" };
+    const typeMap = { tweet: "tweets", video: "videos", meetup: "meetups" };
     const normalizedType = typeMap[type] || type;
     return apiClient.delete(`/admin/content/${normalizedType}/${id}`, {
         headers: { "Content-Type": "application/json" },

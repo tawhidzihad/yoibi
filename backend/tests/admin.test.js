@@ -4,7 +4,6 @@ const app = require('../src/app');
 const User = require('../src/models/user.model');
 const Tweet = require('../src/models/tweet.model');
 const { Video } = require('../src/models/video.model');
-const { Stream } = require('../src/models/stream.model');
 const { Meetup: MeetUp } = require('../src/models/meetup.model');
 const Follow = require('../src/models/follow.model');
 
@@ -87,7 +86,6 @@ async function runAdminTests() {
         const memoryUsers = new Map();
         const memoryTweets = new Map();
         const memoryVideos = new Map();
-        const memoryStreams = new Map();
         const memoryMeetups = new Map();
         const memoryFollows = new Map();
         const memoryReports = new Map();
@@ -163,7 +161,6 @@ async function runAdminTests() {
                 activeUsers: allUsers.filter(u => !u.isBlocked).length,
                 blockedUsers: allUsers.filter(u => u.isBlocked).length,
                 bannedUsers: bannedCount,
-                liveStreams: Array.from(memoryStreams.values()).filter(s => s.status === 'live').length,
                 activeMeetUpRooms: Array.from(memoryMeetups.values()).filter(m => m.status === 'active').length,
                 pendingReports: pendingRepCount,
                 totalTweets: memoryTweets.size,
@@ -455,30 +452,6 @@ async function runAdminTests() {
             return {};
         };
 
-        // Populate Streams: 1 owned stream with roomName
-        const targetStream = {
-            _id: 'stm_target_1',
-            authorId: targetId,
-            roomName: 'stream_target_room_123',
-            status: 'live'
-        };
-        memoryStreams.set(targetStream._id, targetStream);
-        Stream.find = (filter) => {
-            return {
-                lean: async () => Array.from(memoryStreams.values()).filter(s => s.authorId === filter.authorId)
-            };
-        };
-        Stream.deleteMany = async (filter) => {
-            let count = 0;
-            for (const [id, s] of memoryStreams.entries()) {
-                if (s.authorId === filter.authorId) {
-                    memoryStreams.delete(id);
-                    count++;
-                }
-            }
-            return { deletedCount: count };
-        };
-
         // Populate Meet-Ups: 1 owned meetup with roomName
         const targetMeetup = {
             _id: 'mup_target_1',
@@ -606,10 +579,9 @@ async function runAdminTests() {
         assert.strictEqual(memoryVideos.get('vid_innocent_1').likesCount, 0, 'Innocent video likesCount must be decremented');
         console.log('✓ Videos purged and video likes removed safely.');
 
-        // 3. Streams & MeetUps deleted
-        assert.strictEqual(memoryStreams.has('stm_target_1'), false, 'Target stream must be deleted');
+        // 3. MeetUps deleted
         assert.strictEqual(memoryMeetups.has('mup_target_1'), false, 'Target meetup must be deleted');
-        console.log('✓ Realtime streams and meetups deleted.');
+        console.log('✓ Realtime meetups deleted.');
 
         // 4. Follows bidirectionally removed and counters updated safely
         assert.strictEqual(memoryFollows.size, 0, 'All target follows must be deleted');

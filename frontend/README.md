@@ -19,7 +19,6 @@ Standalone Next.js frontend.
 ## Features
 - `src/features/tweets` & `src/features/feed`: Micro-posts, replies, likes, retweets, and discovery feed.
 - `src/features/videos`: Community video library and upload workflows via Cloudinary.
-- `src/features/streams`: Live realtime broadcast experiences powered by LiveKit SFU.
 - `src/features/meet-up`: Multi-peer collaborative audio/video rooms with screen sharing.
 - `src/features/admin`: Administration and moderation suite (`AdminLayout`, `AdminStatsCards`, `AdminUsersTable`, `AdminUserDetailModal`, `BlockUserModal`, `BanUserModal`, `AdminContentTabs`, `AdminReportsTable`, `AdminAuditLogTable`).
 

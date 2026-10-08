@@ -8,7 +8,6 @@ import {
     Home,
     AtSign,
     Play,
-    Radio,
     Users,
     LogOut,
     Shield,
@@ -27,7 +26,6 @@ const baseNavItems = [
     { href: "/feed", label: "Feed", icon: Home },
     { href: "/tweets", label: "Tweets", icon: AtSign },
     { href: "/videos", label: "Videos", icon: Play },
-    { href: "/streams", label: "Streams", icon: Radio },
     { href: "/meetup", label: "Meet Up", icon: Users },
 ];
 

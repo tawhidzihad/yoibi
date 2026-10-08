@@ -46,7 +46,7 @@ export const mockFeed = [
             handle: "jordanlee",
             avatarUrl: null,
         },
-        content: "Had the most amazing live stream last night. 200+ people watching and the conversation was fire. Building something here feels different.",
+        content: "Had the most amazing Meet-Up session last night. 200+ people joined and the conversation was fire. Building something here feels different.",
         mediaUrls: [],
         likesCount: 89,
         commentsCount: 15,

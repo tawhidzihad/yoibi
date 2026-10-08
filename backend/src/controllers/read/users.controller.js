@@ -2,7 +2,6 @@ const User = require('../../models/user.model');
 const followsRepository = require('../../repositories/follows.repository');
 const tweetsRepository = require('../../repositories/tweets.repository');
 const videosRepository = require('../../repositories/videos.repository');
-const streamsRepository = require('../../repositories/streams.repository');
 const usersSearchService = require('../../services/read/users.service');
 const { normalizeHandleParam } = require('../../utils/handles');
 
@@ -27,7 +26,6 @@ function buildPublicProfile(user, { isFollowing = false, isOwner = false, counts
         // Real content counts — server-computed from canonical authorId ownership
         tweetsCount,
         videosCount: Number(counts.videosCount) || 0,
-        streamsCount: Number(counts.streamsCount) || 0,
         // Legacy alias kept for API-contract compatibility (posts === tweets in YOIBI)
         postsCount: tweetsCount,
         isFollowing: Boolean(isFollowing),
@@ -38,17 +36,15 @@ function buildPublicProfile(user, { isFollowing = false, isOwner = false, counts
 
 /**
  * Collects the real content counts for a user from each canonical domain
- * repository (tweets/videos/streams), all keyed by the canonical user ID.
+ * repository (tweets/videos), all keyed by the canonical user ID.
  * Each domain owns its own count query (authorId-based — never name matching).
  */
 async function collectProfileCounts(userId) {
-    const [tweetsCount, videosCount, streamsCount] = await Promise.all([
+    const [tweetsCount, videosCount] = await Promise.all([
         tweetsRepository.count({ authorIds: [userId] }),
-        videosRepository.count({ authorId: userId }),
-        // status: null counts streams across every lifecycle state (ready/live/ended)
-        streamsRepository.count({ authorId: userId, status: null })
+        videosRepository.count({ authorId: userId })
     ]);
-    return { tweetsCount, videosCount, streamsCount };
+    return { tweetsCount, videosCount };
 }
 
 /**

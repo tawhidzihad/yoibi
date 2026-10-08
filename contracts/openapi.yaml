@@ -862,171 +862,6 @@ paths:
         '200':
           description: Video unliked
 
-  /streams:
-    get:
-      summary: List broadcast streams
-      parameters:
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [live, ready, ended]
-            default: live
-        - name: category
-          in: query
-          schema:
-            type: string
-        - name: authorId
-          in: query
-          schema:
-            type: string
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-      responses:
-        '200':
-          description: Paginated streams list
-    post:
-      summary: Create a stream record in ready state and generate preparation host token
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [title]
-              properties:
-                title:
-                  type: string
-                  minLength: 3
-                  maxLength: 120
-                description:
-                  type: string
-                  maxLength: 2000
-                category:
-                  type: string
-                thumbnailUrl:
-                  type: string
-                  nullable: true
-      responses:
-        '201':
-          description: Stream created in ready state with host LiveKit token
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-
-  /streams/{id}:
-    get:
-      summary: Get stream details by ID
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Stream detail with author profile
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-    delete:
-      summary: Delete stream record (ready or ended state only)
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Stream deleted
-        '403':
-          description: Forbidden or stream is currently live
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /streams/{id}/start:
-    post:
-      summary: Start broadcast (stream owner only) - transitions ready to live
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Stream marked live with fresh host LiveKit token
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /streams/{id}/join:
-    post:
-      summary: Join live stream as a viewer (live state only)
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Viewer LiveKit token generated (canSubscribe true, canPublish false)
-        '400':
-          description: Stream is in ready state (not live yet)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '403':
-          description: Stream has ended (STREAM_ENDED)
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-  /streams/{id}/end:
-    post:
-      summary: End live broadcast and terminate LiveKit room (stream owner only)
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Stream marked ended and LiveKit room session closed
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
-
   /meetup/rooms:
     get:
       summary: List collaborative meetup rooms
@@ -1631,65 +1466,6 @@ paths:
         '404':
           $ref: '#/components/responses/NotFoundError'
 
-  /admin/content/streams:
-    get:
-      tags:
-        - Admin
-      summary: Browse streams for moderation
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          schema:
-            type: integer
-            default: 1
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [all, live, ready, ended]
-            default: all
-      responses:
-        '200':
-          description: Paginated streams
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/StreamListResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-
-  /admin/content/streams/{id}:
-    delete:
-      tags:
-        - Admin
-      summary: Moderation terminate and delete stream
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Stream ended and deleted
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-        '403':
-          $ref: '#/components/responses/ForbiddenError'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-
   /admin/content/meetups:
     get:
       tags:
@@ -1801,7 +1577,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [all, tweet, video, stream, meetup, user]
+            enum: [all, tweet, video, meetup, user]
             default: all
       responses:
         '200':
@@ -1977,9 +1753,6 @@ components:
             videosCount:
               type: integer
               example: 7
-            streamsCount:
-              type: integer
-              example: 3
             postsCount:
               type: integer
               example: 112
@@ -2067,10 +1840,6 @@ components:
           type: integer
           description: Real count of the user's videos.
           example: 7
-        streamsCount:
-          type: integer
-          description: Real count of the user's streams across all lifecycle states.
-          example: 3
         postsCount:
           type: integer
           description: Legacy alias of tweetsCount (Tweet is YOIBI's post type).
@@ -2184,8 +1953,6 @@ components:
                   type: integer
                 totalVideos:
                   type: integer
-                liveStreams:
-                  type: integer
                 activeMeetUpRooms:
                   type: integer
             moderation:
@@ -2288,8 +2055,6 @@ components:
                   type: integer
                 videos:
                   type: integer
-                streams:
-                  type: integer
                 meetupRooms:
                   type: integer
                 followers:
@@ -2386,8 +2151,6 @@ components:
                   type: integer
                 videos:
                   type: integer
-                streams:
-                  type: integer
                 meetupRooms:
                   type: integer
                 follows:
@@ -2412,7 +2175,7 @@ components:
       properties:
         targetType:
           type: string
-          enum: [tweet, video, stream, meetup, user]
+          enum: [tweet, video, meetup, user]
         targetId:
           type: string
         reason:

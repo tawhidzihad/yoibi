@@ -78,7 +78,6 @@ yoibi/
 │       │   ├── reactions/
 │       │   ├── retweets/
 │       │   ├── media-upload/
-│       │   ├── streams/
 │       │   ├── meet-up/
 │       │   ├── reports/
 │       │   └── admin/

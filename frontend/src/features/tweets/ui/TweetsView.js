@@ -105,7 +105,7 @@ export function TweetsView() {
                 placeholder="What's happening? Share a thought..."
             />
 
-            {/* Stream */}
+            {/* Tweet Feed */}
             <TweetList
                 tweets={tweets}
                 loading={loading}

@@ -2,7 +2,6 @@ const crypto = require('crypto');
 const User = require('../models/user.model');
 const Tweet = require('../models/tweet.model');
 const { Video } = require('../models/video.model');
-const { Stream } = require('../models/stream.model');
 const { Meetup: MeetUp } = require('../models/meetup.model');
 const Follow = require('../models/follow.model');
 const Report = require('../models/report.model');
@@ -82,7 +81,6 @@ async function getUserDetail(userId) {
     const [
         tweetsCount,
         videosCount,
-        streamsCount,
         meetupsCount,
         reportsFiledCount,
         reportsAgainstCount,
@@ -90,7 +88,6 @@ async function getUserDetail(userId) {
     ] = await Promise.all([
         Tweet.countDocuments({ authorId: userId }),
         Video.countDocuments({ authorId: userId }),
-        Stream.countDocuments({ authorId: userId }),
         MeetUp.countDocuments({ ownerId: userId }),
         Report.countDocuments({ reporterId: userId }),
         Report.countDocuments({ targetType: 'user', targetId: userId }),
@@ -102,7 +99,6 @@ async function getUserDetail(userId) {
         stats: {
             tweetsCount,
             videosCount,
-            streamsCount,
             meetupsCount,
             reportsFiledCount,
             reportsAgainstCount
@@ -361,22 +357,9 @@ async function banUser({ targetUserId, reason, confirmationHandle, adminUser, ad
         }
 
         if (!externalSnapshots.livekit || externalSnapshots.livekit.length === 0) {
-            const [userStreams, userMeetups] = await Promise.all([
-                Stream.find({ authorId: targetUserId }).lean(),
-                MeetUp.find({ ownerId: targetUserId }).lean()
-            ]);
+            const userMeetups = await MeetUp.find({ ownerId: targetUserId }).lean();
 
             const livekitItems = [];
-            for (const s of userStreams) {
-                if (s.roomName) {
-                    livekitItems.push({
-                        roomName: s.roomName,
-                        resourceType: 'stream',
-                        status: 'pending',
-                        error: null
-                    });
-                }
-            }
             for (const m of userMeetups) {
                 if (m.roomName) {
                     livekitItems.push({
@@ -489,11 +472,7 @@ async function banUser({ targetUserId, reason, confirmationHandle, adminUser, ad
         );
         await Video.updateMany({ likesCount: { $lt: 0 } }, { $set: { likesCount: 0 } });
 
-        // 3. Streams Cleanups
-        const streamDeleteRes = await Stream.deleteMany({ authorId: targetUserId });
-        deletedCounts.streams = (deletedCounts.streams || 0) + (streamDeleteRes.deletedCount || 0);
-
-        // 4. Meet-Ups Cleanups
+        // 3. Meet-Ups Cleanups
         const meetupDeleteRes = await MeetUp.deleteMany({ ownerId: targetUserId });
         deletedCounts.meetups = (deletedCounts.meetups || 0) + (meetupDeleteRes.deletedCount || 0);
 

@@ -31,7 +31,7 @@ describe("sidebar & navigation cleanup", () => {
         expect(layoutSource).toContain('label: "Feed"');
         expect(layoutSource).toContain('label: "Tweets"');
         expect(layoutSource).toContain('label: "Videos"');
-        expect(layoutSource).toContain('label: "Streams"');
+        expect(layoutSource).not.toContain('label: "Streams"');
         expect(layoutSource).toContain("Sign Out");
     });
 
@@ -59,11 +59,6 @@ describe("author identity profile links", () => {
     it("VideoCard author row links to /profile/{handle}", () => {
         const videoCard = readSrc("features/videos/ui/VideoCard.js");
         expect(videoCard).toContain('href={`/profile/${(video.author?.handle || "member").replace(/^@/, "")}`');
-    });
-
-    it("StreamCard author identity links to /profile/{handle}", () => {
-        const streamCard = readSrc("features/streams/ui/StreamCard.js");
-        expect(streamCard).toContain('href={`/profile/${(stream.author?.handle || "broadcaster").replace(/^@/, "")}`');
     });
 });
 
@@ -99,10 +94,9 @@ describe("profile feature loads real backend data", () => {
         expect(tweetsApiSource).toContain('params.set("authorHandle"');
     });
 
-    it("videos and streams tabs filter by canonical authorId", () => {
+    it("videos tab filters by canonical authorId", () => {
         const contentSource = readSrc("features/profile/ui/ProfileContent.js");
         expect(contentSource).toContain("authorId: profile.id");
-        expect(contentSource).toContain('status: "all"');
     });
 });
 

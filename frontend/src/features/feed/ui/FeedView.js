@@ -96,7 +96,7 @@ export function FeedView() {
                 </div>
             </div>
 
-            {/* Tweets Stream */}
+            {/* Tweets Timeline */}
             <TweetList
                 tweets={tweets}
                 loading={loading}

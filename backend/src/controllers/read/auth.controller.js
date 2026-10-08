@@ -94,7 +94,7 @@ async function getMe(req, res) {
     // Canonical DB-backed counts — the SAME source the profile page uses, so
     // the right-side user card / sidebar can never show stale duplicated stats
     // (tweet create/delete, follow/unfollow all land here on refresh).
-    let counts = { tweetsCount: 0, videosCount: 0, streamsCount: 0 };
+    let counts = { tweetsCount: 0, videosCount: 0 };
     try {
         counts = await collectProfileCounts(id);
     } catch (err) {
@@ -126,7 +126,6 @@ async function getMe(req, res) {
         tweetsCount,
         postsCount: tweetsCount,
         videosCount: Number(counts.videosCount) || 0,
-        streamsCount: Number(counts.streamsCount) || 0,
         createdAt: profile?.createdAt || jwtCreatedAt || new Date().toISOString(),
         updatedAt: profile?.updatedAt || new Date().toISOString()
     };

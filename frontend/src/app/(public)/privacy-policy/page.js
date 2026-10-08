@@ -3,7 +3,7 @@ import { LegalLayout, LegalProse, Toc } from "@/shared/layout/LegalLayout";
 export const metadata = {
   title: "Privacy Policy | YOIBI",
   description:
-    "How we collect, use, and protect your data on YOIBI — the social platform for tweets, videos, streams, and meet-ups.",
+    "How we collect, use, and protect your data on YOIBI — the social platform for tweets, videos, and meet-ups.",
 };
 
 const lastUpdated = "September 2026";
@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
             <h2 id="intro">Introduction</h2>
             <p>
               YOIBI (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a
-              social media platform for tweets, videos, live streams, and
+              social media platform for tweets, videos, and
               meet-up rooms. This Privacy Policy explains how we collect, use,
               disclose, and safeguard your information when you use our platform
               at <a href="https://www.yoibi.com">www.yoibi.com</a>.
@@ -64,7 +64,7 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 <strong>Content you create:</strong> your tweets, replies,
-                videos, live stream metadata, and meet-up room details.
+                videos, and meet-up room details.
               </li>
               <li>
                 <strong>Media you upload:</strong> images, video files, and
@@ -107,7 +107,7 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 <strong>Content delivery:</strong> to store, display, and
-                distribute the tweets, videos, streams, and meet-up rooms you
+                distribute the tweets, videos, and meet-up rooms you
                 create.
               </li>
               <li>
@@ -166,8 +166,8 @@ export default function PrivacyPolicyPage() {
                 verification emails and important notifications.
               </li>
               <li>
-                <strong>Video/streaming infrastructure:</strong> We use LiveKit
-                for WebRTC-based live streams and meet-up rooms.
+                <strong>Realtime audio/video infrastructure:</strong> We use LiveKit
+                for WebRTC-based meet-up rooms.
               </li>
               <li>
                 <strong>Database storage:</strong> We use MongoDB Atlas for

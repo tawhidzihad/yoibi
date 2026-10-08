@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { getAdminContent, deleteAdminContent } from "@/lib/api/admin";
 
 export function useAdminContent({ initialType = "tweet", initialLimit = 20 } = {}) {
-    const [contentType, setContentType] = useState(initialType); // "tweet" | "video" | "stream" | "meetup"
+    const [contentType, setContentType] = useState(initialType); // "tweet" | "video" | "meetup"
     const [items, setItems] = useState([]);
     const [pagination, setPagination] = useState({
         page: 1,

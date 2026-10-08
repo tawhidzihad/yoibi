@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const User = require('../models/user.model');
 const Tweet = require('../models/tweet.model');
 const { Video } = require('../models/video.model');
-const { Stream } = require('../models/stream.model');
 const { Meetup: MeetUp } = require('../models/meetup.model');
 const Report = require('../models/report.model');
 const AuditLog = require('../models/auditLog.model');
@@ -19,7 +18,6 @@ async function getDashboardMetrics() {
             activeUsers: 0,
             blockedUsers: 0,
             bannedUsers: 0,
-            liveStreams: 0,
             activeMeetUpRooms: 0,
             pendingReports: 0,
             totalTweets: 0,
@@ -32,7 +30,6 @@ async function getDashboardMetrics() {
         activeUsers,
         blockedUsers,
         bannedUsers,
-        liveStreams,
         activeMeetUpRooms,
         pendingReports,
         totalTweets,
@@ -42,7 +39,6 @@ async function getDashboardMetrics() {
         User.countDocuments({ isBlocked: { $ne: true } }),
         User.countDocuments({ isBlocked: true }),
         AuditLog.countDocuments({ action: 'BAN_USER', status: 'COMPLETED' }),
-        Stream.countDocuments({ status: 'live' }),
         MeetUp.countDocuments({ status: 'active' }),
         Report.countDocuments({ status: 'pending' }),
         Tweet.countDocuments({}),
@@ -54,7 +50,6 @@ async function getDashboardMetrics() {
         activeUsers,
         blockedUsers,
         bannedUsers,
-        liveStreams,
         activeMeetUpRooms,
         pendingReports,
         totalTweets,
@@ -132,7 +127,7 @@ async function deleteUser(id) {
 /**
  * Lists content by type with filtering and pagination.
  *
- * @param {'tweets'|'videos'|'streams'|'meetups'} type
+ * @param {'tweets'|'videos'|'meetups'} type
  * @param {Object} filter
  * @param {Object} options
  * @returns {Promise<Array<Object>>}
@@ -148,8 +143,6 @@ async function listContent(type, filter = {}, options = {}) {
             return Tweet.find(filter).sort(sort).skip(skip).limit(limit).lean();
         case 'videos':
             return Video.find(filter).sort(sort).skip(skip).limit(limit).lean();
-        case 'streams':
-            return Stream.find(filter).sort(sort).skip(skip).limit(limit).lean();
         case 'meetups':
             return MeetUp.find(filter).sort(sort).skip(skip).limit(limit).lean();
         default:
@@ -160,7 +153,7 @@ async function listContent(type, filter = {}, options = {}) {
 /**
  * Counts content by type.
  *
- * @param {'tweets'|'videos'|'streams'|'meetups'} type
+ * @param {'tweets'|'videos'|'meetups'} type
  * @param {Object} filter
  * @returns {Promise<number>}
  */
@@ -171,8 +164,6 @@ async function countContent(type, filter = {}) {
             return Tweet.countDocuments(filter);
         case 'videos':
             return Video.countDocuments(filter);
-        case 'streams':
-            return Stream.countDocuments(filter);
         case 'meetups':
             return MeetUp.countDocuments(filter);
         default:

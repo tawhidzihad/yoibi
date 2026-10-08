@@ -1,6 +1,6 @@
 # YOIBI — Modern Social Network Platform
 
-YOIBI is a next-generation social networking platform featuring micro-posts (Tweets), community video sharing (Shorts & Longform), live video broadcasts (Streams), multi-peer collaborative rooms (Meet-Up),  comprehensive administrative moderation.
+YOIBI is a next-generation social networking platform featuring micro-posts (Tweets), community video sharing (Shorts & Longform), multi-peer collaborative rooms (Meet-Up), and comprehensive administrative moderation.
 
 ---
 
@@ -12,7 +12,7 @@ YOIBI is built with strict boundary separation between frontend and backend serv
 yoibi/
 ├── frontend/             # Next.js 16 (App Router) + Tailwind CSS v4 + Better Auth client
 │   ├── src/app/          # Page routes, layouts, error/loading boundaries
-│   ├── src/features/     # Feature-sliced modules (tweets, videos, streams, meet-up, admin)
+│   ├── src/features/     # Feature-sliced modules (tweets, videos, meet-up, admin)
 │   ├── src/shared/       # Reusable components (buttons, modals, inputs, layout navigation)
 │   ├── src/lib/          # API client, Better Auth configuration, utils
 │   └── next.config.js    # Security response headers & permissions policy
@@ -52,8 +52,8 @@ yoibi/
 | **Authentication** | Better Auth v1.7.4 (JWT plugin, Admin plugin) | User registration, verified JWT issuance, JWKS endpoint |
 | **Backend** | Node.js, Express 5, Mongoose 9, `jose`, `express-rate-limit` | REST API, authorization, business rules, DB management |
 | **Database** | MongoDB / MongoDB Atlas | Persistent document storage |
-| **Realtime Media** | LiveKit Cloud (SFU) | Live streams and Meet-Up rooms |
-| **Live Media & Video**| LiveKit Cloud (SFU) & Cloudinary | Realtime live streaming, Meet-Up rooms, video storage |
+| **Realtime Media** | LiveKit Cloud (SFU) | Meet-Up collaborative rooms |
+| **Media & Video** | Cloudinary | Video storage and asset delivery |
 | **Deployment** | Vercel (Frontend), Railway (Backend) | Production hosting & zero-downtime scaling |
 
 ---
@@ -100,9 +100,8 @@ npm run build
 
 1. **Tweets & Social Feed (`/tweets`, `/feed`)**: 280-character micro-posts with image/video attachments, threaded replies, likes, retweets, and algorithmic/following feeds.
 2. **Community Videos (`/videos`)**: Short and long-form video sharing with server-signed Cloudinary direct uploads, 8 canonical categories, and playback initiation tracking.
-3. **Live Streams (`/streams`)**: Live video broadcasts via LiveKit SFU with public discovery, anonymous viewer access, owner-only broadcasting, and anti-PII opaque room naming.
-4. **Meet-Up Collaborative Rooms (`/meetup`)**: Multi-participant interactive audio/video/screen-sharing rooms with reservation TTLs, capacity enforcement, and presentation snapshots.
-5. **Admin & Moderation Suite (`/admin`)**: Dashboard analytics, user management, reversible user blocking (session revocation), content moderation, and permanent 5-phase / 9-stage destructive user ban orchestrator with pre-cleanup audit logging.
+3. **Meet-Up Collaborative Rooms (`/meetup`)**: Multi-participant interactive audio/video/screen-sharing rooms with reservation TTLs, capacity enforcement, and presentation snapshots.
+4. **Admin & Moderation Suite (`/admin`)**: Dashboard analytics, user management, reversible user blocking (session revocation), content moderation, and permanent 5-phase / 9-stage destructive user ban orchestrator with pre-cleanup audit logging.
 
 > **Scope note:** Direct Messaging (`/messages`), Activity Notifications (`/notifications`), and the sidebar "New Post" shortcut were intentionally removed from the current YOIBI product scope. Tweet creation remains available through the Tweets feature composer.
 

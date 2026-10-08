@@ -20,7 +20,6 @@ const { runUserSearchTests } = require("./user-search.test");
 const { runJwtTests } = require("./auth-jwt.test");
 const { runTweetsTests } = require("./tweets.test");
 const { runVideosTests } = require("./videos.test");
-const { runStreamsTests } = require("./streams.test");
 const { runMeetupTests } = require("./meetup.test");
 const { runAdminTests } = require("./admin.test");
 
@@ -41,8 +40,6 @@ async function main() {
     await runTweetsTests();
     console.log("\n--------------------------------------------------\n");
     await runVideosTests();
-    console.log("\n--------------------------------------------------\n");
-    await runStreamsTests();
     console.log("\n--------------------------------------------------\n");
     await runMeetupTests();
     console.log("\n--------------------------------------------------\n");

@@ -9,71 +9,6 @@ function isLiveKitConfigured() {
     return Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET);
 }
 
-/**
- * Generates an opaque LiveKit host token with publishing permissions.
- *
- * @param {string} roomName - Opaque room identifier (stream_<uuid>)
- * @param {object} [options]
- * @param {string} [options.ttl="4h"] - Token time-to-live
- * @returns {Promise<{ token: string, url: string }>}
- */
-async function generateHostToken(roomName, options = {}) {
-    const ttl = options.ttl || "4h";
-    const identity = `host_${crypto.randomUUID()}`;
-    const livekitUrl = env.LIVEKIT_URL || "wss://mock.livekit.local";
-    const apiKey = env.LIVEKIT_API_KEY || "devkey";
-    const apiSecret = env.LIVEKIT_API_SECRET || "secret123456789012345678901234567890";
-
-    const at = new AccessToken(apiKey, apiSecret, {
-        identity,
-        ttl
-    });
-
-    at.addGrant({
-        roomJoin: true,
-        room: roomName,
-        canPublish: true,
-        canSubscribe: true,
-        canPublishData: true,
-        roomAdmin: false
-    });
-
-    const token = await at.toJwt();
-    return { token, url: livekitUrl };
-}
-
-/**
- * Generates an opaque LiveKit viewer token with subscribe-only permissions.
- *
- * @param {string} roomName - Opaque room identifier (stream_<uuid>)
- * @param {object} [options]
- * @param {string} [options.ttl="4h"] - Token time-to-live
- * @returns {Promise<{ token: string, url: string }>}
- */
-async function generateViewerToken(roomName, options = {}) {
-    const ttl = options.ttl || "4h";
-    const identity = `viewer_${crypto.randomUUID()}`;
-    const livekitUrl = env.LIVEKIT_URL || "wss://mock.livekit.local";
-    const apiKey = env.LIVEKIT_API_KEY || "devkey";
-    const apiSecret = env.LIVEKIT_API_SECRET || "secret123456789012345678901234567890";
-
-    const at = new AccessToken(apiKey, apiSecret, {
-        identity,
-        ttl
-    });
-
-    at.addGrant({
-        roomJoin: true,
-        room: roomName,
-        canPublish: false,
-        canSubscribe: true,
-        canPublishData: false,
-        roomAdmin: false
-    });
-
-    const token = await at.toJwt();
-    return { token, url: livekitUrl };
-}
 
 // In-memory slot reservation manager with 20-second TTL to prevent race conditions during concurrent joins
 const reservations = new Map(); // roomName -> Map<reservationId, expireTimestamp>
@@ -296,8 +231,6 @@ async function terminateLiveKitRoom(roomName) {
 
 module.exports = {
     isLiveKitConfigured,
-    generateHostToken,
-    generateViewerToken,
     generateMeetupParticipantToken,
     reserveSlot,
     clearReservation,

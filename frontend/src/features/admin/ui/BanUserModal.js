@@ -85,7 +85,7 @@ export function BanUserModal({ isOpen, onClose, user, onConfirm, loading }) {
                                 <li>The Better Auth user account and authentication sessions are permanently destroyed.</li>
                                 <li>All owned Tweets and replies are permanently deleted, repairing parent reply counters.</li>
                                 <li>All owned Videos and associated Cloudinary assets are permanently purged.</li>
-                                <li>Active LiveKit broadcast and Meet-Up rooms are immediately terminated and deleted.</li>
+                                <li>Active LiveKit Meet-Up rooms are immediately terminated and deleted.</li>
                                 <li>Follow relationships are bidirectionally severed and counters repaired.</li>
                                 <li>Moderation reports are permanently preserved for legal and audit history.</li>
                                 <li>A permanent audit log entry is finalized.</li>

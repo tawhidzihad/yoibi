@@ -7,7 +7,6 @@ import {
     ShieldAlert,
     FileText,
     Play,
-    Radio,
     UsersRound,
     Flag,
     RefreshCw
@@ -18,8 +17,8 @@ import { Button } from "@/shared/ui/Button";
 export function StatsOverview({ stats, loading, onRefresh }) {
     if (!stats && loading) {
         return (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 9 }).map((_, i) => (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {Array.from({ length: 8 }).map((_, i) => (
                     <Card key={i} className="h-28 animate-pulse bg-secondary/40 border-border/40" />
                 ))}
             </div>
@@ -73,13 +72,6 @@ export function StatsOverview({ stats, loading, onRefresh }) {
             icon: Play,
             color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
             description: "Uploaded media assets on Cloudinary",
-        },
-        {
-            label: "Live Streams",
-            value: stats.liveStreams ?? 0,
-            icon: Radio,
-            color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
-            description: "Active broadcasts on LiveKit SFU",
         },
         {
             label: "Meet-Up Rooms",
@@ -150,7 +142,7 @@ export function StatsOverview({ stats, loading, onRefresh }) {
                 <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     Domain Content & Realtime Sessions
                 </h3>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     {contentStats.map((item) => {
                         const Icon = item.icon;
                         return (

@@ -30,9 +30,9 @@ YOIBI is architected as two decoupled, independently deployable applications:
 | `CLOUDINARY_CLOUD_NAME` | Backend | Server-Only Config | **NO** | **Yes** (Videos) | `your_cloudinary_cloud_name` | Cloudinary account name | Cloudinary cloud name for video media management. |
 | `CLOUDINARY_API_KEY` | Backend | Server-Only Config | **NO** | **Yes** (Videos) | `your_cloudinary_api_key` | Cloudinary API Key | Cloudinary API Key for generating signed upload signatures. |
 | `CLOUDINARY_API_SECRET` | Backend | Server-Only Secret | **NO** | **Yes** (Videos) | `your_cloudinary_api_secret` | Cloudinary API Secret | Cloudinary signing secret for SHA-256 signatures and asset purge operations. |
-| `LIVEKIT_URL` | Backend | Server-Only Config | **NO** | **Yes** (Streams/MeetUp) | `wss://your-project.livekit.cloud` | LiveKit Cloud WebSocket URL | LiveKit SFU server URL (sent securely to authenticated clients in room tokens). |
-| `LIVEKIT_API_KEY` | Backend | Server-Only Config | **NO** | **Yes** (Streams/MeetUp) | `your_livekit_api_key` | LiveKit API Key | LiveKit API key for room creation and participant token minting. |
-| `LIVEKIT_API_SECRET` | Backend | Server-Only Secret | **NO** | **Yes** (Streams/MeetUp) | `your_livekit_api_secret` | LiveKit API Secret | LiveKit signing secret for JWT access tokens and server SDK room management. |
+| `LIVEKIT_URL` | Backend | Server-Only Config | **NO** | **Yes** (Meet-Up) | `wss://your-project.livekit.cloud` | LiveKit Cloud WebSocket URL | LiveKit SFU server URL (sent securely to authenticated clients in room tokens). |
+| `LIVEKIT_API_KEY` | Backend | Server-Only Config | **NO** | **Yes** (Meet-Up) | `your_livekit_api_key` | LiveKit API Key | LiveKit API key for room creation and participant token minting. |
+| `LIVEKIT_API_SECRET` | Backend | Server-Only Secret | **NO** | **Yes** (Meet-Up) | `your_livekit_api_secret` | LiveKit API Secret | LiveKit signing secret for JWT access tokens and server SDK room management. |
 
 ---
 
@@ -56,8 +56,8 @@ YOIBI is architected as two decoupled, independently deployable applications:
 ## 2.2 MongoDB
 - **One database — `yoibi_database`** (Atlas). YOIBI uses exactly one database with two related data layers:
   1. **Better Auth (authentication-owned)**: the frontend server runtime connects through the official Better Auth Mongo adapter and owns the `user`, `session`, and `account` collections — email, hashed password credentials, login sessions, and OAuth (Google) provider accounts. Better Auth is the SINGLE authentication authority. No email-verification or password-reset flows exist, so no verification/resend state is stored anywhere.
-  2. **YOIBI application profile**: the Express backend connects with Mongoose and owns the `users` collection plus all feature collections (`tweets`, `videos`, `streams`, `meetup_rooms`, `follows`, `reports`, `auditLogs`).
-- **Identity mapping (single canonical identity)**: `users._id` (String) ≡ Better Auth user ID (JWT `sub`). All ownership fields reuse the same string: `Tweet.authorId`, `Video.authorId`, `Stream.authorId`, `MeetUp.ownerId`, follow/report IDs, and admin target IDs. There is no second/duplicate identity field.
+  2. **YOIBI application profile**: the Express backend connects with Mongoose and owns the `users` collection plus all feature collections (`tweets`, `videos`, `meetup_rooms`, `follows`, `reports`, `auditLogs`).
+- **Identity mapping (single canonical identity)**: `users._id` (String) ≡ Better Auth user ID (JWT `sub`). All ownership fields reuse the same string: `Tweet.authorId`, `Video.authorId`, `MeetUp.ownerId`, follow/report IDs, and admin target IDs. There is no second/duplicate identity field.
 - **No password duplication**: the application `users` profile has NO `password`/`passwordHash`/`hashedPassword` fields; credentials live only in Better Auth storage.
 - **Database-name enforcement**: `backend/src/config/mongoUri.js` normalizes `MONGODB_URI` so the resolved database is always `yoibi_database` (inserted when the URI omits a database segment — MongoDB would otherwise default to `test` — and replacing accidental `test`/`sampledb` names); `backend/src/config/db.js` verifies and logs the REAL active database name after connecting.
 - **Indexes**: `users.handle` is UNIQUE (canonical handle — the DB is the final authority), `users.role` and `users.isBlocked` are indexed; Better Auth's Mongo adapter creates its own required indexes.
@@ -67,12 +67,12 @@ YOIBI is architected as two decoupled, independently deployable applications:
 - **Secret Isolation**: `CLOUDINARY_API_SECRET` resides strictly on the backend. The browser uploads directly to Cloudinary using only the ephemeral server-signed intent.
 
 ## 2.4 LiveKit SFU Realtime Video & Audio
-- **Backend Only Authority**: The backend (`backend/src/integrations/livekit/livekit.js`) uses `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to mint short-lived participant tokens containing least-privilege permissions and opaque identities (`host_<uuid>`, `viewer_<uuid>`, `meetup_<userId>_<uuid>`).
-- **Frontend Client**: The frontend receives the ephemeral token and `LIVEKIT_URL` via authenticated REST endpoints (`POST /api/v1/streams/:id/join`, `POST /api/v1/meetup/rooms/:id/join`). Neither `LIVEKIT_API_KEY` nor `LIVEKIT_API_SECRET` is ever exposed to the client.
+- **Backend Only Authority**: The backend (`backend/src/integrations/livekit/livekit.js`) uses `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to mint short-lived participant tokens containing least-privilege permissions and opaque identities (`participant_<uuid>`).
+- **Frontend Client**: The frontend receives the ephemeral token and `LIVEKIT_URL` via authenticated REST endpoints (`POST /api/v1/meetup/rooms/:id/join`). Neither `LIVEKIT_API_KEY` nor `LIVEKIT_API_SECRET` is ever exposed to the client.
 
 ## 2.5 Realtime Transport
 
-> **Note:** Socket.IO and the associated realtime messaging/notification gateway were intentionally removed from YOIBI. Realtime media transport for Streams and Meet-Up uses LiveKit WebRTC directly. No WebSocket gateway or `socket.io` package is installed. The `NEXT_PUBLIC_SOCKET_URL` variable is ignored by the current application.
+> **Note:** Socket.IO and the associated realtime messaging/notification gateway were intentionally removed from YOIBI. Realtime media transport for Meet-Up uses LiveKit WebRTC directly. No WebSocket gateway or `socket.io` package is installed. The `NEXT_PUBLIC_SOCKET_URL` variable is ignored by the current application.
 
 ---
 

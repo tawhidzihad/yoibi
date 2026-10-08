@@ -6,7 +6,6 @@ const { buildPublicProfile, collectProfileCounts } = require("../src/controllers
 const { sanitizeOwnProfile } = require("../src/controllers/update/users.controller");
 const { createImageUploadIntent } = require("../src/integrations/cloudinary/cloudinary");
 const { listTweetsQuerySchema } = require("../src/validators/tweets.validator");
-const { listStreamsQuerySchema } = require("../src/validators/streams.validator");
 
 /**
  * User Profile System tests (deterministic, no live DB).
@@ -19,7 +18,7 @@ const { listStreamsQuerySchema } = require("../src/validators/streams.validator"
  *   - public profile projection (no sensitive exposure, real counts, isOwner)
  *   - own-profile projection (no moderation internals, normalized role)
  *   - profile content counts keyed by canonical authorId (zeros when DB down)
- *   - tweets authorHandle filter schema + streams "all" status schema
+ *   - tweets authorHandle filter schema
  *   - server-issued avatar/banner upload signature (folders, no secret exposure)
  */
 
@@ -122,10 +121,9 @@ async function runTests() {
             followingCount: 34,
             createdAt: new Date("2026-09-01T12:00:00Z")
         };
-        const data = buildPublicProfile(dbUser, { isFollowing: true, isOwner: false, counts: { tweetsCount: 7, videosCount: 3, streamsCount: 2 } });
+        const data = buildPublicProfile(dbUser, { isFollowing: true, isOwner: false, counts: { tweetsCount: 7, videosCount: 3 } });
         assert.strictEqual(data.tweetsCount, 7);
         assert.strictEqual(data.videosCount, 3);
-        assert.strictEqual(data.streamsCount, 2);
         assert.strictEqual(data.postsCount, 7, "postsCount is the legacy tweets alias");
         assert.strictEqual(data.isFollowing, true);
         assert.strictEqual(data.isOwner, false);
@@ -180,21 +178,17 @@ async function runTests() {
     // ------------------------------------------------------------------
     {
         const counts = await collectProfileCounts("usr_123");
-        assert.deepStrictEqual(counts, { tweetsCount: 0, videosCount: 0, streamsCount: 0 });
+        assert.deepStrictEqual(counts, { tweetsCount: 0, videosCount: 0 });
         console.log("✓ profile counts resolve per-domain by authorId (0 when DB is unreachable, never fabricated).");
     }
 
     // ------------------------------------------------------------------
-    // 9. Tweets authorHandle filter + Streams "all" lifecycle support
+    // 9. Tweets authorHandle filter
     // ------------------------------------------------------------------
     {
         const tweetsQuery = listTweetsQuerySchema.parse({ authorHandle: "@JaneDoe" });
         assert.strictEqual(tweetsQuery.authorHandle, "janedoe");
-        const streamsQuery = listStreamsQuerySchema.parse({ status: "all", authorId: "usr_123" });
-        assert.strictEqual(streamsQuery.status, "all");
-        assert.ok(listStreamsQuerySchema.safeParse({ status: "live" }).success);
-        expectZodThrow(listStreamsQuerySchema, { status: "bogus" });
-        console.log("✓ tweets authorHandle + streams status=all schemas support server-side profile filtering.");
+        console.log("✓ tweets authorHandle schema supports server-side profile filtering.");
     }
 
     // ------------------------------------------------------------------

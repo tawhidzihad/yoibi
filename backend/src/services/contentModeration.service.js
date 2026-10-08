@@ -1,7 +1,6 @@
 const crypto = require('crypto');
 const adminRepository = require('../repositories/admin.repository');
 const auditLogRepository = require('../repositories/auditLog.repository');
-const streamsRepository = require('../repositories/streams.repository');
 const meetupRepository = require('../repositories/meetup.repository');
 const { deleteTweet } = require('./delete/tweets.service');
 const { deleteVideo } = require('./delete/videos.service');
@@ -10,7 +9,7 @@ const { terminateLiveKitRoom } = require('../integrations/livekit/livekit');
 /**
  * Browses application content by type for admin review.
  *
- * @param {'tweets'|'videos'|'streams'|'meetups'} type
+ * @param {'tweets'|'videos'|'meetups'} type
  * @param {Object} query
  * @param {number} [query.page=1]
  * @param {number} [query.limit=20]
@@ -23,8 +22,6 @@ async function browseContent(type, { page = 1, limit = 20, search }) {
         if (type === 'tweets') {
             filter.content = { $regex: search, $options: 'i' };
         } else if (type === 'videos') {
-            filter.title = { $regex: search, $options: 'i' };
-        } else if (type === 'streams') {
             filter.title = { $regex: search, $options: 'i' };
         } else if (type === 'meetups') {
             filter.title = { $regex: search, $options: 'i' };
@@ -52,7 +49,7 @@ async function browseContent(type, { page = 1, limit = 20, search }) {
 /**
  * Deletes content with appropriate cleanup and creates an audit record.
  *
- * @param {'tweets'|'videos'|'streams'|'meetups'} type
+ * @param {'tweets'|'videos'|'meetups'} type
  * @param {string} id
  * @param {Object} adminUser
  * @param {string} [reason]
@@ -72,7 +69,7 @@ async function deleteContent(type, id, adminUser, reason = 'Content violates mod
         throw error;
     }
 
-    const typeMap = { tweet: 'tweets', video: 'videos', stream: 'streams', meetup: 'meetups' };
+    const typeMap = { tweet: 'tweets', video: 'videos', meetup: 'meetups' };
     const normalizedType = typeMap[type] || type;
     let deletedId = id;
 
@@ -85,21 +82,6 @@ async function deleteContent(type, id, adminUser, reason = 'Content violates mod
         case 'videos': {
             const result = await deleteVideo(id, adminUser);
             deletedId = result.deletedId;
-            break;
-        }
-        case 'streams': {
-            const stream = await streamsRepository.findById(id);
-            if (!stream) {
-                const error = new Error('Stream not found.');
-                error.statusCode = 404;
-                error.code = 'NOT_FOUND';
-                throw error;
-            }
-            if (stream.roomName) {
-                await terminateLiveKitRoom(stream.roomName);
-            }
-            await streamsRepository.deleteById(id);
-            deletedId = id;
             break;
         }
         case 'meetups': {
