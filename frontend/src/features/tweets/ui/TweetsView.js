@@ -91,14 +91,6 @@ export function TweetsView() {
 
     return (
         <div className="min-h-screen">
-            {/* Header */}
-            <div className="sticky top-0 z-20 border-b border-border/60 bg-background/90 px-4 py-3 backdrop-blur-md">
-                <h1 className="text-lg font-bold text-foreground">Tweets</h1>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                    Concise thoughts · 280-character limit · Real-time conversations
-                </p>
-            </div>
-
             {/* Composer */}
             <CreateTweetCard
                 onTweetCreated={handleTweetCreated}

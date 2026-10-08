@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,16 +8,11 @@ import { z } from "zod";
 import { Send, Trash2, AlertCircle, Heart, CornerDownRight } from "lucide-react";
 import { useAuth } from "@/features/auth/context/AuthContext";
 import { tweetsApi } from "../api/tweetsApi";
+import { useTweetConfig } from "../hooks/useTweetConfig";
 import { Button } from "@/shared/ui/Button";
 import { Modal } from "@/shared/ui/Modal";
+import { countCharacters } from "@/shared/utils/charCount";
 import { cn } from "@/shared/utils/cn";
-
-const replySchema = z.object({
-    content: z
-        .string()
-        .min(1, "Reply cannot be empty")
-        .max(280, "Reply cannot exceed 280 characters"),
-});
 
 function formatRelative(isoString) {
     if (!isoString) return "";
@@ -252,6 +247,25 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
 
     const inlineInputRef = useRef(null);
 
+    const { maxLength: serverMaxLength, loading: configLoading } = useTweetConfig();
+
+    const replySchema = useMemo(() => {
+        return z.object({
+            content: z
+                .string()
+                .min(1, "Reply cannot be empty")
+                .refine(
+                    (val) => {
+                        if (serverMaxLength === null) return true;
+                        return countCharacters(val.trim()) <= serverMaxLength;
+                    },
+                    serverMaxLength !== null
+                        ? `Reply cannot exceed ${serverMaxLength} characters`
+                        : "Reply is too long"
+                ),
+        });
+    }, [serverMaxLength]);
+
     const {
         register,
         handleSubmit,
@@ -276,9 +290,9 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
     });
 
     const contentValue = useWatch({ control, name: "content", defaultValue: "" }) || "";
-    const remainingChars = 280 - contentValue.length;
+    const remainingChars = serverMaxLength !== null ? serverMaxLength - countCharacters(contentValue) : null;
     const inlineContentValue = useWatch({ control: inlineControl, name: "content", defaultValue: "" }) || "";
-    const inlineRemainingChars = 280 - inlineContentValue.length;
+    const inlineRemainingChars = serverMaxLength !== null ? serverMaxLength - countCharacters(inlineContentValue) : null;
 
     const requireAuthOrRedirect = useCallback(() => {
         if (status !== "authenticated" || !user) {
@@ -525,16 +539,22 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
                             <span
                                 className={cn(
                                     "text-[10px] font-mono",
-                                    inlineRemainingChars < 0
+                                    inlineRemainingChars !== null && inlineRemainingChars < 0
                                         ? "text-destructive font-bold"
                                         : "text-muted-foreground"
                                 )}
                             >
-                                {inlineRemainingChars}
+                                {inlineRemainingChars !== null ? inlineRemainingChars : ""}
                             </span>
                             <button
                                 type="submit"
-                                disabled={isSubmittingInline || !inlineContentValue.trim() || inlineRemainingChars < 0}
+                                disabled={
+                                    isSubmittingInline ||
+                                    !inlineContentValue.trim() ||
+                                    (inlineRemainingChars !== null && inlineRemainingChars < 0) ||
+                                    configLoading ||
+                                    serverMaxLength === null
+                                }
                                 className="cursor-pointer text-cyan-600 hover:text-cyan-500 disabled:opacity-40 dark:text-cyan-400"
                                 aria-label="Send reply"
                             >
@@ -652,16 +672,22 @@ export function TweetReplySection({ tweetId, initialReplies = [], onRepliesCount
                             <span
                                 className={cn(
                                     "text-[10px] font-mono",
-                                    remainingChars < 0
+                                    remainingChars !== null && remainingChars < 0
                                         ? "text-destructive font-bold"
                                         : "text-muted-foreground"
                                 )}
                             >
-                                {remainingChars}
+                                {remainingChars !== null ? remainingChars : ""}
                             </span>
                             <button
                                 type="submit"
-                                disabled={isSubmitting || !contentValue.trim() || remainingChars < 0}
+                                disabled={
+                                    isSubmitting ||
+                                    !contentValue.trim() ||
+                                    (remainingChars !== null && remainingChars < 0) ||
+                                    configLoading ||
+                                    serverMaxLength === null
+                                }
                                 className="cursor-pointer text-cyan-600 hover:text-cyan-500 disabled:opacity-40 dark:text-cyan-400"
                                 aria-label="Send reply"
                             >

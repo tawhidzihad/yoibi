@@ -1,4 +1,5 @@
 const { listTweets, getTweetById, getReplies } = require("../../services/read/tweets.service");
+const { TWEET_MAX_LENGTH, TWEET_MAX_MEDIA_COUNT } = require("../../config/constants");
 
 /**
  * Controller: List paginated tweets (feed)
@@ -84,8 +85,23 @@ async function handleGetReplies(req, res, next) {
     }
 }
 
+/**
+ * Controller: Get tweet configuration / constraints
+ * Auth: Optional / Public
+ */
+async function handleGetTweetConfig(req, res) {
+    return res.status(200).json({
+        success: true,
+        data: {
+            maxLength: TWEET_MAX_LENGTH,
+            maxMediaCount: TWEET_MAX_MEDIA_COUNT
+        }
+    });
+}
+
 module.exports = {
     handleListTweets,
     handleGetTweetById,
-    handleGetReplies
+    handleGetReplies,
+    handleGetTweetConfig
 };

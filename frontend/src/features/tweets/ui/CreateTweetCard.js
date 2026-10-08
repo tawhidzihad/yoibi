@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,16 +14,12 @@ import {
     TWEET_IMAGE_ALLOWED_TYPES,
     tweetsApi,
 } from "../api/tweetsApi";
+import { useTweetConfig } from "../hooks/useTweetConfig";
 import { emitProfileChanged } from "@/lib/profileSync";
+import { AutoGrowTextarea } from "@/shared/ui/AutoGrowTextarea";
 import { Button } from "@/shared/ui/Button";
+import { countCharacters } from "@/shared/utils/charCount";
 import { cn } from "@/shared/utils/cn";
-
-const createTweetSchema = z.object({
-    content: z
-        .string()
-        .min(1, "Tweet content cannot be empty")
-        .max(280, "Tweet cannot exceed 280 characters"),
-});
 
 function UserAvatar({ name, avatarUrl }) {
     if (avatarUrl) {
@@ -124,6 +120,25 @@ export function CreateTweetCard({ onTweetCreated, placeholder = "What's happenin
     // the state setter paths (never assigned during render).
     const selectionRef = useRef([]);
 
+    const { maxLength: serverMaxLength, loading: configLoading } = useTweetConfig();
+
+    const createTweetSchema = useMemo(() => {
+        return z.object({
+            content: z
+                .string()
+                .min(1, "Tweet content cannot be empty")
+                .refine(
+                    (val) => {
+                        if (serverMaxLength === null) return true;
+                        return countCharacters(val.trim()) <= serverMaxLength;
+                    },
+                    serverMaxLength !== null
+                        ? `Tweet cannot exceed ${serverMaxLength} characters`
+                        : "Tweet is too long"
+                ),
+        });
+    }, [serverMaxLength]);
+
     const {
         register,
         handleSubmit,
@@ -138,9 +153,10 @@ export function CreateTweetCard({ onTweetCreated, placeholder = "What's happenin
     });
 
     const contentValue = useWatch({ control, name: "content", defaultValue: "" }) || "";
-    const remainingChars = 280 - contentValue.length;
-    const isOverLimit = remainingChars < 0;
-    const isNearLimit = remainingChars <= 20 && remainingChars >= 0;
+    const contentCount = countCharacters(contentValue);
+    const remainingChars = serverMaxLength !== null ? serverMaxLength - contentCount : null;
+    const isOverLimit = remainingChars !== null && remainingChars < 0;
+    const isNearLimit = remainingChars !== null && remainingChars <= 20 && remainingChars >= 0;
     const isPosting = postPhase !== null || isSubmitting;
     const remainingSlots = TWEET_IMAGE_MAX_COUNT - selectedMedia.length;
 
@@ -361,7 +377,7 @@ export function CreateTweetCard({ onTweetCreated, placeholder = "What's happenin
                 <div className="flex gap-3">
                     <UserAvatar name={user?.name} avatarUrl={user?.avatarUrl} />
                     <div className="flex-1">
-                        <textarea
+                        <AutoGrowTextarea
                             {...register("content")}
                             id="create-tweet-content"
                             rows={3}
@@ -370,7 +386,7 @@ export function CreateTweetCard({ onTweetCreated, placeholder = "What's happenin
                                     ? placeholder
                                     : "Log in to share a tweet with the community..."
                             }
-                            className="w-full resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                            className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                         />
 
                         {errors.content && (
@@ -476,7 +492,7 @@ export function CreateTweetCard({ onTweetCreated, placeholder = "What's happenin
                                     aria-live="polite"
                                     id="create-tweet-countdown"
                                 >
-                                    {remainingChars}
+                                    {remainingChars !== null ? remainingChars : ""}
                                 </span>
                             </div>
 
@@ -484,7 +500,13 @@ export function CreateTweetCard({ onTweetCreated, placeholder = "What's happenin
                                 type="submit"
                                 size="sm"
                                 loading={isPosting}
-                                disabled={isPosting || !contentValue.trim() || isOverLimit}
+                                disabled={
+                                    isPosting ||
+                                    !contentValue.trim() ||
+                                    isOverLimit ||
+                                    configLoading ||
+                                    serverMaxLength === null
+                                }
                                 id="create-tweet-submit-btn"
                                 className="gap-1.5"
                             >

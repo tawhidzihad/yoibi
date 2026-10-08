@@ -98,7 +98,7 @@ npm run build
 
 ## 4. Key Platform Features
 
-1. **Tweets & Social Feed (`/tweets`, `/feed`)**: 280-character micro-posts with image/video attachments, threaded replies, likes, retweets, and algorithmic/following feeds.
+1. **Tweets & Social Feed (`/tweets`, `/feed`)**: 380-character micro-posts with image/video attachments, threaded replies, likes, retweets, and algorithmic/following feeds.
 2. **Community Videos (`/videos`)**: Short and long-form video sharing with server-signed Cloudinary direct uploads, 8 canonical categories, and playback initiation tracking.
 3. **Meet-Up Collaborative Rooms (`/meetup`)**: Multi-participant interactive audio/video/screen-sharing rooms with reservation TTLs, capacity enforcement, and presentation snapshots.
 4. **Admin & Moderation Suite (`/admin`)**: Dashboard analytics, user management, reversible user blocking (session revocation), content moderation, and permanent 5-phase / 9-stage destructive user ban orchestrator with pre-cleanup audit logging.

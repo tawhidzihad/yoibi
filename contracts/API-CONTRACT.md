@@ -367,7 +367,7 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 
 > **Architectural Standard:** In YOIBI, `Tweet` is the primary social content entity. `POST` is strictly an HTTP request method (e.g. `POST /api/v1/tweets`), not a separate content domain. Feed is a presentation and discovery view of Tweets.
 >
-> A Tweet supports short text updates (≤ 280 characters), optional media URLs, likes, retweets, threaded replies (via `replyToId`), interaction counts, and authenticated user interaction states.
+> A Tweet supports short text updates (≤ 380 characters), optional media URLs, likes, retweets, threaded replies (via `replyToId`), interaction counts, and authenticated user interaction states.
 >
 > **Threaded comments (Facebook-style):** Comments are Tweets. Every comment carries:
 >
@@ -376,6 +376,21 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
 > - `rootCommentId` — the top-level comment this comment is grouped under (null for direct replies to the tweet).
 >
 > Comments are individually likable via the same tweet like endpoints (`:id` = comment ID works because a comment IS a tweet). `repliesCount` semantics: on a top-level tweet it is the TOTAL number of comments in its thread (all depths); on a comment it is that comment's direct-reply count. Deleting a comment cascades to its nested-reply subtree; deleting a top-level tweet removes its entire comment thread.
+
+### `GET /api/v1/tweets/config`
+
+- Auth: Optional / Public
+- Description: Returns tweet client configuration and server-enforced validation constraints.
+- Response (200):
+  ```json
+  {
+    "success": true,
+    "data": {
+      "maxLength": 380,
+      "maxMediaCount": 5
+    }
+  }
+  ```
 
 ### `GET /api/v1/tweets`
 
@@ -430,11 +445,11 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   }
   ```
 - Constraints:
-  - `content`: 1–280 characters (trimmed).
+  - `content`: 1–380 characters (trimmed).
   - `media`: max **5** server-authorized image attachments. Each entry references a server-issued upload intent and is strictly verified (existence, expiry, ownership, exact publicId match, URL correspondence) before the intent is consumed exactly once.
   - Supported image formats: `image/jpeg`, `image/png`, `image/webp`, `image/avif`, `image/gif`. Max size: 10 MB per image.
 - Response (201): Created tweet object.
-- Error (422 `VALIDATION_ERROR`): Content exceeds 280 characters or is empty; more than 5 media items.
+- Error (400 `VALIDATION_ERROR`): Content exceeds 380 characters or is empty; more than 5 media items.
 - Error (403 `FORBIDDEN`): A media attachment failed intent verification (invalid/expired intent, ownership mismatch, or asset identity mismatch).
 
 ### `GET /api/v1/tweets/:id`
@@ -576,6 +591,9 @@ All HTTP responses (success and error) adhere strictly to predictable JSON envel
   }
   ```
 - Response (201): Created comment object linked via `replyToId`, with its server-derived `rootTweetId` and `rootCommentId`.
+- Constraints:
+  - `content`: 1–380 characters (trimmed).
+- Error (400 `VALIDATION_ERROR`): Content exceeds 380 characters or is empty.
 - Counter semantics: creating a nested reply increments BOTH the direct parent comment's `repliesCount` (direct replies) and the root tweet's `repliesCount` (total comments in the thread).
 
 ---

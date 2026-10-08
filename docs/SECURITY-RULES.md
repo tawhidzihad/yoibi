@@ -40,7 +40,7 @@
 - **Request Abuse & Input Bounds**:
   - Admin search queries are capped at 100 characters to prevent regex denial-of-service.
   - User profile update fields are bounded (name: 50 chars, bio: 280 chars, avatarUrl: 1000 chars).
-  - Tweet content: max 280 chars. Report description: max 2000 chars. Admin reason: max 1000 chars.
+  - Tweet content: max 380 chars. Report description: max 2000 chars. Admin reason: max 1000 chars.
   - Video upload size: max 100 MB (`104,857,600` bytes).
 
 ## 4. Secrets Isolation

@@ -3,6 +3,8 @@ const {
     verifyAndConsumeIntent,
     createTweetImageUploadIntent
 } = require("../../integrations/cloudinary/cloudinary");
+const { TWEET_MAX_LENGTH } = require("../../config/constants");
+const { countCharacters } = require("../../utils/charCount");
 
 /**
  * Service: Create a new Tweet
@@ -23,6 +25,10 @@ async function createTweet({ user, content, media = [], replyToId = null }) {
 
     if (!content || !content.trim()) {
         throw { statusCode: 400, code: "VALIDATION_ERROR", message: "Tweet content is required" };
+    }
+
+    if (countCharacters(content.trim()) > TWEET_MAX_LENGTH) {
+        throw { statusCode: 400, code: "VALIDATION_ERROR", message: `Tweet cannot exceed ${TWEET_MAX_LENGTH} characters` };
     }
 
     let parent = null;

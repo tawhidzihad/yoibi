@@ -9,12 +9,15 @@ const {
 } = require("../validators/tweets.validator");
 
 const { handleCreateTweet, handleGetTweetImageSignature } = require("../controllers/create/tweets.controller");
-const { handleListTweets, handleGetTweetById, handleGetReplies } = require("../controllers/read/tweets.controller");
+const { handleListTweets, handleGetTweetById, handleGetReplies, handleGetTweetConfig } = require("../controllers/read/tweets.controller");
 const { handleLikeTweet, handleUnlikeTweet, handleRetweetTweet, handleUndoRetweet } = require("../controllers/update/tweets.controller");
 const { handleDeleteTweet } = require("../controllers/delete/tweets.controller");
 const { writeLimiter, expensiveLimiter } = require("../middleware/rate-limiter");
 
 const router = Router();
+
+// Tweet configuration & constraints (public)
+router.get("/tweets/config", handleGetTweetConfig);
 
 // Tweet image upload authorization (ONE image) — server-issued Cloudinary
 // signature bound to the authenticated user (folder yoibi/tweets/{userId}).
@@ -24,7 +27,7 @@ router.post("/tweets/media-signature", expensiveLimiter, verifyJwt, handleGetTwe
 
 // Feed & Tweet Listing
 router.get("/tweets", optionalAuth, validate(listTweetsQuerySchema, "query"), handleListTweets);
-router.post("/tweets", writeLimiter, verifyJwt, validate(createTweetSchema, "body"), handleCreateTweet);
+router.post("/tweets", writeLimiter, verifyJwt, validate(createTweetSchema, "body", { statusCode: 400 }), handleCreateTweet);
 
 // Single Tweet Details & Deletion
 router.get("/tweets/:id", optionalAuth, validate(tweetIdParamSchema, "params"), handleGetTweetById);
@@ -61,7 +64,7 @@ router.post(
         req.body.replyToId = req.params.id;
         next();
     },
-    validate(createReplySchema, "body"),
+    validate(createReplySchema, "body", { statusCode: 400 }),
     async (req, res, next) => {
         return handleCreateTweet(req, res, next);
     }

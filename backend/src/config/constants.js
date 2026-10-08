@@ -1,0 +1,7 @@
+const TWEET_MAX_LENGTH = 380;
+const TWEET_MAX_MEDIA_COUNT = 5;
+
+module.exports = {
+    TWEET_MAX_LENGTH,
+    TWEET_MAX_MEDIA_COUNT
+};

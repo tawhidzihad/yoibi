@@ -140,3 +140,33 @@ describe("tweet media display: gallery carousel + full-screen viewer", () => {
         expect(viewer).toContain('typeof item === "string"');
     });
 });
+
+describe("tweet composer: server-enforced limit & AutoGrowTextarea", () => {
+    const composer = readSrc("features/tweets/ui/CreateTweetCard.js");
+    const tweetsView = readSrc("features/tweets/ui/TweetsView.js");
+    const autoGrow = readSrc("shared/ui/AutoGrowTextarea.js");
+
+    it("uses AutoGrowTextarea instead of raw textarea in the composer", () => {
+        expect(composer).toContain("AutoGrowTextarea");
+        expect(composer).not.toContain("<textarea");
+    });
+
+    it("does not hardcode 280 or 380 limit in UI composer code", () => {
+        expect(composer).not.toContain("280");
+        expect(composer).not.toContain("380");
+        expect(composer).toContain("useTweetConfig");
+    });
+
+    it("AutoGrowTextarea is a shared component supporting auto-resize", () => {
+        expect(autoGrow).toContain("AutoGrowTextarea");
+        expect(autoGrow).toContain("adjustHeight");
+        expect(autoGrow).toContain("resize-none");
+    });
+
+    it("removes the Tweets heading and 280-character limit sub-text from /tweets", () => {
+        expect(tweetsView).not.toContain("Concise thoughts · 280-character limit");
+        expect(tweetsView).not.toMatch(/<h1.*>Tweets<\/h1>/);
+        expect(tweetsView).toContain("<CreateTweetCard");
+    });
+});
+

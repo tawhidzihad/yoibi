@@ -234,6 +234,129 @@ async function runTweetsTests() {
             assert.strictEqual(replyItems.length, 1);
             assert.strictEqual(replyItems[0].replyToId, "tweet_parent_http");
             console.log("✓ GET /api/v1/tweets/:id/replies returned the reply under its parent tweet.");
+
+            // Test 9: GET /api/v1/tweets/config returns 200 with maxLength: 380
+            const configRes = await request("/api/v1/tweets/config");
+            assert.strictEqual(configRes.status, 200, "GET /api/v1/tweets/config must return 200");
+            assert.strictEqual(configRes.body.success, true);
+            assert.strictEqual(configRes.body.data.maxLength, 380, "Config maxLength must be 380");
+            assert.strictEqual(configRes.body.data.maxMediaCount, 5, "Config maxMediaCount must be 5");
+            console.log("✓ GET /api/v1/tweets/config returned 200 OK with maxLength: 380.");
+
+            // Test 10: Authenticated tweet of exactly 380 characters is accepted (201)
+            const text380 = "a".repeat(380);
+            const create380Res = await request("/api/v1/tweets", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: text380 }
+            });
+            assert.strictEqual(create380Res.status, 201, `Tweet of 380 chars must be accepted, got ${create380Res.status}`);
+            assert.strictEqual(create380Res.body.success, true);
+            assert.strictEqual(create380Res.body.data.content, text380);
+            console.log("✓ POST /api/v1/tweets with exactly 380 characters succeeded with 201.");
+
+            // Test 11: Authenticated tweet of 381 characters is rejected with 400
+            const text381 = "a".repeat(381);
+            const create381Res = await request("/api/v1/tweets", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: text381 }
+            });
+            assert.strictEqual(create381Res.status, 400, `Tweet of 381 chars must return 400, got ${create381Res.status}`);
+            assert.strictEqual(create381Res.body.success, false);
+            assert.strictEqual(create381Res.body.error.code, "VALIDATION_ERROR");
+            console.log("✓ POST /api/v1/tweets with 381 characters rejected with 400 VALIDATION_ERROR.");
+
+            // Test 12: Direct API request bypassing client limit is rejected with 400
+            const bypassContent = "Direct API call bypassing any client maxLength restrictions: " + "X".repeat(350);
+            assert(bypassContent.length > 380);
+            const bypassRes = await request("/api/v1/tweets", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: bypassContent }
+            });
+            assert.strictEqual(bypassRes.status, 400);
+            assert.strictEqual(bypassRes.body.success, false);
+            assert.strictEqual(bypassRes.body.error.code, "VALIDATION_ERROR");
+            console.log("✓ Direct API request bypassing frontend limit rejected with 400 VALIDATION_ERROR.");
+
+            // Test 13: Emoji / multi-byte counting consistency (Intl.Segmenter graphemes)
+            // Exactly 380 emojis accepted (201)
+            const emoji380 = "😀".repeat(380);
+            const createEmoji380Res = await request("/api/v1/tweets", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: emoji380 }
+            });
+            assert.strictEqual(createEmoji380Res.status, 201, `Tweet of 380 emojis must be accepted, got ${createEmoji380Res.status}`);
+            assert.strictEqual(createEmoji380Res.body.success, true);
+            console.log("✓ POST /api/v1/tweets with exactly 380 multi-byte emojis accepted with 201.");
+
+            // 381 emojis rejected with 400
+            const emoji381 = "😀".repeat(381);
+            const createEmoji381Res = await request("/api/v1/tweets", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: emoji381 }
+            });
+            assert.strictEqual(createEmoji381Res.status, 400);
+            assert.strictEqual(createEmoji381Res.body.success, false);
+            assert.strictEqual(createEmoji381Res.body.error.code, "VALIDATION_ERROR");
+            console.log("✓ POST /api/v1/tweets with 381 multi-byte emojis rejected with 400 VALIDATION_ERROR.");
+
+            // Compound emojis (e.g. skin tone modifiers): 380 accepted, 381 rejected
+            const compound380 = "👍🏽".repeat(380);
+            const createCompound380Res = await request("/api/v1/tweets", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: compound380 }
+            });
+            assert.strictEqual(createCompound380Res.status, 201);
+            console.log("✓ POST /api/v1/tweets with 380 compound emojis accepted with 201.");
+
+            const compound381 = "👍🏽".repeat(381);
+            const createCompound381Res = await request("/api/v1/tweets", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: compound381 }
+            });
+            assert.strictEqual(createCompound381Res.status, 400);
+            console.log("✓ POST /api/v1/tweets with 381 compound emojis rejected with 400.");
+
+            // Test 14: Reply of 381 characters is also rejected with 400
+            const reply381Res = await request("/api/v1/tweets/tweet_parent_http/replies", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${replyerToken}`
+                },
+                body: { content: text381 }
+            });
+            assert.strictEqual(reply381Res.status, 400);
+            assert.strictEqual(reply381Res.body.success, false);
+            assert.strictEqual(reply381Res.body.error.code, "VALIDATION_ERROR");
+            console.log("✓ POST /api/v1/tweets/:id/replies with 381 characters rejected with 400 VALIDATION_ERROR.");
         } finally {
             // Restore repository methods and auth environment for later suites.
             tweetsRepository.findById = httpOriginalFindById;
@@ -601,6 +724,28 @@ async function runTweetsTests() {
         const adminDeleteRes = await deleteTweet({ tweetId: tweetForAdmin.id, user: admin });
         assert.strictEqual(adminDeleteRes.deletedId, tweetForAdmin.id);
         console.log("✓ Service: deleteTweet allowed admin to delete any tweet.");
+
+        // Test L: Service-level length limit validation (380 accepted, 381 rejected with 400)
+        const tweet380 = await createTweet({
+            user: userA,
+            content: "x".repeat(380)
+        });
+        assert.strictEqual(tweet380.content.length, 380);
+        console.log("✓ Service: createTweet accepted 380-character content.");
+
+        let overlimitError = null;
+        try {
+            await createTweet({
+                user: userA,
+                content: "x".repeat(381)
+            });
+        } catch (err) {
+            overlimitError = err;
+        }
+        assert(overlimitError, "createTweet must reject 381 chars");
+        assert.strictEqual(overlimitError.statusCode, 400);
+        assert.strictEqual(overlimitError.code, "VALIDATION_ERROR");
+        console.log("✓ Service: createTweet rejected 381-character content with 400 VALIDATION_ERROR.");
 
         await runTweetMediaContractTests({ createTweet });
 

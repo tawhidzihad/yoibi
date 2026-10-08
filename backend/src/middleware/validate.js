@@ -11,7 +11,8 @@ const { ZodError } = require('zod');
  * take effect and unknown fields stripped by `.strict()` schemas are removed.
  * Controllers read the validated property first and fall back to the raw one.
  */
-function validate(schema, property = 'body') {
+function validate(schema, property = 'body', options = {}) {
+    const errorStatusCode = options.statusCode || 422;
     return (req, res, next) => {
         try {
             const data = schema.parse(req[property]);
@@ -21,7 +22,7 @@ function validate(schema, property = 'body') {
             next();
         } catch (err) {
             if (err instanceof ZodError) {
-                return res.status(422).json({
+                return res.status(errorStatusCode).json({
                     success: false,
                     error: {
                         code: 'VALIDATION_ERROR',

@@ -323,6 +323,31 @@ paths:
         '200':
           description: Suggested accounts list
 
+  /tweets/config:
+    get:
+      summary: Get tweet client configuration and constraints
+      description: Returns server-enforced tweet constraints (maxLength, maxMediaCount).
+      responses:
+        '200':
+          description: Tweet configuration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      maxLength:
+                        type: integer
+                        example: 380
+                      maxMediaCount:
+                        type: integer
+                        example: 5
+
   /tweets:
     get:
       summary: List micro-post tweets
@@ -354,7 +379,7 @@ paths:
               properties:
                 content:
                   type: string
-                  maxLength: 280
+                  maxLength: 380
                 media:
                   type: array
                   maxItems: 5
@@ -585,7 +610,7 @@ paths:
               properties:
                 content:
                   type: string
-                  maxLength: 280
+                  maxLength: 380
                 media:
                   type: array
                   maxItems: 5

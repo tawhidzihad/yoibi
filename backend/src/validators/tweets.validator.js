@@ -20,15 +20,20 @@ const tweetMediaItemSchema = z.object({
     format: z.string().max(10).optional()
 });
 
+const { TWEET_MAX_LENGTH } = require("../config/constants");
+const { countCharacters } = require("../utils/charCount");
+
 /**
  * Schema for creating a tweet.
- * Content: 1–280 characters (trimmed).
+ * Content: 1–380 characters (trimmed).
  * Media: optional, up to 5 server-authorized Cloudinary image attachments.
  */
 const createTweetSchema = z.object({
     content: z.string()
         .min(1, "Tweet cannot be empty")
-        .max(280, "Tweet cannot exceed 280 characters")
+        .refine((val) => countCharacters(val.trim()) <= TWEET_MAX_LENGTH, {
+            message: `Tweet cannot exceed ${TWEET_MAX_LENGTH} characters`
+        })
         .transform((s) => s.trim()),
     media: z.array(tweetMediaItemSchema).max(5, "Cannot attach more than 5 media items").optional().default([]),
     replyToId: z.string().optional().nullable().default(null)
@@ -74,7 +79,9 @@ const tweetIdParamSchema = z.object({
 const createReplySchema = z.object({
     content: z.string()
         .min(1, "Reply cannot be empty")
-        .max(280, "Reply cannot exceed 280 characters")
+        .refine((val) => countCharacters(val.trim()) <= TWEET_MAX_LENGTH, {
+            message: `Reply cannot exceed ${TWEET_MAX_LENGTH} characters`
+        })
         .transform((s) => s.trim()),
     replyToId: z.string().min(1, "Parent tweet ID is required")
 });

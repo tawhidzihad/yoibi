@@ -1,4 +1,6 @@
 const mongoose = require("mongoose");
+const { TWEET_MAX_LENGTH } = require("../config/constants");
+const { countCharacters } = require("../utils/charCount");
 
 const mediaAttachmentSchema = new mongoose.Schema({
     url: { type: String, required: true },
@@ -14,7 +16,16 @@ const mediaAttachmentSchema = new mongoose.Schema({
 const tweetSchema = new mongoose.Schema({
     _id: { type: String, required: true },
     authorId: { type: String, required: true, index: true },
-    content: { type: String, required: true },
+    content: {
+        type: String,
+        required: true,
+        validate: {
+            validator: function (v) {
+                return typeof v === "string" && countCharacters(v.trim()) <= TWEET_MAX_LENGTH;
+            },
+            message: `Tweet cannot exceed ${TWEET_MAX_LENGTH} characters`
+        }
+    },
     mediaUrls: [mediaAttachmentSchema],
     likes: [{ type: String }],
     likesCount: { type: Number, default: 0 },

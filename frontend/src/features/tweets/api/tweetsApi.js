@@ -232,9 +232,15 @@ export async function createReply(id, { content }) {
     return res;
 }
 
+export async function getTweetConfig() {
+    const res = await apiClient.get("/tweets/config");
+    return res;
+}
+
 export const tweetsApi = {
     getTweets,
     getTweetById,
+    getTweetConfig,
     getTweetImageSignature,
     uploadTweetImage,
     createTweet,
