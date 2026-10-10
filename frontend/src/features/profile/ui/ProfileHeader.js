@@ -96,7 +96,7 @@ export function ProfileHeader({ profile, isOwner, currentUser, onEditClick }) {
         try {
             const res = await messagesApi.createConversation(profile.id);
             if (res.success && res.data?.id) {
-                router.push(`/message?conversationId=${res.data.id}`);
+                router.push(`/message/${res.data.id}`);
             }
         } catch (err) {
             console.error("Failed to start conversation:", err);

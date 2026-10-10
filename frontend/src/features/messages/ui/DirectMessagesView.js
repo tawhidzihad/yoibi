@@ -29,6 +29,14 @@ export function DirectMessagesView({
 
     const [conversations, setConversations] = useState([]);
     const [selectedConvId, setSelectedConvId] = useState(initialConversationId);
+    const [prevInitialConvId, setPrevInitialConvId] = useState(initialConversationId);
+
+    // Adjust state during render when initialConversationId prop changes (React recommended pattern)
+    if (initialConversationId !== prevInitialConvId) {
+        setPrevInitialConvId(initialConversationId);
+        setSelectedConvId(initialConversationId);
+    }
+
     const [messages, setMessages] = useState([]);
     const [cursor, setCursor] = useState(null);
     const [hasMore, setHasMore] = useState(false);
@@ -47,6 +55,22 @@ export function DirectMessagesView({
         setGlobalActiveConvId(selectedConvId);
         return () => setGlobalActiveConvId(null);
     }, [selectedConvId, setGlobalActiveConvId]);
+
+    // If selected conversation is not yet in conversations list, fetch it directly
+    useEffect(() => {
+        if (selectedConvId && !conversations.some((c) => c.id === selectedConvId)) {
+            messagesApi.getConversationById(selectedConvId)
+                .then((res) => {
+                    if (res?.success && res.data) {
+                        setConversations((prev) => {
+                            if (prev.some((c) => c.id === res.data.id)) return prev;
+                            return [res.data, ...prev];
+                        });
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [selectedConvId, conversations]);
 
     // Active conversation object
     const activeConversation = conversations.find((c) => c.id === selectedConvId);
