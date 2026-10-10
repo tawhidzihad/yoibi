@@ -58,6 +58,11 @@ function applyStatusUpdate(messages, updatedIds, newStatus) {
 
 function filterConversations(conversations, activeFilter, searchQuery = "", onlineUsers = {}) {
     return conversations.filter((conv) => {
+        // Only show conversations that contain at least one message
+        if (!conv.lastMessage || !conv.lastMessage.id) {
+            return false;
+        }
+
         const partner = conv.otherParticipant || conv.recipient || {};
         const isPartnerOnline = Boolean(onlineUsers[partner.id] || partner.isOnline);
 
@@ -144,50 +149,80 @@ describe("Direct Messaging Frontend Logic", () => {
         });
     });
 
-    describe("Filter tabs (All, Unread, Online)", () => {
+    describe("Filter tabs (All, Unread, Online) and empty conversation suppression", () => {
         const mockConversations = [
             {
                 id: "c1",
                 unreadCount: 2,
                 otherParticipant: { id: "u1", name: "Alice", isOnline: false },
-                lastMessage: { text: "Hey there" }
+                lastMessage: { id: "m1", text: "Hey there" }
             },
             {
                 id: "c2",
                 unreadCount: 0,
                 otherParticipant: { id: "u2", name: "Bob", isOnline: false },
-                lastMessage: { text: "Meeting at 3" }
+                lastMessage: { id: "m2", text: "Meeting at 3" }
             },
             {
                 id: "c3",
                 unreadCount: 0,
                 otherParticipant: { id: "u3", name: "Charlie", isOnline: false },
-                lastMessage: { text: "Thanks!" }
+                lastMessage: { id: "m3", text: "Thanks!" }
+            },
+            {
+                id: "c_empty_1",
+                unreadCount: 0,
+                otherParticipant: { id: "u4", name: "Sophia Rothschild", isOnline: true },
+                lastMessage: null
+            },
+            {
+                id: "c_empty_2",
+                unreadCount: 1,
+                otherParticipant: { id: "u5", name: "Dave", isOnline: false },
+                lastMessage: { id: null, text: "" }
             }
         ];
 
-        it("filters All correctly", () => {
+        it("filters All correctly, omitting empty conversations", () => {
             const result = filterConversations(mockConversations, "all");
             expect(result).toHaveLength(3);
+            expect(result.map((c) => c.id)).toEqual(["c1", "c2", "c3"]);
         });
 
-        it("filters Unread correctly (only unreadCount > 0)", () => {
+        it("filters Unread correctly (only unreadCount > 0 AND has messages)", () => {
             const result = filterConversations(mockConversations, "unread");
             expect(result).toHaveLength(1);
             expect(result[0].id).toBe("c1");
         });
 
-        it("filters Online correctly based on presence state", () => {
-            const onlineUsers = { u1: true, u2: false, u3: false };
+        it("filters Online correctly (only online partner AND has messages)", () => {
+            const onlineUsers = { u1: true, u2: false, u3: false, u4: true };
             const result = filterConversations(mockConversations, "online", "", onlineUsers);
             expect(result).toHaveLength(1);
             expect(result[0].id).toBe("c1");
+            // u4 (Sophia) is online but has no messages, so c_empty_1 is excluded
         });
 
         it("combines filter with search query", () => {
             const result = filterConversations(mockConversations, "all", "Meeting");
             expect(result).toHaveLength(1);
             expect(result[0].id).toBe("c2");
+        });
+
+        it("omits empty conversation from search results even if name matches", () => {
+            const result = filterConversations(mockConversations, "all", "Sophia");
+            expect(result).toHaveLength(0);
+        });
+
+        it("reveals conversation in list once a first message arrives", () => {
+            const populated = {
+                ...mockConversations[3],
+                lastMessage: { id: "m_first", text: "Hello Sophia" }
+            };
+            const updatedList = [...mockConversations.slice(0, 3), populated];
+            const result = filterConversations(updatedList, "all");
+            expect(result).toHaveLength(4);
+            expect(result.find((c) => c.id === "c_empty_1")).toBeDefined();
         });
     });
 

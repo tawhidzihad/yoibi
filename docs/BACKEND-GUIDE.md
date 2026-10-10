@@ -42,3 +42,10 @@ Do not create giant feature files that contain every operation.
 ## Environment handling
 Use `.env.example` as documentation. Never commit real `.env` files.
 If a required value is missing, ask the user for the exact variable name/value needed. If the agent cannot write the env file, tell the user exactly what to add.
+
+## Direct Messaging & Data Safety
+- Messages and conversations are persistent by design. No TTL indexes or scheduled automatic purges may be configured.
+- Normal user flows cannot delete messages or conversations.
+- Test cleanup must NEVER bulk-delete messages or conversations of real accounts (no delete by user, date range, or "all").
+- Test cleanup may ONLY remove records created by the test itself and tagged with explicit test markers (e.g. `clientMessageId` prefix `testmsg_` or explicitly recorded IDs).
+- Any destructive operation must print the exact filter and matching document count, requiring explicit confirmation before execution.

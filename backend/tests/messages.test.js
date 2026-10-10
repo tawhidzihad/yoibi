@@ -177,12 +177,18 @@ async function runMessagesTests() {
             return { conversation: newConv, created: true };
         };
 
-        conversationsRepository.listForUser = async(userId) => {
-            const res = [];
+        conversationsRepository.listForUser = async(userId, { cursor = null, limit = 50 } = {}) => {
+            let res = [];
             for (const c of mockConversations.values()) {
-                if (c.participants.includes(userId)) res.push(c);
+                if (c.participants.includes(userId) && c.lastMessage && c.lastMessage.id) {
+                    res.push(c);
+                }
             }
-            return res.sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt));
+            if (cursor) {
+                const cDate = new Date(cursor);
+                res = res.filter((c) => new Date(c.lastActivityAt) < cDate);
+            }
+            return res.sort((a, b) => new Date(b.lastActivityAt) - new Date(a.lastActivityAt)).slice(0, limit);
         };
 
         conversationsRepository.updateLastMessage = async(convId, summary, recipientId) => {
@@ -205,7 +211,7 @@ async function runMessagesTests() {
         conversationsRepository.getTotalUnreadCount = async(userId) => {
             let total = 0;
             for (const conv of mockConversations.values()) {
-                if (conv.participants.includes(userId)) {
+                if (conv.participants.includes(userId) && conv.lastMessage && conv.lastMessage.id) {
                     total += conv.unreadCounts[userId] || 0;
                 }
             }
@@ -359,6 +365,38 @@ async function runMessagesTests() {
         assert.strictEqual(secondCreateRes.body.data.id, convId);
         console.log("✓ Duplicate conversation creation returns the exact same conversation ID.");
 
+        // Empty conversation suppression:
+        // Before any message is sent, the empty conversation must NOT appear in the inbox or filter tabs
+        const emptyAllRes = await request("/api/v1/messages/conversations", { token: aliceToken });
+        assert.strictEqual(emptyAllRes.status, 200);
+        assert.strictEqual(
+            emptyAllRes.body.data.some((c) => c.id === convId),
+            false,
+            "Empty conversation must not appear in 'all' list"
+        );
+
+        const emptyUnreadRes = await request("/api/v1/messages/conversations?filter=unread", { token: aliceToken });
+        assert.strictEqual(emptyUnreadRes.status, 200);
+        assert.strictEqual(
+            emptyUnreadRes.body.data.some((c) => c.id === convId),
+            false,
+            "Empty conversation must not appear in 'unread' list"
+        );
+
+        const emptyOnlineRes = await request("/api/v1/messages/conversations?filter=online", { token: aliceToken });
+        assert.strictEqual(emptyOnlineRes.status, 200);
+        assert.strictEqual(
+            emptyOnlineRes.body.data.some((c) => c.id === convId),
+            false,
+            "Empty conversation must not appear in 'online' list"
+        );
+
+        // However, the empty conversation MUST remain directly accessible via ID (for profile 'Message' button)
+        const directConvRes = await request(`/api/v1/messages/conversations/${convId}`, { token: aliceToken });
+        assert.strictEqual(directConvRes.status, 200);
+        assert.strictEqual(directConvRes.body.data.id, convId);
+        console.log("✓ Empty conversation omitted from inbox/unread/online tabs, yet directly accessible via ID.");
+
         // 7. Malformed ObjectId handling (returns 400, never 500 or CastError)
         const malformedRes = await request("/api/v1/messages/conversations/not-an-objectid/messages", {
             token: aliceToken
@@ -391,6 +429,14 @@ async function runMessagesTests() {
         assert.ok(sendRes.body.data._id);
         const msg1Id = sendRes.body.data._id;
         console.log("✓ Message sent and persisted with server-generated ID.");
+
+        // Upon first message sent, conversation now appears in conversation list
+        const listAfterFirstMsg = await request("/api/v1/messages/conversations", { token: aliceToken });
+        assert.strictEqual(listAfterFirstMsg.status, 200);
+        const foundAfterMsg = listAfterFirstMsg.body.data.find((c) => c.id === convId);
+        assert.ok(foundAfterMsg, "Conversation must appear in list once it contains a message");
+        assert.strictEqual(foundAfterMsg.lastMessage.id, msg1Id);
+        console.log("✓ Conversation immediately appears in inbox once first message is sent.");
 
         // 10. Idempotent resend returns the exact same message
         const resendRes = await request(`/api/v1/messages/conversations/${convId}/messages`, {
@@ -466,7 +512,8 @@ async function runMessagesTests() {
         assert.strictEqual(onlineFilterRes.status, 200);
         console.log("✓ Online filter accepted with 200 OK.");
 
-        // Message history ascending chronological order
+        // Message history ascending chronological order & pagination without gaps
+        await new Promise((r) => setTimeout(r, 15));
         const secondMsgRes = await request(`/api/v1/messages/conversations/${convId}/messages`, {
             method: "POST",
             token: aliceToken,
@@ -477,14 +524,72 @@ async function runMessagesTests() {
         });
         assert.strictEqual(secondMsgRes.status, 201);
 
+        await new Promise((r) => setTimeout(r, 15));
+        const thirdMsgRes = await request(`/api/v1/messages/conversations/${convId}/messages`, {
+            method: "POST",
+            token: bobToken,
+            body: {
+                clientMessageId: "cm_3",
+                text: "Third message from Bob"
+            }
+        });
+        assert.strictEqual(thirdMsgRes.status, 201);
+
+        await new Promise((r) => setTimeout(r, 15));
+        const fourthMsgRes = await request(`/api/v1/messages/conversations/${convId}/messages`, {
+            method: "POST",
+            token: aliceToken,
+            body: {
+                clientMessageId: "cm_4",
+                text: "Fourth message from Alice"
+            }
+        });
+        assert.strictEqual(fourthMsgRes.status, 201);
+
+        await new Promise((r) => setTimeout(r, 15));
+        const fifthMsgRes = await request(`/api/v1/messages/conversations/${convId}/messages`, {
+            method: "POST",
+            token: bobToken,
+            body: {
+                clientMessageId: "cm_5",
+                text: "Fifth message from Bob"
+            }
+        });
+        assert.strictEqual(fifthMsgRes.status, 201);
+
+        // Fetch full thread
         const listMsgsRes = await request(`/api/v1/messages/conversations/${convId}/messages`, { token: aliceToken });
         assert.strictEqual(listMsgsRes.status, 200);
-        assert.ok(listMsgsRes.body.data.length >= 2);
+        assert.strictEqual(listMsgsRes.body.data.length, 5);
         const firstMsg = listMsgsRes.body.data[0];
         const lastMsg = listMsgsRes.body.data[listMsgsRes.body.data.length - 1];
         assert.ok(new Date(firstMsg.createdAt) <= new Date(lastMsg.createdAt));
         assert.strictEqual(firstMsg.status, "read");
         console.log("✓ Messages returned in ascending chronological order with correct derived status.");
+
+        // Paginate across pages (limit = 2) to prove no messages are dropped, hidden, or duplicated
+        const page1 = await request(`/api/v1/messages/conversations/${convId}/messages?limit=2`, { token: aliceToken });
+        assert.strictEqual(page1.status, 200);
+        assert.strictEqual(page1.body.data.length, 2);
+        assert.ok(page1.body.meta.nextCursor);
+
+        const page2 = await request(`/api/v1/messages/conversations/${convId}/messages?limit=2&cursor=${encodeURIComponent(page1.body.meta.nextCursor)}`, { token: aliceToken });
+        assert.strictEqual(page2.status, 200);
+        assert.strictEqual(page2.body.data.length, 2);
+        assert.ok(page2.body.meta.nextCursor);
+
+        const page3 = await request(`/api/v1/messages/conversations/${convId}/messages?limit=2&cursor=${encodeURIComponent(page2.body.meta.nextCursor)}`, { token: aliceToken });
+        assert.strictEqual(page3.status, 200);
+        assert.strictEqual(page3.body.data.length, 1);
+
+        const allPagedIds = [
+            ...page3.body.data.map((m) => m._id),
+            ...page2.body.data.map((m) => m._id),
+            ...page1.body.data.map((m) => m._id)
+        ];
+        const uniquePagedIds = new Set(allPagedIds);
+        assert.strictEqual(uniquePagedIds.size, 5, "All 5 messages must be returned across paginated pages without gaps");
+        console.log("✓ Multi-page history pagination returns all messages across pages without gaps or duplication; messages are persistent.");
 
         // 13. Cloudinary Upload Intent & Media Validation
         const intentRes = await request("/api/v1/messages/media/upload-intent", {

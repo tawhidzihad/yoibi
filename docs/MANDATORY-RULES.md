@@ -22,3 +22,5 @@ These rules are hard requirements. Do not weaken or bypass them to finish faster
 18. Every destructive admin action needs confirmation and server-side authorization.
 19. Never hardcode the admin password or any other secret.
 20. Before marking a task complete, run the applicable lint, tests, build, and diff checks.
+21. Never bulk-delete messages, conversations, or media of real accounts. Test cleanup may delete only records that the test itself created and that are identified by an explicit marker (e.g. a dedicated test-only prefix in `clientMessageId` like `testmsg_`, or conversation IDs recorded by the test run). Never delete by user, by date range, or "all". Any destructive database operation must display the exact filter and matching document count first and require explicit confirmation from the user.
+22. Direct messages and conversations are persistent by design. Never add TTL indexes, scheduled purges, or automatic message deletion. Normal user flows cannot delete messages or conversations unless explicitly implemented and requested.

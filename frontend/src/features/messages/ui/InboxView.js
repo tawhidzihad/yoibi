@@ -31,6 +31,11 @@ export function InboxView({
     // Filter conversations
     const filteredConversations = useMemo(() => {
         return conversations.filter((conv) => {
+            // Only show conversations that contain at least one message
+            if (!conv.lastMessage || !conv.lastMessage.id) {
+                return false;
+            }
+
             const partner = conv.otherParticipant || conv.recipient || {};
             const isPartnerOnline = Boolean(onlineUsers[partner.id] || partner.isOnline);
 

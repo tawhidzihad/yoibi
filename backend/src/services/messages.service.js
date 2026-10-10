@@ -117,7 +117,7 @@ class MessagesService {
             conversations.map((c) => this.hydrateConversation(c, userId))
         );
 
-        let filtered = hydrated;
+        let filtered = hydrated.filter((c) => Boolean(c && c.lastMessage && c.lastMessage.id));
 
         // Apply filters
         if (filter === "unread") {

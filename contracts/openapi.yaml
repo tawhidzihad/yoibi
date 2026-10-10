@@ -1733,7 +1733,7 @@ paths:
     get:
       tags:
         - Messages
-      summary: List user conversations
+      summary: List user conversations with messages
       security:
         - bearerAuth: []
       parameters:
@@ -1741,7 +1741,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [all, unread, following, online]
+            enum: [all, unread, online]
         - name: search
           in: query
           schema:
@@ -1757,7 +1757,7 @@ paths:
             default: 20
       responses:
         '200':
-          description: Paginated conversation list
+          description: Paginated conversation list containing only conversations with at least one message
         '401':
           $ref: '#/components/responses/UnauthorizedError'
     post:

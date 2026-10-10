@@ -27,7 +27,8 @@ Before ending ANY task/session, you MUST update `docs/WORKBASE.md` (what changed
 - Follow the feature-sliced boundaries and ownership rules in `PROJECT-STRUCTURE.md`; keep pages thin, business logic in `features/` (frontend) and `services/` (backend).
 - Match the existing YOIBI design system. No generic Twitter/X clone, no aggressive home-page redesign, no new dependency when a small native/custom implementation suffices (especially modals and video-player UI).
 - JavaScript only, 4 spaces (no tabs). React Hook Form for all non-trivial forms. All frontend API calls through the central API client.
-- Never invent credentials, secrets, env values, or API details. Never hardcode secrets. Never trust client-supplied `userId`/role/ownership — identity comes only from the verified token (`req.user`).
+- Never bulk-delete messages, conversations, or media of real accounts. Test cleanup may delete ONLY records created by the test itself and tagged with an explicit marker (e.g. a dedicated test-only prefix in `clientMessageId` like `testmsg_`, or conversation IDs recorded by the test run). Never delete by user, by date range, or "all". Any destructive database operation must display the exact filter and matching document count first and require explicit confirmation from the user.
+- Direct messages and conversations are persistent by design: no TTL indexes, no scheduled purges, and no message/conversation deletion in any normal user flow.
 - Do not modify unrelated files.
 - Before finishing: run applicable lint, tests, and build. Deploy + live-test `https://www.yoibi.com/` before pushing when the change is user-facing.
 - Full detail: `.agents/AI-AGENT.md`, `docs/MANDATORY-RULES.md`, `docs/CODE-STANDARDS.md`, `docs/SECURITY-RULES.md`. Skill files in `.agents/skills/` cover individual technologies; read the relevant one when working in that area.

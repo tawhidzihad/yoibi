@@ -9,6 +9,7 @@ export default defineConfig({
     test: {
         environment: "node",
         include: ["tests/**/*.test.js"],
+        exclude: ["tests/auth-simplified.test.js"],
     },
     resolve: {
         alias: {

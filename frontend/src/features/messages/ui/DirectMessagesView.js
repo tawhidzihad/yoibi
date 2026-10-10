@@ -57,7 +57,7 @@ export function DirectMessagesView({
         try {
             const res = await messagesApi.getConversations({ limit: 50 });
             if (res.success && Array.isArray(res.data)) {
-                setConversations(res.data);
+                setConversations(res.data.filter((c) => Boolean(c.lastMessage && c.lastMessage.id)));
             }
         } catch (err) {
             console.error("Failed to fetch conversations:", err);

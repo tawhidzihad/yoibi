@@ -63,7 +63,10 @@ class ConversationsRepository {
      * Lists conversations for a participant with cursor pagination, optional search & filters.
      */
     async listForUser(userId, { cursor = null, limit = 20, participantIds = null } = {}) {
-        const query = { participants: userId };
+        const query = {
+            participants: userId,
+            "lastMessage.id": { $exists: true, $ne: null }
+        };
 
         if (cursor) {
             const cursorDate = new Date(cursor);
@@ -130,7 +133,10 @@ class ConversationsRepository {
      */
     async getTotalUnreadCount(userId) {
         const conversations = await Conversation.find(
-            { participants: userId },
+            {
+                participants: userId,
+                "lastMessage.id": { $exists: true, $ne: null }
+            },
             { unreadCounts: 1 }
         ).lean();
 

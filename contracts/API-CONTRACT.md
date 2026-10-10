@@ -1518,7 +1518,7 @@ Email verification is required for full platform access. Users with `emailVerifi
 #### `GET /api/v1/messages/conversations`
 - **Auth:** Required (`Bearer <token>`)
 - **Query:** `filter` (`all` | `unread` | `online`), `search`, `cursor`, `limit` (default 20, max 50).
-- **Description:** Lists conversations for the authenticated user, ordered by most recent message activity.
+- **Description:** Lists conversations for the authenticated user that contain at least one message, ordered by most recent message activity. Conversations created without messages (e.g. newly initiated conversations) are omitted from this list and filter tabs until the first message is sent. Empty conversations remain directly accessible via `GET /api/v1/messages/conversations/:id`.
 
 #### `POST /api/v1/messages/conversations`
 - **Auth:** Required (`Bearer <token>`)
