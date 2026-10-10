@@ -328,8 +328,9 @@ export function DirectMessagesView({
         const payload = {
             conversationId: selectedConvId,
             clientMessageId,
-            text,
-            media
+            type: media ? (media.resourceType || "image") : "text",
+            text: text.trim(),
+            media: media || undefined
         };
 
         const socket = getSocket();

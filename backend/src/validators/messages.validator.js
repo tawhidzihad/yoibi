@@ -45,8 +45,8 @@ const sendMessageBodySchema = z.object({
     clientMessageId: z.string().min(1, { message: "clientMessageId is required" }).max(100),
     type: z.enum(["text", "image", "video"]).default("text"),
     text: z.string().optional().default(""),
-    uploadIntentId: z.string().optional(),
-    media: mediaPayloadSchema.optional()
+    uploadIntentId: z.string().optional().nullable(),
+    media: mediaPayloadSchema.optional().nullable()
 }).refine((data) => {
     // If type is text, text must not be empty after trim
     if (data.type === "text") {
