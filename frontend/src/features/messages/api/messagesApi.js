@@ -39,6 +39,10 @@ export const messagesApi = {
         return apiFetch(`/messages/conversations/${id}`);
     },
 
+    async getConversationById(id) {
+        return apiFetch(`/messages/conversations/${id}`);
+    },
+
     /**
      * Lists paginated messages for a conversation.
      */
