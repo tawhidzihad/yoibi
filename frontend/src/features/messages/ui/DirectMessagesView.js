@@ -74,7 +74,7 @@ export function DirectMessagesView({
 
     // Active conversation object
     const activeConversation = conversations.find((c) => c.id === selectedConvId);
-    const partner = activeConversation?.otherParticipant;
+    const partner = activeConversation?.otherParticipant || activeConversation?.recipient;
     const isPartnerOnline = partner ? Boolean(onlineUsers[partner.id] || partner.isOnline) : false;
     const isPartnerTyping = selectedConvId ? Boolean(typingUsers[selectedConvId]?.has(partner?.id)) : false;
 

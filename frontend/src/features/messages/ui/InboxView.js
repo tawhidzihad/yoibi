@@ -33,7 +33,7 @@ export function InboxView({
     // Filter conversations
     const filteredConversations = useMemo(() => {
         return conversations.filter((conv) => {
-            const partner = conv.otherParticipant || {};
+            const partner = conv.otherParticipant || conv.recipient || {};
             const isPartnerOnline = Boolean(onlineUsers[partner.id] || partner.isOnline);
 
             // Tab filter
@@ -166,7 +166,7 @@ export function InboxView({
                     </div>
                 ) : filteredConversations.length > 0 ? (
                     filteredConversations.map((conv) => {
-                        const partner = conv.otherParticipant || {};
+                        const partner = conv.otherParticipant || conv.recipient || {};
                         const isOnline = Boolean(onlineUsers[partner.id] || partner.isOnline);
                         const isTyping = Boolean(typingUsers[conv.id]?.size > 0);
 

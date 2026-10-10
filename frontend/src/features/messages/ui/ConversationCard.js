@@ -34,7 +34,7 @@ export function ConversationCard({
     currentUserId,
     onClick
 }) {
-    const partner = conversation.otherParticipant || {};
+    const partner = conversation.otherParticipant || conversation.recipient || {};
     const handle = partner.handle ? String(partner.handle).replace(/^@/, "") : "";
     const name = partner.name || handle || "User";
     const lastMessage = conversation.lastMessage;
