@@ -18,9 +18,11 @@
         "livekit-server-sdk": "^2.19.0",
         "mongoose": "^9.10.0",
         "resend": "^6.30.0",
+        "socket.io": "^4.8.4",
         "zod": "^4.6.2"
     },
     "devDependencies": {
-        "eslint": "^10.10.0"
+        "eslint": "^10.10.0",
+        "socket.io-client": "^4.8.4"
     }
 }

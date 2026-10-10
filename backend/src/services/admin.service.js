@@ -5,6 +5,7 @@ const { Video } = require('../models/video.model');
 const { Meetup: MeetUp } = require('../models/meetup.model');
 const Follow = require('../models/follow.model');
 const Report = require('../models/report.model');
+const Message = require('../models/message.model');
 const tweetsRepository = require('../repositories/tweets.repository');
 const adminRepository = require('../repositories/admin.repository');
 const auditLogRepository = require('../repositories/auditLog.repository');
@@ -170,7 +171,15 @@ async function blockUser({ targetUserId, reason, adminUser, adminToken = null })
     // 3. Invalidate cached moderation state immediately
     invalidateUserModerationCache(targetUserId);
 
-    // 4. Create durable audit entry
+    // 4. Force disconnect any active socket connections for the blocked user
+    try {
+        const { disconnectUserSockets } = require('../sockets/socketServer');
+        disconnectUserSockets(targetUserId, reason || 'Account suspended by administrator');
+    } catch {
+        // Non-fatal if socket server is inactive or in unit tests
+    }
+
+    // 5. Create durable audit entry
     await auditLogRepository.create({
         _id: `aud_${crypto.randomUUID()}`,
         adminId: adminUser.id,
@@ -346,7 +355,7 @@ async function banUser({ targetUserId, reason, confirmationHandle, adminUser, ad
         // Stage B: Discover and snapshot external resources if not already snapshotted
         if (!externalSnapshots.cloudinary || externalSnapshots.cloudinary.length === 0) {
             const userVideos = await Video.find({ authorId: targetUserId }).lean();
-            externalSnapshots.cloudinary = userVideos
+            const videoSnapshots = userVideos
                 .filter(v => v.publicId)
                 .map(v => ({
                     publicId: v.publicId,
@@ -354,6 +363,19 @@ async function banUser({ targetUserId, reason, confirmationHandle, adminUser, ad
                     status: 'pending',
                     error: null
                 }));
+
+            // Message media snapshot
+            const userMessages = await Message.find({ senderId: targetUserId, 'media.publicId': { $ne: null } }).lean();
+            const messageSnapshots = userMessages
+                .filter(m => m.media && m.media.publicId)
+                .map(m => ({
+                    publicId: m.media.publicId,
+                    resourceType: m.media.resourceType || 'image',
+                    status: 'pending',
+                    error: null
+                }));
+
+            externalSnapshots.cloudinary = [...videoSnapshots, ...messageSnapshots];
         }
 
         if (!externalSnapshots.livekit || externalSnapshots.livekit.length === 0) {
@@ -495,7 +517,11 @@ async function banUser({ targetUserId, reason, confirmationHandle, adminUser, ad
 
         deletedCounts.follows = (outgoingFollows.length || 0) + (incomingFollows.length || 0);
 
-        // 6. Reports Policy: Moderation reports are PRESERVED and never deleted
+        // 6. Direct Messages cleanups
+        const messageDeleteRes = await Message.deleteMany({ senderId: targetUserId });
+        deletedCounts.messages = (deletedCounts.messages || 0) + (messageDeleteRes.deletedCount || 0);
+
+        // 7. Reports Policy: Moderation reports are PRESERVED and never deleted
     } catch (phaseCError) {
         console.error('[Ban Orchestrator] Phase C error:', phaseCError);
         await auditLogRepository.update(auditLog._id, {
@@ -521,6 +547,14 @@ async function banUser({ targetUserId, reason, confirmationHandle, adminUser, ad
 
         // Invalidate moderation cache
         invalidateUserModerationCache(targetUserId);
+
+        // Force disconnect any active socket connections for the banned user
+        try {
+            const { disconnectUserSockets } = require('../sockets/socketServer');
+            disconnectUserSockets(targetUserId, reason || 'Account permanently banned');
+        } catch {
+            // Non-fatal if socket server is inactive or in unit tests
+        }
     } catch (phaseDError) {
         console.error('[Ban Orchestrator] Phase D error:', phaseDError);
         await auditLogRepository.update(auditLog._id, {

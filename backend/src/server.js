@@ -2,6 +2,7 @@ const http = require("http");
 const app = require("./app");
 const { env, validateEnv } = require("./config/env");
 const { connectDatabase, disconnectDatabase } = require("./config/db");
+const { initSocketServer } = require("./sockets/socketServer");
 
 // Validate critical environment
 const { isValid, missing } = validateEnv();
@@ -13,6 +14,9 @@ if (!isValid) {
 }
 
 const server = http.createServer(app);
+
+// Attach Socket.IO to HTTP server
+const io = initSocketServer(server);
 
 /**
  * Boots the server and required services.
@@ -30,6 +34,7 @@ async function startServer() {
         console.log(`  Environment: ${env.NODE_ENV}`);
         console.log(`  Listening on: http://${host}:${port}`);
         console.log(`  Health check: http://${host}:${port}/api/v1/health`);
+        console.log(`  Socket.IO: /socket.io ready`);
         console.log(`===========================================`);
     });
 }
@@ -39,6 +44,15 @@ async function startServer() {
  */
 async function shutdown(signal) {
     console.log(`[Server] Received ${signal}. Starting graceful shutdown...`);
+
+    if (io) {
+        try {
+            io.close();
+            console.log("[Server] Closed Socket.IO connections.");
+        } catch (ioErr) {
+            console.warn("[Server] Error closing Socket.IO:", ioErr.message);
+        }
+    }
 
     server.close(async() => {
         console.log("[Server] Closed HTTP listener.");
@@ -58,6 +72,7 @@ async function shutdown(signal) {
         process.exit(1);
     }, 10000);
 }
+
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));

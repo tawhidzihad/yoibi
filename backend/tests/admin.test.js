@@ -6,6 +6,7 @@ const Tweet = require('../src/models/tweet.model');
 const { Video } = require('../src/models/video.model');
 const { Meetup: MeetUp } = require('../src/models/meetup.model');
 const Follow = require('../src/models/follow.model');
+const Message = require('../src/models/message.model');
 
 const adminService = require('../src/services/admin.service');
 const reportsService = require('../src/services/reports.service');
@@ -475,6 +476,11 @@ async function runAdminTests() {
             }
             return { deletedCount: count };
         };
+
+        Message.find = () => ({
+            lean: async () => []
+        });
+        Message.deleteMany = async () => ({ deletedCount: 0 });
 
         // Populate Follows: target follows innocent, innocent follows target
         memoryFollows.set('fol_1', { _id: 'fol_1', followerId: targetId, followingId: innocentUser.id });

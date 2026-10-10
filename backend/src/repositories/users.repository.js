@@ -28,6 +28,27 @@ async function searchUsers({ filter = {}, limit = 10, sort = { followersCount: -
         .lean();
 }
 
+/**
+ * Finds user profile by canonical string ID.
+ */
+async function findById(userId) {
+    if (!userId || mongoose.connection.readyState !== 1) return null;
+    return User.findById(userId).lean();
+}
+
+/**
+ * Finds multiple user profiles by canonical string IDs.
+ */
+async function findByIds(userIds) {
+    if (!Array.isArray(userIds) || userIds.length === 0 || mongoose.connection.readyState !== 1) return [];
+    return User.find({ _id: { $in: userIds } })
+        .select('handle name avatarUrl role isBlocked')
+        .lean();
+}
+
 module.exports = {
-    searchUsers
+    searchUsers,
+    findById,
+    findByIds
 };
+

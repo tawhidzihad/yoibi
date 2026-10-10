@@ -33,6 +33,10 @@ router.use(meetupRoutes);
 const reportsRoutes = require("./reports.routes");
 router.use(reportsRoutes);
 
+// Direct messaging routes
+const messagesRoutes = require("./messages.routes");
+router.use(messagesRoutes);
+
 // Admin dashboard and moderation routes
 const adminRoutes = require("./admin.routes");
 router.use(adminRoutes);

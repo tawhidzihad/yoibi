@@ -299,6 +299,82 @@ function createTweetImageUploadIntent(userId) {
 }
 
 /**
+ * Creates a server-controlled MESSAGE MEDIA upload intent (image or video)
+ * and generates Cloudinary signed upload parameters.
+ *
+ * @param {string} userId Authenticated identity from the verified JWT
+ * @param {string} conversationId Direct conversation ID
+ * @param {'image'|'video'} resourceType
+ */
+function createMessageMediaUploadIntent(userId, conversationId, resourceType = "image") {
+    const hasConfig = Boolean(
+        env.CLOUDINARY_CLOUD_NAME &&
+        env.CLOUDINARY_API_KEY &&
+        env.CLOUDINARY_API_SECRET
+    );
+
+    if (env.NODE_ENV === "production" && !hasConfig) {
+        const error = new Error("Cloudinary media service is not configured on the server.");
+        error.statusCode = 503;
+        error.code = "SERVICE_UNCONFIGURED";
+        throw error;
+    }
+
+    if (!userId || typeof userId !== "string") {
+        const error = new Error("Authentication required to generate upload signature.");
+        error.statusCode = 401;
+        error.code = "UNAUTHORIZED";
+        throw error;
+    }
+
+    const normalizedResourceType = resourceType === "video" ? "video" : "image";
+    const subfolder = normalizedResourceType === "video" ? "videos" : "images";
+    const intentId = `intent_msg_${normalizedResourceType}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    const folder = `yoibi/messages/${conversationId}/${subfolder}`;
+    const publicId = `${folder}/${intentId}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const paramsToSign = `public_id=${publicId}&timestamp=${timestamp}`;
+
+    let signature = "";
+    if (hasConfig) {
+        signature = crypto
+            .createHash("sha1")
+            .update(`${paramsToSign}${env.CLOUDINARY_API_SECRET}`)
+            .digest("hex");
+    } else {
+        signature = `mock_sig_${crypto.randomBytes(8).toString("hex")}`;
+    }
+
+    const intent = {
+        intentId,
+        userId,
+        conversationId,
+        resourceType: normalizedResourceType,
+        publicId,
+        folder,
+        timestamp,
+        kind: `message-${normalizedResourceType}`,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 30 * 60 * 1000,
+        consumed: false
+    };
+
+    uploadIntents.set(intentId, intent);
+
+    return {
+        uploadIntentId: intentId,
+        publicId,
+        folder,
+        timestamp,
+        signature,
+        apiKey: env.CLOUDINARY_API_KEY || "mock_api_key",
+        cloudName: env.CLOUDINARY_CLOUD_NAME || "mock_cloud_name",
+        resourceType: normalizedResourceType
+    };
+}
+
+/**
  * Destroys a media asset in Cloudinary using the Admin/REST API.
  *
  * @param {string} publicId Server-authorized canonical asset public ID.
@@ -361,7 +437,9 @@ module.exports = {
     createUploadIntent,
     createImageUploadIntent,
     createTweetImageUploadIntent,
+    createMessageMediaUploadIntent,
     verifyAndConsumeIntent,
     deleteCloudinaryAsset,
     _uploadIntents: uploadIntents // Exposed for tests
 };
+

@@ -22,6 +22,7 @@ const { runTweetsTests } = require("./tweets.test");
 const { runVideosTests } = require("./videos.test");
 const { runMeetupTests } = require("./meetup.test");
 const { runAdminTests } = require("./admin.test");
+const { runMessagesTests } = require("./messages.test");
 
 async function main() {
     console.log("==================================================");
@@ -44,11 +45,14 @@ async function main() {
     await runMeetupTests();
     console.log("\n--------------------------------------------------\n");
     await runAdminTests();
+    console.log("\n--------------------------------------------------\n");
+    await runMessagesTests();
 
     console.log("\n==================================================");
     console.log("    ALL BACKEND TEST SUITES PASSED (100%)         ");
     console.log("==================================================");
 }
+
 
 main().catch((err) => {
     console.error("\n[TEST RUNNER FATAL ERROR]:", err);
