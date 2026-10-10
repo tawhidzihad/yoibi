@@ -200,24 +200,6 @@ async function handleMarkRead(req, res, next) {
 }
 
 /**
- * Marks all conversations as read for the user.
- */
-async function handleMarkAllRead(req, res, next) {
-    try {
-        const result = await messagesService.markAllRead({
-            userId: req.user.id
-        });
-
-        return res.status(200).json({
-            success: true,
-            data: result
-        });
-    } catch (err) {
-        return next(err);
-    }
-}
-
-/**
  * Generates Cloudinary signed upload intent for image or video message.
  */
 async function handleCreateUploadIntent(req, res, next) {
@@ -307,7 +289,6 @@ module.exports = {
     handleSendMessage,
     handleMarkDelivered,
     handleMarkRead,
-    handleMarkAllRead,
     handleCreateUploadIntent,
     handleGetActiveFriends,
     handleGetInitialPresence,

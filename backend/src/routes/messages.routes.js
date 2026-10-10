@@ -21,7 +21,6 @@ const {
     handleSendMessage,
     handleMarkDelivered,
     handleMarkRead,
-    handleMarkAllRead,
     handleCreateUploadIntent,
     handleGetActiveFriends,
     handleGetInitialPresence,
@@ -59,9 +58,6 @@ router.get("/messages/presence", handleGetInitialPresence);
 
 // Message search within current user's conversations
 router.get("/messages/search", handleSearchMessages);
-
-// Mark all conversations read
-router.post("/messages/read-all", handleMarkAllRead);
 
 // Request media upload intent
 router.post(

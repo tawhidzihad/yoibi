@@ -17,7 +17,7 @@ const createConversationBodySchema = z.object({
 }).strict();
 
 const listConversationsQuerySchema = z.object({
-    filter: z.enum(["all", "unread", "following", "online"]).optional().default("all"),
+    filter: z.enum(["all", "unread", "online"]).optional().default("all"),
     search: z.string().optional(),
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(50).optional().default(20)

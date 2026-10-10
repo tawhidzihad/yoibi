@@ -30,13 +30,14 @@ export function MessageComposer({
     const [text, setText] = useState("");
     const [stagedMedia, setStagedMedia] = useState(null); // { file, previewUrl, resourceType, uploadPromise, uploadedData, error }
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [errorMessage, setErrorMessage] = useState("");
 
     const fileInputRef = useRef(null);
     const textareaRef = useRef(null);
     const typingTimeoutRef = useRef(null);
     const isTypingRef = useRef(false);
-    const uploadAbortControllerRef = useRef(null);
+    const xhrRef = useRef(null);
 
     const graphemeCount = countGraphemes(text);
     const isOverLimit = graphemeCount > MAX_MESSAGE_LENGTH;
@@ -126,6 +127,7 @@ export function MessageComposer({
 
     const uploadFile = async (file, resourceType) => {
         setIsUploading(true);
+        setUploadProgress(0);
         setErrorMessage("");
 
         try {
@@ -137,45 +139,82 @@ export function MessageComposer({
             }
 
             const intent = intentRes.data;
+            const uploadUrl = intent.uploadUrl || `https://api.cloudinary.com/v1_1/${intent.cloudName}/${resourceType}/upload`;
 
-            // 2. Direct upload to Cloudinary
+            // 2. Direct upload to Cloudinary via XHR with progress tracking
             const formData = new FormData();
             formData.append("file", file);
             formData.append("api_key", intent.apiKey);
             formData.append("timestamp", String(intent.timestamp));
             formData.append("signature", intent.signature);
-            formData.append("folder", intent.folder);
             formData.append("public_id", intent.publicId);
 
-            uploadAbortControllerRef.current = new AbortController();
+            await new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhrRef.current = xhr;
 
-            const uploadRes = await fetch(intent.uploadUrl, {
-                method: "POST",
-                body: formData,
-                signal: uploadAbortControllerRef.current.signal
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percent = Math.min(100, Math.round((event.loaded / event.total) * 100));
+                        setUploadProgress(percent);
+                    }
+                };
+
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const uploadResult = JSON.parse(xhr.responseText);
+                            setStagedMedia((prev) => prev ? {
+                                ...prev,
+                                error: null,
+                                uploadedData: {
+                                    url: uploadResult.secure_url || uploadResult.url,
+                                    publicId: uploadResult.public_id,
+                                    resourceType,
+                                    bytes: uploadResult.bytes || file.size,
+                                    width: uploadResult.width,
+                                    height: uploadResult.height,
+                                    duration: uploadResult.duration,
+                                    uploadIntentId: intent.uploadIntentId
+                                }
+                            } : null);
+                            resolve();
+                        } catch {
+                            reject(new Error("Failed to parse upload response."));
+                        }
+                    } else {
+                        let parsedErr = {};
+                        try {
+                            parsedErr = JSON.parse(xhr.responseText);
+                        } catch {}
+                        const isExpired = xhr.status === 410 || (parsedErr.error?.message && parsedErr.error.message.toLowerCase().includes("expired"));
+                        if (isExpired) {
+                            reject(new Error("Upload expired, please try again."));
+                        } else if (xhr.status === 404) {
+                            reject(new Error("Upload service endpoint not found (status 404)."));
+                        } else if (xhr.status === 413) {
+                            reject(new Error(`File exceeds maximum upload size (${resourceType === "video" ? "50MB" : "10MB"}).`));
+                        } else if (parsedErr.error?.message) {
+                            reject(new Error(parsedErr.error.message));
+                        } else {
+                            reject(new Error(`Upload failed with status ${xhr.status}.`));
+                        }
+                    }
+                };
+
+                xhr.onerror = () => {
+                    reject(new Error("Network connection error during upload. Please check your internet."));
+                };
+
+                xhr.onabort = () => {
+                    const abortErr = new Error("Upload aborted");
+                    abortErr.name = "AbortError";
+                    reject(abortErr);
+                };
+
+                xhr.open("POST", uploadUrl);
+                xhr.send(formData);
             });
-
-            if (!uploadRes.ok) {
-                const errJson = await uploadRes.json().catch(() => ({}));
-                const isExpired = uploadRes.status === 410 || (errJson.error?.message && errJson.error.message.toLowerCase().includes("expired"));
-                throw new Error(isExpired ? "Upload expired, please try again." : (errJson.error?.message || `Upload failed with status ${uploadRes.status}`));
-            }
-
-            const uploadResult = await uploadRes.json();
-
-            setStagedMedia((prev) => prev ? {
-                ...prev,
-                error: null,
-                uploadedData: {
-                    url: uploadResult.secure_url || uploadResult.url,
-                    publicId: uploadResult.public_id,
-                    resourceType,
-                    bytes: uploadResult.bytes || file.size,
-                    width: uploadResult.width,
-                    height: uploadResult.height,
-                    duration: uploadResult.duration
-                }
-            } : null);
         } catch (err) {
             if (err.name !== "AbortError") {
                 const msg = err.message || "Upload failed. Please try again.";
@@ -184,19 +223,21 @@ export function MessageComposer({
             }
         } finally {
             setIsUploading(false);
-            uploadAbortControllerRef.current = null;
+            xhrRef.current = null;
         }
     };
 
     const handleCancelMedia = () => {
-        if (uploadAbortControllerRef.current) {
-            uploadAbortControllerRef.current.abort();
+        if (xhrRef.current) {
+            xhrRef.current.abort();
+            xhrRef.current = null;
         }
         if (stagedMedia?.previewUrl) {
             URL.revokeObjectURL(stagedMedia.previewUrl);
         }
         setStagedMedia(null);
         setIsUploading(false);
+        setUploadProgress(0);
         setErrorMessage("");
     };
 
@@ -214,7 +255,11 @@ export function MessageComposer({
 
         const payload = {
             text: text.trim(),
-            media: stagedMedia?.uploadedData || null
+            media: stagedMedia?.uploadedData ? {
+                ...stagedMedia.uploadedData,
+                uploadIntentId: stagedMedia.uploadedData.uploadIntentId
+            } : null,
+            uploadIntentId: stagedMedia?.uploadedData?.uploadIntentId || null
         };
 
         onSendMessage(payload);
@@ -222,6 +267,7 @@ export function MessageComposer({
         // Reset
         setText("");
         setStagedMedia(null);
+        setUploadProgress(0);
         setErrorMessage("");
 
         // Focus back
@@ -283,9 +329,17 @@ export function MessageComposer({
 
                         {/* Uploading overlay */}
                         {isUploading && (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white gap-1 backdrop-blur-xs">
-                                <Loader2 size={18} className="animate-spin text-cyan-400" />
-                                <span className="text-[10px] font-medium">Uploading...</span>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/65 text-white gap-1.5 p-2 backdrop-blur-xs">
+                                <Loader2 size={16} className="animate-spin text-cyan-400" />
+                                <span className="text-[10px] font-semibold tracking-wide">
+                                    {uploadProgress > 0 ? `${uploadProgress}%` : "Uploading..."}
+                                </span>
+                                <div className="w-4/5 h-1 bg-white/20 rounded-full overflow-hidden">
+                                    <div
+                                        className="h-full bg-cyan-500 transition-all duration-150 rounded-full"
+                                        style={{ width: `${uploadProgress}%` }}
+                                    />
+                                </div>
                             </div>
                         )}
 
@@ -378,7 +432,7 @@ export function MessageComposer({
                     className={cn(
                         "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all mb-0.5",
                         canSend
-                            ? "bg-cyan-500 text-white shadow-xs hover:bg-cyan-600 active:scale-95 cursor-pointer"
+                            ? "bg-cyan-600 text-white shadow-xs hover:bg-cyan-700 active:scale-95 cursor-pointer"
                             : "bg-secondary text-muted-foreground/50 cursor-not-allowed"
                     )}
                     aria-label="Send message"

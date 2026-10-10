@@ -126,29 +126,6 @@ class ConversationsRepository {
     }
 
     /**
-     * Marks all conversations as read for a specific user.
-     */
-    async markAllRead(userId) {
-        const unreadField = `unreadCounts.${userId}`;
-        const lastReadField = `lastReadAt.${userId}`;
-
-        const result = await Conversation.updateMany(
-            {
-                participants: userId,
-                [unreadField]: { $gt: 0 }
-            },
-            {
-                $set: {
-                    [unreadField]: 0,
-                    [lastReadField]: new Date()
-                }
-            }
-        );
-
-        return result.modifiedCount;
-    }
-
-    /**
      * Computes total unread count for a user across all conversations.
      */
     async getTotalUnreadCount(userId) {

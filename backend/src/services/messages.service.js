@@ -12,6 +12,15 @@ const {
     MESSAGE_VIDEO_MAX_BYTES
 } = require("../config/constants");
 
+function deriveMessageStatus(msg) {
+    if (!msg || !msg.recipients || msg.recipients.length === 0) return "sent";
+    const hasRead = msg.recipients.some((r) => r.readAt != null);
+    if (hasRead) return "read";
+    const hasDelivered = msg.recipients.some((r) => r.deliveredAt != null);
+    if (hasDelivered) return "delivered";
+    return "sent";
+}
+
 class MessagesService {
     /**
      * Finds or creates a direct conversation between userId and recipientId.
@@ -113,8 +122,6 @@ class MessagesService {
         // Apply filters
         if (filter === "unread") {
             filtered = filtered.filter((c) => c.unreadCount > 0);
-        } else if (filter === "following") {
-            filtered = filtered.filter((c) => c.recipient?.isFollowing);
         } else if (filter === "online") {
             filtered = filtered.filter((c) => c.recipient?.isOnline);
         }
@@ -143,6 +150,7 @@ class MessagesService {
 
     /**
      * Lists messages for a conversation with cursor pagination.
+     * Returns messages in ascending chronological order (oldest to newest, top to bottom).
      */
     async listMessages({ conversationId, userId, cursor = null, limit = 30 }) {
         const conv = await conversationsRepository.findById(conversationId);
@@ -161,10 +169,17 @@ class MessagesService {
         }
 
         const messages = await messagesRepository.listMessages(conversationId, { cursor, limit });
+        // The newest-first batch from db has its oldest message at the end
         const nextCursor = messages.length === limit ? messages[messages.length - 1].createdAt : null;
 
+        // Return messages in ascending chronological order (oldest to newest, WhatsApp style)
+        const sorted = [...messages].reverse().map((m) => ({
+            ...m,
+            status: deriveMessageStatus(m)
+        }));
+
         return {
-            messages,
+            messages: sorted,
             nextCursor
         };
     }
@@ -240,20 +255,26 @@ class MessagesService {
                 throw err;
             }
 
-            if (uploadIntentId) {
-                const verification = cloudinaryIntegration.verifyAndConsumeIntent({
-                    uploadIntentId,
-                    userId,
-                    publicId: media.publicId,
-                    url: media.url
-                });
+            const intentId = uploadIntentId || (media && media.uploadIntentId);
+            if (!intentId) {
+                const err = new Error("Upload intent not found or expired. Please re-upload your file.");
+                err.statusCode = 403;
+                err.code = "INVALID_UPLOAD_INTENT";
+                throw err;
+            }
 
-                if (!verification.valid) {
-                    const err = new Error(verification.error || "Media upload verification failed.");
-                    err.statusCode = 403;
-                    err.code = "INVALID_UPLOAD_INTENT";
-                    throw err;
-                }
+            const verification = cloudinaryIntegration.verifyAndConsumeIntent({
+                uploadIntentId: intentId,
+                userId,
+                publicId: media.publicId,
+                url: media.url
+            });
+
+            if (!verification.valid) {
+                const err = new Error(verification.error || "Media upload verification failed.");
+                err.statusCode = 403;
+                err.code = "INVALID_UPLOAD_INTENT";
+                throw err;
             }
         }
 
@@ -298,8 +319,13 @@ class MessagesService {
             recipientId
         );
 
+        const messageWithStatus = {
+            ...message,
+            status: deriveMessageStatus(message)
+        };
+
         return {
-            message,
+            message: messageWithStatus,
             conversation: await this.hydrateConversation(updatedConv || conv, userId),
             recipientId,
             isDuplicate: false
@@ -340,17 +366,6 @@ class MessagesService {
         return {
             conversation: await this.hydrateConversation(updatedConv || conv, userId),
             totalUnread
-        };
-    }
-
-    /**
-     * Marks all conversations read for user.
-     */
-    async markAllRead({ userId }) {
-        const modifiedCount = await conversationsRepository.markAllRead(userId);
-        return {
-            modifiedCount,
-            totalUnread: 0
         };
     }
 

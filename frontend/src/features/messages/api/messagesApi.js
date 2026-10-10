@@ -85,14 +85,6 @@ export const messagesApi = {
         });
     },
 
-    /**
-     * Marks all conversations as read.
-     */
-    async markAllRead() {
-        return apiFetch("/messages/read-all", {
-            method: "POST"
-        });
-    },
 
     /**
      * Requests a Cloudinary signed upload intent for image or video.

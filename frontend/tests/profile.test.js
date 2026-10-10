@@ -35,9 +35,12 @@ describe("sidebar & navigation cleanup", () => {
         expect(layoutSource).toContain("Sign Out");
     });
 
-    it("right-side card shows 'My Profile' linked to /profile/{handle}", () => {
-        expect(layoutSource).toContain("My Profile");
-        expect(layoutSource).toMatch(/`\/profile\/\$\{profileHandle\}`/);
+    it("right-side card does not show extra 'My Profile' link", () => {
+        const profileMiniCardSection = layoutSource.slice(
+            layoutSource.indexOf("function ProfileMiniCard"),
+            layoutSource.indexOf("function RightPanel")
+        );
+        expect(profileMiniCardSection).not.toContain("My Profile");
     });
 
     it("right-side card no longer contains Sign Out (single logout in sidebar)", () => {

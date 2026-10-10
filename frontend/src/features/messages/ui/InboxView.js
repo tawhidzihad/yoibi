@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { ConversationCard } from "./ConversationCard";
 import { ActiveFriendsRow } from "./ActiveFriendsRow";
-import { Search, CheckCheck, CheckCircle2, MessageSquare, X } from "lucide-react";
+import { Search, CheckCircle2, MessageSquare, Users2, X } from "lucide-react";
 import { cn } from "@/shared/utils/cn";
 
 export function InboxView({
@@ -16,17 +16,15 @@ export function InboxView({
     typingUsers = {},
     connectionStatus = "connected",
     currentUserId,
-    onMarkAllRead,
     isLoading = false,
     className = ""
 }) {
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeFilter, setActiveFilter] = useState("all"); // "all" | "unread" | "following" | "online"
+    const [activeFilter, setActiveFilter] = useState("all"); // "all" | "unread" | "online"
 
     const filters = [
         { id: "all", label: "All" },
         { id: "unread", label: "Unread" },
-        { id: "following", label: "Following" },
         { id: "online", label: "Online" }
     ];
 
@@ -38,9 +36,6 @@ export function InboxView({
 
             // Tab filter
             if (activeFilter === "unread" && (!conv.unreadCount || conv.unreadCount <= 0)) {
-                return false;
-            }
-            if (activeFilter === "following" && partner.relationship !== "following" && partner.relationship !== "mutual") {
                 return false;
             }
             if (activeFilter === "online" && !isPartnerOnline) {
@@ -61,11 +56,11 @@ export function InboxView({
     }, [conversations, activeFilter, searchQuery, onlineUsers]);
 
     return (
-        <div className={cn("flex flex-col h-full bg-background border-r border-border/50 select-none", className)}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/50">
+        <div className={cn("flex flex-col h-full bg-background select-none", className)}>
+            {/* Header: flush with top, matching Feed / Tweets header style */}
+            <div className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/60 bg-background/90 px-4 backdrop-blur-md">
                 <div className="flex items-center gap-2.5">
-                    <h1 className="text-xl font-bold tracking-tight text-foreground">
+                    <h1 className="text-lg font-bold tracking-tight text-foreground">
                         Messages
                     </h1>
                     {/* Connection status dot */}
@@ -80,19 +75,6 @@ export function InboxView({
                         />
                     </div>
                 </div>
-
-                {/* Mark all read button */}
-                {onMarkAllRead && (
-                    <button
-                        type="button"
-                        onClick={onMarkAllRead}
-                        className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
-                        title="Mark all as read"
-                    >
-                        <CheckCheck size={15} />
-                        <span className="hidden sm:inline">Mark all read</span>
-                    </button>
-                )}
             </div>
 
             {/* Search Bar */}
@@ -119,7 +101,7 @@ export function InboxView({
                 </div>
             </div>
 
-            {/* Filter Tabs */}
+            {/* Filter Tabs: exactly All, Unread, Online */}
             <div className="flex gap-1.5 px-4 pb-2 border-b border-border/40 overflow-x-auto scrollbar-none">
                 {filters.map(({ id, label }) => {
                     const active = activeFilter === id;
@@ -131,7 +113,7 @@ export function InboxView({
                             className={cn(
                                 "rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer shrink-0",
                                 active
-                                    ? "bg-cyan-500 text-white shadow-xs"
+                                    ? "bg-cyan-600 text-white shadow-xs"
                                     : "bg-secondary/60 text-muted-foreground hover:bg-secondary hover:text-foreground"
                             )}
                         >
@@ -183,7 +165,7 @@ export function InboxView({
                         );
                     })
                 ) : (
-                    /* Empty States */
+                    /* Specific empty states per tab */
                     <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground my-auto">
                         {searchQuery ? (
                             <>
@@ -196,9 +178,17 @@ export function InboxView({
                         ) : activeFilter === "unread" ? (
                             <>
                                 <CheckCircle2 size={32} className="text-emerald-500/80 mb-2" />
-                                <p className="text-sm font-semibold text-foreground">All caught up!</p>
+                                <p className="text-sm font-semibold text-foreground">No unread messages</p>
                                 <p className="text-xs text-muted-foreground mt-1">
                                     You don&apos;t have any unread messages.
+                                </p>
+                            </>
+                        ) : activeFilter === "online" ? (
+                            <>
+                                <Users2 size={32} className="text-muted-foreground/40 mb-2" />
+                                <p className="text-sm font-semibold text-foreground">No one is online</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    None of your conversation partners are currently online.
                                 </p>
                             </>
                         ) : (

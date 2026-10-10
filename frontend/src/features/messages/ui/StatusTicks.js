@@ -22,7 +22,7 @@ export function StatusTicks({ status = "sent", className = "" }) {
 
     if (status === "read") {
         return (
-            <span title="Read" className={cn("inline-flex items-center text-cyan-400 font-bold", className)}>
+            <span title="Read" className={cn("inline-flex items-center text-cyan-600 dark:text-cyan-400 font-bold", className)}>
                 <CheckCheck size={14} className="stroke-[2.5]" />
             </span>
         );
@@ -36,7 +36,7 @@ export function StatusTicks({ status = "sent", className = "" }) {
         );
     }
 
-    // Default sent
+    // Default sent: one grey check
     return (
         <span title="Sent" className={cn("inline-flex items-center text-muted-foreground/70", className)}>
             <Check size={14} />

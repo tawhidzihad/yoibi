@@ -362,6 +362,9 @@ function createMessageMediaUploadIntent(userId, conversationId, resourceType = "
 
     uploadIntents.set(intentId, intent);
 
+    const cloudName = env.CLOUDINARY_CLOUD_NAME || "mock_cloud_name";
+    const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/${normalizedResourceType}/upload`;
+
     return {
         uploadIntentId: intentId,
         publicId,
@@ -369,8 +372,9 @@ function createMessageMediaUploadIntent(userId, conversationId, resourceType = "
         timestamp,
         signature,
         apiKey: env.CLOUDINARY_API_KEY || "mock_api_key",
-        cloudName: env.CLOUDINARY_CLOUD_NAME || "mock_cloud_name",
-        resourceType: normalizedResourceType
+        cloudName,
+        resourceType: normalizedResourceType,
+        uploadUrl
     };
 }
 

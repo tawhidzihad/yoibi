@@ -53,6 +53,14 @@ export function MessageBubble({
     const isFailed = message.status === "failed";
     const partnerHandle = partner?.handle ? String(partner.handle).replace(/^@/, "") : "";
 
+    const derivedStatus = useMemo(() => {
+        if (message.status) return message.status;
+        const recipient = message.recipients?.[0];
+        if (recipient?.readAt) return "read";
+        if (recipient?.deliveredAt) return "delivered";
+        return "sent";
+    }, [message.status, message.recipients]);
+
     return (
         <div
             className={cn(
@@ -96,7 +104,7 @@ export function MessageBubble({
                         className={cn(
                             "rounded-2xl px-4 py-2.5 text-sm leading-relaxed break-words whitespace-pre-wrap select-text shadow-xs",
                             isOwn
-                                ? "rounded-br-xs bg-gradient-to-r from-cyan-500 to-teal-600 text-white"
+                                ? "rounded-br-xs bg-cyan-600 text-white"
                                 : "rounded-bl-xs bg-card border border-border/60 text-foreground"
                         )}
                     >
@@ -126,7 +134,7 @@ export function MessageBubble({
                             <span>{formattedTime}</span>
                             {isOwn && (
                                 <StatusTicks
-                                    status={message.status || "sent"}
+                                    status={derivedStatus}
                                     className="shrink-0"
                                 />
                             )}

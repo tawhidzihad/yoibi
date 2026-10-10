@@ -1517,7 +1517,7 @@ Email verification is required for full platform access. Users with `emailVerifi
 
 #### `GET /api/v1/messages/conversations`
 - **Auth:** Required (`Bearer <token>`)
-- **Query:** `filter` (`all` | `unread` | `following` | `online`), `search`, `cursor`, `limit` (default 20, max 50).
+- **Query:** `filter` (`all` | `unread` | `online`), `search`, `cursor`, `limit` (default 20, max 50).
 - **Description:** Lists conversations for the authenticated user, ordered by most recent message activity.
 
 #### `POST /api/v1/messages/conversations`
@@ -1548,10 +1548,6 @@ Email verification is required for full platform access. Users with `emailVerifi
 - **Auth:** Required (`Bearer <token>`)
 - **Body:** `{ "messageIds": ["<string>"] }` (optional)
 - **Description:** Marks messages as read and resets unread count for the participant.
-
-#### `POST /api/v1/messages/read-all`
-- **Auth:** Required (`Bearer <token>`)
-- **Description:** Marks all conversations as read for the authenticated user.
 
 #### `POST /api/v1/messages/media/upload-intent`
 - **Auth:** Required (`Bearer <token>`)

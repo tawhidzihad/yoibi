@@ -110,18 +110,6 @@ export function MessagesProvider({ children }) {
         };
     }, [isAuthenticated, activeConversationId, refreshUnread, refreshActiveFriends]);
 
-    const markAllRead = async() => {
-        try {
-            const res = await messagesApi.markAllRead();
-            if (res.success) {
-                setTotalUnread(0);
-            }
-            return res;
-        } catch (e) {
-            return { success: false, error: e };
-        }
-    };
-
     return (
         <MessagesContext.Provider
             value={{
@@ -132,7 +120,6 @@ export function MessagesProvider({ children }) {
                 activeConversationId,
                 setActiveConversationId,
                 typingUsers,
-                markAllRead,
                 refreshUnread,
                 refreshActiveFriends
             }}
@@ -153,7 +140,6 @@ export function useMessages() {
             activeConversationId: null,
             setActiveConversationId: () => {},
             typingUsers: {},
-            markAllRead: async() => {},
             refreshUnread: async() => {},
             refreshActiveFriends: async() => {}
         };

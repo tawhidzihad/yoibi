@@ -186,7 +186,7 @@ export function ChatThread({
                 <button
                     type="button"
                     onClick={scrollToBottom}
-                    className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 rounded-full bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-white shadow-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+                    className="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 rounded-full bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white shadow-lg transition-transform hover:scale-105 hover:bg-cyan-700 active:scale-95 cursor-pointer"
                     aria-label="Scroll to newest messages"
                 >
                     <ArrowDown size={14} />

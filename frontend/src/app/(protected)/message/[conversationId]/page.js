@@ -12,8 +12,7 @@ export default function DirectMessageConversationPage() {
     return (
         <DirectMessagesView
             currentUserId={user?.id}
-            initialConversationId={conversationId}
-            isMobileView={true}
+            conversationId={conversationId}
         />
     );
 }

@@ -216,6 +216,8 @@ function ProtectedContent({ children, user, handleLogout }) {
         return () => window.removeEventListener("keydown", handleEsc);
     }, []);
 
+    const isMessagesPage = pathname?.startsWith("/message");
+
     return (
         <div className="relative min-h-screen bg-background">
             {/* ── DESKTOP: 3-column grid ── */}
@@ -224,7 +226,10 @@ function ProtectedContent({ children, user, handleLogout }) {
 
                 <main
                     id="main-content"
-                    className="flex-1 min-w-0 border-x border-border/50 pb-6 pt-6"
+                    className={cn(
+                        "flex-1 min-w-0 border-x border-border/50",
+                        isMessagesPage ? "pb-0 pt-0 h-screen flex flex-col" : "pb-6 pt-6"
+                    )}
                     tabIndex={-1}
                 >
                     {children}
@@ -264,7 +269,14 @@ function ProtectedContent({ children, user, handleLogout }) {
                     </button>
                 </header>
 
-                <main id="main-content" className="flex-1 pb-6" tabIndex={-1}>
+                <main
+                    id="main-content"
+                    className={cn(
+                        "flex-1",
+                        isMessagesPage ? "pb-0 flex flex-col min-h-[calc(100vh-3.5rem)]" : "pb-6"
+                    )}
+                    tabIndex={-1}
+                >
                     {children}
                 </main>
 
@@ -358,34 +370,23 @@ function ProtectedContent({ children, user, handleLogout }) {
  */
 function ProfileMiniCard({ user }) {
     const handle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
-    const profileHandle = handle;
     return (
         <div className="rounded-xl border border-border/50 bg-card p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                    <Avatar
-                        src={user?.avatarUrl || ""}
-                        name={user?.name || ""}
-                        handle={handle}
-                        size={40}
-                    />
-                    <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                            {user?.name || user?.handle || "User"}
-                        </p>
-                        {handle && (
-                            <p className="truncate text-xs text-muted-foreground">@{handle}</p>
-                        )}
-                    </div>
+            <div className="mb-3 flex items-center gap-3">
+                <Avatar
+                    src={user?.avatarUrl || ""}
+                    name={user?.name || ""}
+                    handle={handle}
+                    size={40}
+                />
+                <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                        {user?.name || user?.handle || "User"}
+                    </p>
+                    {handle && (
+                        <p className="truncate text-xs text-muted-foreground">@{handle}</p>
+                    )}
                 </div>
-                {profileHandle ? (
-                    <Link
-                        href={`/profile/${profileHandle}`}
-                        className="text-xs font-medium text-cyan-500 hover:underline shrink-0"
-                    >
-                        My Profile
-                    </Link>
-                ) : null}
             </div>
 
             <div className="grid grid-cols-3 gap-2 border-t border-border/50 pt-3">

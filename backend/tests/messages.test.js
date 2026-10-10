@@ -132,7 +132,6 @@ async function runMessagesTests() {
     const origListForUser = conversationsRepository.listForUser;
     const origUpdateLastMessage = conversationsRepository.updateLastMessage;
     const origMarkConversationRead = conversationsRepository.markConversationRead;
-    const origMarkAllRead = conversationsRepository.markAllRead;
     const origGetTotalUnread = conversationsRepository.getTotalUnreadCount;
 
     const origCreateMsg = messagesRepository.createMessage;
@@ -201,17 +200,6 @@ async function runMessagesTests() {
             conv.unreadCounts[userId] = 0;
             conv.lastReadAt[userId] = new Date();
             return conv;
-        };
-
-        conversationsRepository.markAllRead = async(userId) => {
-            let count = 0;
-            for (const conv of mockConversations.values()) {
-                if (conv.participants.includes(userId) && conv.unreadCounts[userId] > 0) {
-                    conv.unreadCounts[userId] = 0;
-                    count++;
-                }
-            }
-            return count;
         };
 
         conversationsRepository.getTotalUnreadCount = async(userId) => {
@@ -457,6 +445,47 @@ async function runMessagesTests() {
         assert.strictEqual(bobConvAfter.unreadCount, 0);
         console.log("✓ Sent -> Delivered -> Read transitions monotonic; unread count decremented to 0.");
 
+        // Removed bulk read-all returns 404
+        const readAllRes = await request("/api/v1/messages/read-all", {
+            method: "POST",
+            token: bobToken
+        });
+        assert.strictEqual(readAllRes.status, 404);
+        console.log("✓ Removed bulk read-all endpoint returns 404.");
+
+        // Filter tabs validation
+        const followingFilterRes = await request("/api/v1/messages/conversations?filter=following", { token: aliceToken });
+        assert.strictEqual(followingFilterRes.status, 400);
+        console.log("✓ Removed following filter rejected with 400 validation error.");
+
+        const unreadFilterRes = await request("/api/v1/messages/conversations?filter=unread", { token: aliceToken });
+        assert.strictEqual(unreadFilterRes.status, 200);
+        console.log("✓ Unread filter accepted with 200 OK.");
+
+        const onlineFilterRes = await request("/api/v1/messages/conversations?filter=online", { token: aliceToken });
+        assert.strictEqual(onlineFilterRes.status, 200);
+        console.log("✓ Online filter accepted with 200 OK.");
+
+        // Message history ascending chronological order
+        const secondMsgRes = await request(`/api/v1/messages/conversations/${convId}/messages`, {
+            method: "POST",
+            token: aliceToken,
+            body: {
+                clientMessageId: "cm_2",
+                text: "Second message from Alice"
+            }
+        });
+        assert.strictEqual(secondMsgRes.status, 201);
+
+        const listMsgsRes = await request(`/api/v1/messages/conversations/${convId}/messages`, { token: aliceToken });
+        assert.strictEqual(listMsgsRes.status, 200);
+        assert.ok(listMsgsRes.body.data.length >= 2);
+        const firstMsg = listMsgsRes.body.data[0];
+        const lastMsg = listMsgsRes.body.data[listMsgsRes.body.data.length - 1];
+        assert.ok(new Date(firstMsg.createdAt) <= new Date(lastMsg.createdAt));
+        assert.strictEqual(firstMsg.status, "read");
+        console.log("✓ Messages returned in ascending chronological order with correct derived status.");
+
         // 13. Cloudinary Upload Intent & Media Validation
         const intentRes = await request("/api/v1/messages/media/upload-intent", {
             method: "POST",
@@ -469,8 +498,100 @@ async function runMessagesTests() {
         assert.strictEqual(intentRes.status, 200);
         assert.ok(intentRes.body.data.uploadIntentId);
         assert.ok(intentRes.body.data.signature);
+        assert.ok(intentRes.body.data.uploadUrl);
         assert.ok(intentRes.body.data.publicId.startsWith(`yoibi/messages/${convId}/images/`));
         console.log("✓ Media upload intent generated with server-controlled folder & signature.");
+
+        // Video upload intent
+        const videoIntentRes = await request("/api/v1/messages/media/upload-intent", {
+            method: "POST",
+            token: aliceToken,
+            body: {
+                conversationId: convId,
+                resourceType: "video"
+            }
+        });
+        assert.strictEqual(videoIntentRes.status, 200);
+        assert.strictEqual(videoIntentRes.body.data.resourceType, "video");
+        assert.ok(videoIntentRes.body.data.uploadUrl);
+        assert.ok(videoIntentRes.body.data.publicId.startsWith(`yoibi/messages/${convId}/videos/`));
+        console.log("✓ Video media upload intent generated with video resourceType and uploadUrl.");
+
+        // Media send without intent rejected
+        const noIntentMediaSend = await request(`/api/v1/messages/conversations/${convId}/messages`, {
+            method: "POST",
+            token: aliceToken,
+            body: {
+                clientMessageId: "cm_no_intent",
+                type: "image",
+                media: {
+                    url: "https://res.cloudinary.com/demo/image/upload/sample.jpg",
+                    publicId: "sample",
+                    resourceType: "image"
+                }
+            }
+        });
+        assert.strictEqual(noIntentMediaSend.status, 403);
+        assert.strictEqual(noIntentMediaSend.body.error.code, "INVALID_UPLOAD_INTENT");
+        console.log("✓ Media message without upload intent rejected with 403 INVALID_UPLOAD_INTENT.");
+
+        // Media send with tampered publicId rejected
+        const tamperedMediaSend = await request(`/api/v1/messages/conversations/${convId}/messages`, {
+            method: "POST",
+            token: aliceToken,
+            body: {
+                clientMessageId: "cm_tampered",
+                type: "video",
+                uploadIntentId: videoIntentRes.body.data.uploadIntentId,
+                media: {
+                    url: "https://res.cloudinary.com/demo/video/upload/tampered.mp4",
+                    publicId: "tampered_public_id",
+                    resourceType: "video"
+                }
+            }
+        });
+        assert.strictEqual(tamperedMediaSend.status, 403);
+        assert.strictEqual(tamperedMediaSend.body.error.code, "INVALID_UPLOAD_INTENT");
+        console.log("✓ Media message with tampered publicId rejected with 403 INVALID_UPLOAD_INTENT.");
+
+        // Valid video send succeeds
+        const validVideoSend = await request(`/api/v1/messages/conversations/${convId}/messages`, {
+            method: "POST",
+            token: aliceToken,
+            body: {
+                clientMessageId: "cm_valid_video",
+                type: "video",
+                uploadIntentId: videoIntentRes.body.data.uploadIntentId,
+                media: {
+                    url: `https://res.cloudinary.com/demo/video/upload/${videoIntentRes.body.data.publicId}.mp4`,
+                    publicId: videoIntentRes.body.data.publicId,
+                    resourceType: "video",
+                    bytes: 1024 * 1024
+                }
+            }
+        });
+        assert.strictEqual(validVideoSend.status, 201);
+        assert.strictEqual(validVideoSend.body.data.type, "video");
+        console.log("✓ Media message with valid upload intent sent successfully and verified.");
+
+        // Reusing consumed intent fails
+        const reusedIntentSend = await request(`/api/v1/messages/conversations/${convId}/messages`, {
+            method: "POST",
+            token: aliceToken,
+            body: {
+                clientMessageId: "cm_reused_intent",
+                type: "video",
+                uploadIntentId: videoIntentRes.body.data.uploadIntentId,
+                media: {
+                    url: `https://res.cloudinary.com/demo/video/upload/${videoIntentRes.body.data.publicId}.mp4`,
+                    publicId: videoIntentRes.body.data.publicId,
+                    resourceType: "video"
+                }
+            }
+        });
+        assert.strictEqual(reusedIntentSend.status, 403);
+        assert.strictEqual(reusedIntentSend.body.error.code, "INVALID_UPLOAD_INTENT");
+        console.log("✓ Reusing consumed media intent rejected with 403 INVALID_UPLOAD_INTENT.");
 
         // Media intent single use & verification
         const validConsume = cloudinaryIntegration.verifyAndConsumeIntent({
@@ -629,7 +750,6 @@ async function runMessagesTests() {
         conversationsRepository.listForUser = origListForUser;
         conversationsRepository.updateLastMessage = origUpdateLastMessage;
         conversationsRepository.markConversationRead = origMarkConversationRead;
-        conversationsRepository.markAllRead = origMarkAllRead;
         conversationsRepository.getTotalUnreadCount = origGetTotalUnread;
 
         messagesRepository.createMessage = origCreateMsg;

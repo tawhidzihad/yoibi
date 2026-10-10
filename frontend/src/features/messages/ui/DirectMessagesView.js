@@ -9,76 +9,49 @@ import { MessageComposer } from "./MessageComposer";
 import { useMessages } from "../context/MessagesContext";
 import { messagesApi } from "../api/messagesApi";
 import { getSocket } from "../socket/socketClient";
-import { MessageSquare, ShieldAlert } from "lucide-react";
+import { ShieldAlert, ArrowLeft } from "lucide-react";
 
 export function DirectMessagesView({
+    conversationId = null,
     initialConversationId = null,
-    currentUserId,
-    isMobileView = false
+    currentUserId
 }) {
+    const activeConversationId = conversationId || initialConversationId || null;
     const router = useRouter();
+
     const {
         onlineUsers,
         activeFriends,
         connectionStatus,
         typingUsers,
-        markAllRead,
         refreshUnread,
         setActiveConversationId: setGlobalActiveConvId
     } = useMessages();
 
+    // ── Conversations state (for inbox view) ──
     const [conversations, setConversations] = useState([]);
-    const [selectedConvId, setSelectedConvId] = useState(initialConversationId);
-    const [prevInitialConvId, setPrevInitialConvId] = useState(initialConversationId);
+    const [isLoadingConversations, setIsLoadingConversations] = useState(!activeConversationId);
 
-    // Adjust state during render when initialConversationId prop changes (React recommended pattern)
-    if (initialConversationId !== prevInitialConvId) {
-        setPrevInitialConvId(initialConversationId);
-        setSelectedConvId(initialConversationId);
-    }
-
+    // ── Active chat state (for conversation view) ──
+    const [conversation, setConversation] = useState(null);
     const [messages, setMessages] = useState([]);
     const [cursor, setCursor] = useState(null);
     const [hasMore, setHasMore] = useState(false);
-    const [isLoadingConversations, setIsLoadingConversations] = useState(true);
-    const [isLoadingMessages, setIsLoadingMessages] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [partnerError, setPartnerError] = useState("");
 
-    const activeConvRef = useRef(selectedConvId);
+    const activeConvRef = useRef(activeConversationId);
     useEffect(() => {
-        activeConvRef.current = selectedConvId;
-    }, [selectedConvId]);
+        activeConvRef.current = activeConversationId;
+    }, [activeConversationId]);
 
     // Synchronize global active conv id for badge tracking
     useEffect(() => {
-        setGlobalActiveConvId(selectedConvId);
+        setGlobalActiveConvId(activeConversationId);
         return () => setGlobalActiveConvId(null);
-    }, [selectedConvId, setGlobalActiveConvId]);
+    }, [activeConversationId, setGlobalActiveConvId]);
 
-    // If selected conversation is not yet in conversations list, fetch it directly
-    useEffect(() => {
-        if (selectedConvId && !conversations.some((c) => c.id === selectedConvId)) {
-            messagesApi.getConversationById(selectedConvId)
-                .then((res) => {
-                    if (res?.success && res.data) {
-                        setConversations((prev) => {
-                            if (prev.some((c) => c.id === res.data.id)) return prev;
-                            return [res.data, ...prev];
-                        });
-                    }
-                })
-                .catch(() => {});
-        }
-    }, [selectedConvId, conversations]);
-
-    // Active conversation object
-    const activeConversation = conversations.find((c) => c.id === selectedConvId);
-    const partner = activeConversation?.otherParticipant || activeConversation?.recipient;
-    const isPartnerOnline = partner ? Boolean(onlineUsers[partner.id] || partner.isOnline) : false;
-    const isPartnerTyping = selectedConvId ? Boolean(typingUsers[selectedConvId]?.has(partner?.id)) : false;
-
-    // Load conversations list
+    // ── Load conversations list (inbox) ──
     const fetchConversations = useCallback(async () => {
         setIsLoadingConversations(true);
         try {
@@ -94,11 +67,27 @@ export function DirectMessagesView({
     }, []);
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        fetchConversations();
-    }, [fetchConversations]);
+        if (!activeConversationId) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            fetchConversations();
+        }
+    }, [activeConversationId, fetchConversations]);
 
-    // Load messages when selected conversation changes
+    // ── Load single conversation & messages if activeConversationId is provided ──
+    const fetchConversationDetails = useCallback(async (convId) => {
+        if (!convId) return;
+        try {
+            const res = await messagesApi.getConversationById(convId);
+            if (res.success && res.data) {
+                setConversation(res.data);
+            } else if (res.status === 403 || res.status === 404 || res.error === "FORBIDDEN" || res.error === "CONVERSATION_NOT_FOUND") {
+                setPartnerError(res.message || "This conversation is unavailable or you do not have permission to view it.");
+            }
+        } catch (err) {
+            setPartnerError(err.message || "Unable to load conversation details.");
+        }
+    }, []);
+
     const fetchMessages = useCallback(async (convId) => {
         if (!convId) {
             setMessages([]);
@@ -107,13 +96,12 @@ export function DirectMessagesView({
             return;
         }
 
-        setIsLoadingMessages(true);
         setPartnerError("");
 
         try {
             const res = await messagesApi.getMessages(convId, { limit: 30 });
             if (res.success && Array.isArray(res.data)) {
-                // Backend returns messages in ascending chronological order
+                // Backend returns messages in ascending chronological order (WhatsApp style)
                 setMessages(res.data);
                 setCursor(res.meta?.nextCursor || null);
                 setHasMore(Boolean(res.meta?.hasMore));
@@ -124,62 +112,59 @@ export function DirectMessagesView({
                 if (socket.connected) {
                     socket.emit("message:read", { conversationId: convId });
                 }
-
-                // Decrement unread count locally for this conversation
-                setConversations((prev) =>
-                    prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c))
-                );
                 refreshUnread();
-            } else if (res.status === 403 || res.error === "FORBIDDEN") {
-                setPartnerError("You cannot access this conversation.");
+            } else if (res.status === 403 || res.status === 404 || res.error === "FORBIDDEN" || res.error === "CONVERSATION_NOT_FOUND") {
+                setPartnerError(res.message || "You cannot access this conversation.");
             }
         } catch (err) {
-            console.error("Failed to load messages:", err);
-        } finally {
-            setIsLoadingMessages(false);
+            setPartnerError(err.message || "Failed to load messages.");
         }
     }, [refreshUnread]);
 
     useEffect(() => {
-        if (selectedConvId) {
+        if (activeConversationId) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
-            fetchMessages(selectedConvId);
+            fetchConversationDetails(activeConversationId);
+            fetchMessages(activeConversationId);
+        } else {
+            setConversation(null);
+            setMessages([]);
+            setPartnerError("");
         }
-    }, [selectedConvId, fetchMessages]);
+    }, [activeConversationId, fetchConversationDetails, fetchMessages]);
 
-    // Join/leave socket room for selected conversation
+    // Join/leave socket room for active conversation
     useEffect(() => {
-        if (!selectedConvId) return;
+        if (!activeConversationId) return;
         const socket = getSocket();
 
         if (socket.connected) {
-            socket.emit("conversation:join", { conversationId: selectedConvId });
+            socket.emit("conversation:join", { conversationId: activeConversationId });
         }
 
         const handleConnect = () => {
-            socket.emit("conversation:join", { conversationId: selectedConvId });
+            socket.emit("conversation:join", { conversationId: activeConversationId });
         };
         socket.on("connect", handleConnect);
 
         return () => {
             socket.off("connect", handleConnect);
             if (socket.connected) {
-                socket.emit("conversation:leave", { conversationId: selectedConvId });
+                socket.emit("conversation:leave", { conversationId: activeConversationId });
             }
         };
-    }, [selectedConvId]);
+    }, [activeConversationId]);
 
-    // Listen to real-time socket events
+    // Real-time socket events
     useEffect(() => {
         const socket = getSocket();
 
-        const handleNewMessage = ({ conversation, message }) => {
-            const convId = conversation?.id || message?.conversationId;
+        const handleNewMessage = ({ conversation: convData, message }) => {
+            const convId = convData?.id || message?.conversationId;
 
             // If message is for currently active conversation
             if (convId === activeConvRef.current) {
                 setMessages((prev) => {
-                    // Check if already present (e.g. optimistic match)
                     const existingIndex = prev.findIndex(
                         (m) =>
                             (message.clientMessageId && m.clientMessageId === message.clientMessageId) ||
@@ -203,7 +188,8 @@ export function DirectMessagesView({
                 }
             }
 
-            // Update conversation card preview in inbox list
+            // Always update conversation list ordering & preview:
+            // Latest activity moves to top immediately
             setConversations((prev) => {
                 const index = prev.findIndex((c) => c.id === convId);
                 const isCurrentActive = convId === activeConvRef.current;
@@ -223,10 +209,9 @@ export function DirectMessagesView({
                     return [updated, ...rest];
                 }
 
-                // If brand new conversation
-                if (conversation) {
+                if (convData) {
                     return [{
-                        ...conversation,
+                        ...convData,
                         lastMessage: message,
                         unreadCount: isCurrentActive || !isIncoming ? 0 : 1
                     }, ...prev];
@@ -236,8 +221,8 @@ export function DirectMessagesView({
             });
         };
 
-        const handleDelivered = ({ conversationId, messageIds }) => {
-            if (conversationId === activeConvRef.current) {
+        const handleDelivered = ({ conversationId: convId, messageIds }) => {
+            if (convId === activeConvRef.current) {
                 setMessages((prev) =>
                     prev.map((m) =>
                         messageIds.includes(m.id) && m.status === "sent"
@@ -248,8 +233,8 @@ export function DirectMessagesView({
             }
         };
 
-        const handleRead = ({ conversationId, messageIds }) => {
-            if (conversationId === activeConvRef.current) {
+        const handleRead = ({ conversationId: convId, messageIds }) => {
+            if (convId === activeConvRef.current) {
                 setMessages((prev) =>
                     prev.map((m) =>
                         !messageIds || messageIds.includes(m.id)
@@ -273,11 +258,11 @@ export function DirectMessagesView({
 
     // Load older messages (cursor pagination)
     const handleLoadMore = async () => {
-        if (!selectedConvId || !cursor || isLoadingMore) return;
+        if (!activeConversationId || !cursor || isLoadingMore) return;
         setIsLoadingMore(true);
 
         try {
-            const res = await messagesApi.getMessages(selectedConvId, { cursor, limit: 30 });
+            const res = await messagesApi.getMessages(activeConversationId, { cursor, limit: 30 });
             if (res.success && Array.isArray(res.data)) {
                 setMessages((prev) => [...res.data, ...prev]);
                 setCursor(res.meta?.nextCursor || null);
@@ -291,14 +276,14 @@ export function DirectMessagesView({
     };
 
     // Send message (optimistic UI + Socket.IO with REST fallback)
-    const handleSendMessage = async ({ text, media }) => {
-        if (!selectedConvId) return;
+    const handleSendMessage = async ({ text, media, uploadIntentId }) => {
+        if (!activeConversationId) return;
 
         const clientMessageId = `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         const optimisticMessage = {
             id: `temp_${clientMessageId}`,
             clientMessageId,
-            conversationId: selectedConvId,
+            conversationId: activeConversationId,
             senderId: currentUserId,
             text,
             media,
@@ -309,9 +294,9 @@ export function DirectMessagesView({
         // 1. Optimistic append to thread
         setMessages((prev) => [...prev, optimisticMessage]);
 
-        // 2. Update conversation list preview
+        // 2. Update conversation list preview & move to top
         setConversations((prev) => {
-            const index = prev.findIndex((c) => c.id === selectedConvId);
+            const index = prev.findIndex((c) => c.id === activeConversationId);
             if (index !== -1) {
                 const updated = {
                     ...prev[index],
@@ -324,13 +309,14 @@ export function DirectMessagesView({
             return prev;
         });
 
-        // 3. Send via socket or REST fallback
+        // 3. Send payload
         const payload = {
-            conversationId: selectedConvId,
+            conversationId: activeConversationId,
             clientMessageId,
             type: media ? (media.resourceType || "image") : "text",
             text: text.trim(),
-            media: media || undefined
+            media: media || undefined,
+            uploadIntentId: uploadIntentId || (media && media.uploadIntentId) || undefined
         };
 
         const socket = getSocket();
@@ -358,7 +344,7 @@ export function DirectMessagesView({
         } else {
             // REST Fallback
             try {
-                const res = await messagesApi.sendMessage(selectedConvId, payload);
+                const res = await messagesApi.sendMessage(activeConversationId, payload);
                 if (res.success && res.data) {
                     setMessages((prev) =>
                         prev.map((m) =>
@@ -382,60 +368,46 @@ export function DirectMessagesView({
         }
     };
 
-    // Retry sending a failed message
     const handleRetryMessage = (failedMsg) => {
         setMessages((prev) => prev.filter((m) => m.clientMessageId !== failedMsg.clientMessageId));
-        handleSendMessage({ text: failedMsg.text, media: failedMsg.media });
+        handleSendMessage({
+            text: failedMsg.text,
+            media: failedMsg.media,
+            uploadIntentId: failedMsg.media?.uploadIntentId
+        });
     };
 
-    // Start chat with an active friend
+    // Navigation handlers
+    const handleSelectConversation = (conv) => {
+        router.push(`/message/${conv.id}`);
+    };
+
     const handleSelectFriend = async (friend) => {
         try {
             const res = await messagesApi.createConversation(friend.id || friend._id);
             if (res.success && res.data?.id) {
-                const convId = res.data.id;
-                setSelectedConvId(convId);
-                if (isMobileView) {
-                    router.push(`/message/${convId}`);
-                } else {
-                    router.push(`/message?conversationId=${convId}`, { scroll: false });
-                }
-                fetchConversations();
+                router.push(`/message/${res.data.id}`);
             }
         } catch (err) {
             console.error("Failed to start conversation with friend:", err);
         }
     };
 
-    const handleSelectConversation = (conv) => {
-        setSelectedConvId(conv.id);
-        if (isMobileView) {
-            router.push(`/message/${conv.id}`);
-        } else {
-            router.push(`/message?conversationId=${conv.id}`, { scroll: false });
-        }
-    };
-
     const handleBackToInbox = () => {
-        setSelectedConvId(null);
-        if (isMobileView) {
-            router.push("/message");
-        } else {
-            router.push("/message", { scroll: false });
-        }
+        router.push("/message");
     };
 
-    return (
-        <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden rounded-2xl border border-border/50 bg-background shadow-xs">
-            {/* Left Pane: Inbox (Conversations List) */}
-            <div
-                className={`w-full lg:w-[380px] shrink-0 h-full ${
-                    selectedConvId && isMobileView ? "hidden lg:flex" : "flex"
-                } flex-col`}
-            >
+    // Partner info for active chat
+    const partner = conversation?.otherParticipant || conversation?.recipient;
+    const isPartnerOnline = partner ? Boolean(onlineUsers[partner.id] || partner.isOnline) : false;
+    const isPartnerTyping = activeConversationId ? Boolean(typingUsers[activeConversationId]?.has(partner?.id)) : false;
+
+    // ── IF NO ACTIVE CONVERSATION: Render full-width INBOX VIEW ONLY ──
+    if (!activeConversationId) {
+        return (
+            <div className="flex flex-col h-full w-full bg-background min-h-0">
                 <InboxView
                     conversations={conversations}
-                    selectedConversationId={selectedConvId}
                     onSelectConversation={handleSelectConversation}
                     onSelectFriend={handleSelectFriend}
                     activeFriends={activeFriends}
@@ -443,83 +415,73 @@ export function DirectMessagesView({
                     typingUsers={typingUsers}
                     connectionStatus={connectionStatus}
                     currentUserId={currentUserId}
-                    onMarkAllRead={markAllRead}
                     isLoading={isLoadingConversations}
                 />
             </div>
+        );
+    }
 
-            {/* Right Pane: Chat Thread View */}
-            <div
-                className={`flex-1 h-full flex-col min-w-0 ${
-                    !selectedConvId && isMobileView ? "hidden lg:flex" : "flex"
-                }`}
-            >
-                {selectedConvId && activeConversation ? (
-                    <>
-                        <ChatHeader
-                            partner={partner}
-                            conversation={activeConversation}
-                            isOnline={isPartnerOnline}
-                            onBack={isMobileView ? handleBackToInbox : null}
-                        />
+    // ── IF ACTIVE CONVERSATION: Render full-width CHAT VIEW ONLY ──
+    return (
+        <div className="flex flex-col h-full w-full bg-background min-h-0">
+            <ChatHeader
+                partner={partner}
+                conversation={conversation}
+                isOnline={isPartnerOnline}
+                onBack={handleBackToInbox}
+            />
 
-                        {/* Connection status banners */}
-                        {connectionStatus === "reconnecting" && (
-                            <div className="flex items-center justify-center gap-2 bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-xs text-amber-500 font-medium select-none">
-                                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                                <span>Reconnecting to chat server...</span>
-                            </div>
-                        )}
-                        {connectionStatus === "disconnected" && (
-                            <div className="flex items-center justify-center gap-2 bg-rose-500/10 border-b border-rose-500/20 px-4 py-1.5 text-xs text-rose-500 font-medium select-none">
-                                <span>Disconnected. Real-time messages paused until reconnect.</span>
-                            </div>
-                        )}
+            {/* Connection status banners */}
+            {connectionStatus === "reconnecting" && (
+                <div className="flex items-center justify-center gap-2 bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-xs text-amber-500 font-medium select-none">
+                    <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Reconnecting to chat server...</span>
+                </div>
+            )}
+            {connectionStatus === "disconnected" && (
+                <div className="flex items-center justify-center gap-2 bg-rose-500/10 border-b border-rose-500/20 px-4 py-1.5 text-xs text-rose-500 font-medium select-none">
+                    <span>Disconnected. Real-time messages paused until reconnect.</span>
+                </div>
+            )}
 
-                        {partnerError ? (
-                            <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground">
-                                <ShieldAlert size={36} className="text-rose-500 mb-2" />
-                                <p className="text-sm font-semibold text-foreground">Access Restricted</p>
-                                <p className="text-xs text-muted-foreground mt-1">{partnerError}</p>
-                            </div>
-                        ) : (
-                            <>
-                                <ChatThread
-                                    messages={messages}
-                                    partner={partner}
-                                    currentUserId={currentUserId}
-                                    isPartnerTyping={isPartnerTyping}
-                                    hasMore={hasMore}
-                                    isLoadingMore={isLoadingMore}
-                                    onLoadMore={handleLoadMore}
-                                    onRetryMessage={handleRetryMessage}
-                                />
+            {partnerError ? (
+                <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground my-auto">
+                    <ShieldAlert size={36} className="text-rose-500 mb-2" />
+                    <p className="text-sm font-semibold text-foreground">Access Restricted</p>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm">{partnerError}</p>
+                    <button
+                        type="button"
+                        onClick={handleBackToInbox}
+                        className="mt-4 flex items-center gap-1.5 rounded-xl bg-secondary px-4 py-2 text-xs font-semibold text-foreground hover:bg-secondary/80 transition-colors cursor-pointer"
+                    >
+                        <ArrowLeft size={14} />
+                        <span>Back to Messages</span>
+                    </button>
+                </div>
+            ) : (
+                <>
+                    <ChatThread
+                        messages={messages}
+                        partner={partner}
+                        currentUserId={currentUserId}
+                        isPartnerTyping={isPartnerTyping}
+                        hasMore={hasMore}
+                        isLoadingMore={isLoadingMore}
+                        onLoadMore={handleLoadMore}
+                        onRetryMessage={handleRetryMessage}
+                    />
 
-                                <MessageComposer
-                                    conversationId={selectedConvId}
-                                    onSendMessage={handleSendMessage}
-                                    placeholder={
-                                        partner?.name
-                                            ? `Message ${partner.name.split(" ")[0]}...`
-                                            : "Type a message..."
-                                    }
-                                />
-                            </>
-                        )}
-                    </>
-                ) : (
-                    /* Empty desktop state when no conversation is selected */
-                    <div className="hidden lg:flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground bg-secondary/10">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-cyan-500/10 text-cyan-500 mb-4">
-                            <MessageSquare size={32} />
-                        </div>
-                        <h2 className="text-lg font-bold text-foreground">Select a conversation</h2>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-relaxed">
-                            Choose an existing chat from the left or select an active friend to start messaging.
-                        </p>
-                    </div>
-                )}
-            </div>
+                    <MessageComposer
+                        conversationId={activeConversationId}
+                        onSendMessage={handleSendMessage}
+                        placeholder={
+                            partner?.name
+                                ? `Message ${partner.name.split(" ")[0]}...`
+                                : "Type a message..."
+                        }
+                    />
+                </>
+            )}
         </div>
     );
 }

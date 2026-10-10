@@ -21,17 +21,17 @@ export function ChatHeader({
     return (
         <header
             className={cn(
-                "sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border/50 bg-background/95 px-4 backdrop-blur-sm",
+                "sticky top-0 z-20 flex h-14 items-center justify-between border-b border-border/60 bg-background/90 px-4 backdrop-blur-md select-none",
                 className
             )}
         >
             <div className="flex items-center gap-3 min-w-0">
-                {/* Back button (always visible on mobile, optional on desktop) */}
+                {/* Back button (navigates back to /message on all viewports) */}
                 {onBack && (
                     <button
                         type="button"
                         onClick={onBack}
-                        className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 cursor-pointer lg:hidden"
+                        className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 cursor-pointer"
                         aria-label="Back to conversations"
                     >
                         <ArrowLeft size={20} />
