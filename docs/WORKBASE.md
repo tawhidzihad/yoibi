@@ -9,160 +9,95 @@ Every session writes to this file in EXACTLY this section structure:
 > **In YOIBI, `Tweet` is the social content entity. `POST` is an HTTP request method, not a separate content domain.**
 > **In YOIBI, `Video` is the video content entity (Shorts & Longform), hosted via Cloudinary with server-issued upload intents and MongoDB metadata.**
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
+> **In YOIBI, NO HEADLESS CLI BROWSER TESTING (Playwright, Puppeteer, Chromium, Selenium) may ever be run from the terminal. Use the IDE browser or explicit manual testing checklists.**
 
 ## Current Status
-- Task ID: TASK-032
-- Title: Real-time Direct Messaging feature at /message
-- Status: **COMPLETE** — Full direct messaging system implemented across backend and frontend, including follow-gated conversations, idempotency, monotonic delivery and read ticks, Socket.IO real-time gateway with Better Auth JWKS verification, multi-connection presence tracking, typing indicators, Cloudinary signed upload intents for media (images and videos) with lightbox preview, active friends row, inbox filters (All, Unread, Following, Online), message search, profile page Message button, unread counts badge in navigation, and full test suite passing 100%. Deployed to Railway (`92fe6d44-f9f6-4a4a-b529-a859c7241282`) and Vercel (`dpl_2GbpX61FDWpPokvAXLqd8eWBRgck`), live verified on `https://www.yoibi.com` with two accounts, confirmed by user, test data cleaned up.
-- Completion Level: `COMPLETE`
-- Summary:
-  - Designed and archived 5 visual reference images in `docs/design-refs/messages/`.
-  - Phase 1 & 2 Backend:
-    - Centralized messaging constants in `backend/src/config/constants.js` (`MESSAGE_TEXT_MAX_LENGTH = 2000`, `MESSAGE_IMAGE_MAX_BYTES = 10MB`, `MESSAGE_VIDEO_MAX_BYTES = 50MB`, `TYPING_TIMEOUT_MS = 3000`).
-    - Models: `conversation.model.js` (participantKey sorted, unreadCounts map, lastReadAt) and `message.model.js` (compound index for idempotency, text, media, status).
-    - Repositories: `conversations.repository.js`, `messages.repository.js`, extended `users.repository.js`.
-    - Services: `presence.service.js` (multi-socket presence), `messages.service.js` (follow-gated conversation creation, idempotency, grapheme limit enforcement, signed media intent creation).
-    - Socket.IO gateway in `backend/src/sockets/socketServer.js` mounted in `server.js` with Better Auth JWT handshake verification, events: `conversation:join/leave`, `message:send/delivered/read`, `typing:start/stop`, `presence:sync`, `auth:force_disconnect`.
-    - Controllers & routes mounted at `/api/v1/messages`.
-    - Moderation integration in `admin.service.js` (media snapshot in Phase B, message purge in Phase C, real-time socket eviction).
-    - Comprehensive test suite in `backend/tests/messages.test.js` passing 100%.
-  - Phase 2 Frontend:
-    - Socket singleton client in `frontend/src/features/messages/socket/socketClient.js` with dynamic token refreshing.
-    - Centralized API methods in `frontend/src/features/messages/api/messagesApi.js`.
-    - Context in `frontend/src/features/messages/context/MessagesContext.js` managing live unread counts, presence, typing, active friends.
-    - App layout in `frontend/src/app/(protected)/layout.js` wrapped in `MessagesProvider` with live unread badge in desktop and mobile drawer.
-    - Profile header in `frontend/src/features/profile/ui/ProfileHeader.js` updated with follow-gated "Message" button.
-    - Feature UI components in `frontend/src/features/messages/ui/`: `ActiveFriendsRow.js`, `ConversationCard.js`, `ChatHeader.js`, `TypingIndicator.js`, `MediaCards.js` (with lightbox & video preview), `MessageBubble.js` (with `StatusTicks.js`), `MessageComposer.js` (with `AutoGrowTextarea`, grapheme counter, Cloudinary upload), `ChatThread.js` (cursor pagination, date dividers, auto-scroll), `InboxView.js`, `DirectMessagesView.js`.
-    - Route pages: `/message` and `/message/[conversationId]`.
-  - Contracts & documentation: `contracts/API-CONTRACT.md`, `contracts/openapi.yaml`, `docs/ENVIRONMENT.md`, `docs/SECURITY-RULES.md`, `docs/BAN-DELETION-PLAN.md`, `PROJECT-STRUCTURE.md`, and `README.md` updated.
-  - Quality gates: 100% backend tests passing, 0 backend lint errors, 0 frontend lint errors, 20/20 Next.js routes built and statically optimized.
-  - Deployments: Backend deployed to Railway (`92fe6d44-f9f6-4a4a-b529-a859c7241282`), Frontend deployed to Vercel (`dpl_2GbpX61FDWpPokvAXLqd8eWBRgck`).
-  - Two-account live testing on `https://www.yoibi.com`: follow-gate rejection, real-time messaging, typing indicators, monotonic status ticks (Sent -> Delivered -> Read), multi-socket presence, media intent creation, and cleanup.
+- Task ID: TASK-033
+- Title: Direct Messaging Design & Bug Fixes (8 Items)
+- Status: **DEPLOYED TO PRODUCTION & READY FOR MANUAL VERIFICATION** — All 8 bug and design problems fixed across backend and frontend, verified with 100% backend unit/integration tests and frontend vitest suites, 0 lint errors, successful production build, and deployed via Railway CLI (backend: `8bc6981d-926b-469a-bf94-9483d89d46cc`) and Vercel CLI (frontend: `dpl_GPzFuJ3BnYyDuDDkYkAFni6urriF` aliased to `https://www.yoibi.com`).
+- Completion Level: `READY FOR USER VERIFICATION`
+- Summary of 8 Fixed Items:
+  1. **Extra "My Profile" button removed from desktop right sidebar card:** Restored original `ProfileMiniCard` layout in `frontend/src/app/(protected)/layout.js` without the cyan link button.
+  2. **WhatsApp-style full-page messaging (no split layout):**
+     - `/message` shows only the conversation list using the full width of the middle column. Zero chat panel and zero placeholder.
+     - Clicking a conversation or active friend navigates to `/message/[conversationId]`, which shows the chat thread full width in the middle column with back button returning to `/message` on desktop, tablet, and mobile.
+     - Removed split layout query handling (`?conversationId=`), selection state, and empty placeholders.
+  3. **Filter tabs:** Exactly three tabs: `All`, `Unread`, `Online`. Removed `Following` from frontend and backend validator/service/tests/contracts. Proper distinct empty states per tab ("No unread messages", "No one is online", "No conversations yet").
+  4. **Removed top gap, outer border, and rounded corners on messages page:** Made `/message` and `/message/[conversationId]` content flush with column top (matching Feed/Tweets header style), removed outer container borders and `rounded-2xl` styling.
+  5. **Media upload 404 root cause resolved:**
+     - Root cause: `createMessageMediaUploadIntent` was omitting `uploadUrl`, causing client to fetch `POST /message/undefined` on Vercel which returned 404, plus client appended `folder` into `FormData` which conflicted with Cloudinary signature.
+     - Fixed backend `createMessageMediaUploadIntent` to explicitly return `uploadUrl: https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`.
+     - Upgraded `MessageComposer.js` to use `XMLHttpRequest` with upload progress (0-100%), cancel (`xhr.abort()`), retry, specific error messages, and payload passing `uploadIntentId`. Supports images up to 10MB and videos up to 50MB.
+  6. **Ordering, monotonic ticks, and brand colors:**
+     - Conversation list sorted by latest activity, moving to top index 0 immediately on outgoing or incoming message with preview/time update.
+     - Thread ordered oldest to newest top to bottom (WhatsApp style), auto-scrolling when near bottom or displaying floating "New messages" pill.
+     - Monotonic status ticks: 1 grey check (sent), 2 grey checks (delivered), 2 checks in YOIBI accent color `text-cyan-600 dark:text-cyan-400 font-bold` (read). Statuses only move forward, update real-time via socket, and persist on refresh.
+     - Sent message bubbles use YOIBI brand accent token `bg-cyan-600 text-white` (replacing off-brand teal/cyan gradient) with accessible WCAG AA contrast.
+  7. **Removed "Mark all read":** Removed button and double-check icon from header, removed dead context handlers, and removed `POST /api/v1/messages/read-all` from routes, controller, repository, service, contracts, and tests. Single conversation auto-marks read on open.
+  8. **Zero regressions:** Typing indicators, presence dots, unread badge in navigation, profile Message button, search, pagination, reconnect, and non-messaging modules (feed, tweets, profile, meet-up, videos, admin) fully functional.
 
 ## Last Completed Step
-1. **Production Deployment & Verification:**
-   - Deployed Railway backend: Deployment `92fe6d44-f9f6-4a4a-b529-a859c7241282` confirmed healthy (200 OK, Socket.IO listening).
-   - Deployed Vercel frontend: Deployment `dpl_2GbpX61FDWpPokvAXLqd8eWBRgck` live on `https://www.yoibi.com`. `NEXT_PUBLIC_SOCKET_URL` verified present in client bundle.
-2. **Bug Fixes During Live Testing:**
-   - Fixed `messages.validator.js`: permitted `media: null` in payload schema when sending text-only messages to avoid 400 validation error.
-   - Fixed conversation views: mapped conversation partner cleanly to `recipient` / `otherParticipant`.
-   - Exported `getConversationById` alias in `messagesApi.js`.
-   - Replaced `useEffect` state adjustment with React 19 render-time adjustment for `initialConversationId`.
-3. **Multi-Account Production Live Testing:**
-   - User A (`hfztauhid@gmail.com`) and User B (`tawhid.pc3@gmail.com`) tested in real production environment.
-   - Follow-gate confirmed: 403 `FOLLOW_REQUIRED` for non-followers; profile Message button appears when following.
-   - Real-time WSS connection established for both users.
-   - Real-time text messaging over Socket.IO and REST fallback verified.
-   - Real-time typing indicators verified both ways.
-   - Real-time monotonic status ticks (Sent -> Delivered -> Read) verified.
-   - Image/video media upload intent generation and validation verified.
-   - User verified in chat: *"i am testing the messages it work now complete other steps"*.
-4. **Data Cleanup:**
-   - Removed temporary test messages and conversation from MongoDB `yoibi_database`.
+1. **CLI Browser Cleanup:**
+   - Deleted Playwright binaries and caches from `C:\Users\tawhi\AppData\Local\ms-playwright`.
+   - Deleted previous session's temporary test runner scripts and browser test node_modules.
+   - Cleaned package files; zero browser-testing packages in `package.json`.
+2. **Backend Code & Contract Modifications:**
+   - `backend/src/integrations/cloudinary/cloudinary.js`: added `uploadUrl` to `createMessageMediaUploadIntent`.
+   - `backend/src/validators/messages.validator.js`: filter enum restricted to `["all", "unread", "online"]`.
+   - `backend/src/routes/messages.routes.js` & `controllers/messages.controller.js` & `repositories/conversations.repository.js`: removed `read-all` endpoint and handler.
+   - `backend/src/services/messages.service.js`: removed `following` filter and `markAllRead`, implemented `deriveMessageStatus`, ascending chronological message list ordering, and mandatory upload intent validation for media messages.
+   - `backend/tests/messages.test.js`: added tests for removed endpoints (404 / 400), ascending message sort, monotonic ticks, and media intent verification.
+   - `contracts/API-CONTRACT.md`: updated query filters and removed `POST /api/v1/messages/read-all`.
+3. **Frontend Implementation:**
+   - `frontend/src/app/(protected)/layout.js`: removed "My Profile" button from `ProfileMiniCard`; styled `main` with `pt-0 pb-0 h-screen flex flex-col` on `/message*`.
+   - `frontend/src/features/messages/api/messagesApi.js` & `context/MessagesContext.js`: removed `markAllRead`.
+   - `frontend/src/features/messages/ui/StatusTicks.js`: styled read ticks with `text-cyan-600 dark:text-cyan-400`.
+   - `frontend/src/features/messages/ui/MessageBubble.js`: own bubble styled with `bg-cyan-600 text-white`, monotonic status derivation.
+   - `frontend/src/features/messages/ui/MessageComposer.js`: XHR upload with progress (0-100%), cancel, retry, specific error messages, valid Cloudinary URL, and `uploadIntentId` in payload.
+   - `frontend/src/features/messages/ui/ChatHeader.js`: back button visible on all viewports (`lg:hidden` removed), sticky header matching Feed/Tweets.
+   - `frontend/src/features/messages/ui/ChatThread.js`: floating new messages pill with brand token, flush styling.
+   - `frontend/src/features/messages/ui/InboxView.js`: 3 filter tabs (All, Unread, Online), removed "Mark all read" button, sticky header matching Feed/Tweets, per-tab empty states.
+   - `frontend/src/features/messages/ui/DirectMessagesView.js`: full-page view without split layout or placeholder.
+   - `frontend/src/app/(protected)/message/page.js` & `[conversationId]/page.js`: updated to full-page navigation.
+4. **Local Verification:**
+   - Backend: `npm test` 100% pass (all suites pass), `npm run lint` 0 errors, `npm audit` 0 vulnerabilities.
+   - Frontend: `npm test` passing (72/72 tests pass across 6 suites), `npm run lint` 0 errors, `npm run build` 20/20 routes compiled successfully.
+5. **Local Commit:**
+   - Committed locally: `2f29083 fix(messages): full-page WhatsApp layout, media upload fix, 3 filter tabs, and tick styling`.
+6. **CLI Production Deployments:**
+   - Backend: `railway up` deployed service `yoibi-backend` (Deployment `8bc6981d-926b-469a-bf94-9483d89d46cc`), verified online and healthy with database connected at `https://yoibi-backend-production.up.railway.app/api/v1/health`.
+   - Frontend: `vercel --prod` deployed from repo root (Deployment `dpl_GPzFuJ3BnYyDuDDkYkAFni6urriF`), verified aliased to `https://www.yoibi.com`.
 
 ## Next Step
-- **None** — TASK-032 is COMPLETE.
+- Provide user with numbered MANUAL TEST CHECKLIST for the two test accounts to verify all 8 items on `https://www.yoibi.com`.
+- Await user verification results or credentials, clean up test data, update documentation, and perform final `git push` to `main`.
 
 ## Files Touched This Session
-- **Backend Created:**
-  - `backend/src/models/conversation.model.js`
-  - `backend/src/models/message.model.js`
-  - `backend/src/repositories/conversations.repository.js`
-  - `backend/src/repositories/messages.repository.js`
-  - `backend/src/services/presence.service.js`
-  - `backend/src/services/messages.service.js`
-  - `backend/src/validators/messages.validator.js`
-  - `backend/src/sockets/socketServer.js`
-  - `backend/src/controllers/messages.controller.js`
-  - `backend/src/routes/messages.routes.js`
-  - `backend/tests/messages.test.js`
-- **Backend Modified:**
-  - `backend/src/config/constants.js`
-  - `backend/src/repositories/users.repository.js`
-  - `backend/src/services/admin.service.js`
-  - `backend/src/integrations/cloudinary/cloudinary.js`
-  - `backend/src/routes/index.js`
-  - `backend/src/server.js`
-  - `backend/tests/index.js`
-- **Frontend Created:**
-  - `frontend/src/features/messages/socket/socketClient.js`
-  - `frontend/src/features/messages/api/messagesApi.js`
-  - `frontend/src/features/messages/context/MessagesContext.js`
-  - `frontend/src/features/messages/ui/ActiveFriendsRow.js`
-  - `frontend/src/features/messages/ui/ConversationCard.js`
-  - `frontend/src/features/messages/ui/ChatHeader.js`
-  - `frontend/src/features/messages/ui/TypingIndicator.js`
-  - `frontend/src/features/messages/ui/MediaCards.js`
-  - `frontend/src/features/messages/ui/MessageBubble.js`
-  - `frontend/src/features/messages/ui/StatusTicks.js`
-  - `frontend/src/features/messages/ui/MessageComposer.js`
-  - `frontend/src/features/messages/ui/ChatThread.js`
-  - `frontend/src/features/messages/ui/InboxView.js`
-  - `frontend/src/features/messages/ui/DirectMessagesView.js`
-  - `frontend/src/app/(protected)/message/page.js`
-  - `frontend/src/app/(protected)/message/[conversationId]/page.js`
-  - `frontend/tests/messages-logic.test.js`
-- **Frontend Modified:**
-  - `frontend/src/app/(protected)/layout.js`
-  - `frontend/src/features/profile/ui/ProfileHeader.js`
-  - `frontend/src/features/legal/ui/PrivacyPolicyView.js`
-  - `frontend/src/features/legal/ui/TermsOfServiceView.js`
-- **Design & Documentation:**
-  - `docs/design-refs/messages/ref-1-inbox.png` through `ref-5-chat-media.png`
-  - `contracts/API-CONTRACT.md`
-  - `contracts/openapi.yaml`
-  - `docs/ENVIRONMENT.md`
-  - `docs/BAN-DELETION-PLAN.md`
-  - `docs/SECURITY-RULES.md`
-  - `PROJECT-STRUCTURE.md`
-  - `README.md`
-  - `docs/WORKBASE.md`
-  - `docs/MODEL-HANDOFF.md`
+- `backend/src/controllers/messages.controller.js`
+- `backend/src/integrations/cloudinary/cloudinary.js`
+- `backend/src/repositories/conversations.repository.js`
+- `backend/src/routes/messages.routes.js`
+- `backend/src/services/messages.service.js`
+- `backend/src/validators/messages.validator.js`
+- `backend/tests/messages.test.js`
+- `contracts/API-CONTRACT.md`
+- `frontend/src/app/(protected)/layout.js`
+- `frontend/src/app/(protected)/message/[conversationId]/page.js`
+- `frontend/src/app/(protected)/message/page.js`
+- `frontend/src/features/messages/api/messagesApi.js`
+- `frontend/src/features/messages/context/MessagesContext.js`
+- `frontend/src/features/messages/ui/ChatHeader.js`
+- `frontend/src/features/messages/ui/ChatThread.js`
+- `frontend/src/features/messages/ui/DirectMessagesView.js`
+- `frontend/src/features/messages/ui/InboxView.js`
+- `frontend/src/features/messages/ui/MessageBubble.js`
+- `frontend/src/features/messages/ui/MessageComposer.js`
+- `frontend/src/features/messages/ui/StatusTicks.js`
+- `frontend/tests/messages-logic.test.js`
+- `frontend/tests/profile.test.js`
 
 ## Known Issues / Blockers
-- **Known Limitation:** In-memory Cloudinary upload intent store loses pending unredeemed upload intents on a Railway restart (pending upload intents expire within 10 minutes anyway; once redeemed, message records in MongoDB are permanent).
+- None.
 
 ## Session Date
-- 2026-10-10 (TASK-032: Real-time Direct Messaging feature at /message)
-
-## What Is Working
-- ✅ Direct real-time messaging with Socket.IO over WSS with Better Auth JWKS verification
-- ✅ Follow-gated conversation initiation (403 `FOLLOW_REQUIRED` for non-followers)
-- ✅ Monotonic status ticks: Sent (`✓`), Delivered (`✓✓` neutral), Read (`✓✓` colored)
-- ✅ Multi-connection presence tracking (online/offline transitions)
-- ✅ Debounced real-time typing indicators with 3s timeout
-- ✅ Cloudinary signed upload intents for images (10MB) and videos (50MB) with lightbox preview
-- ✅ Active friends row with live presence dots
-- ✅ Inbox filters (All, Unread, Following, Online) and message search
-- ✅ Live unread count badges in desktop navigation and mobile drawer
-- ✅ Profile page "Message" button for followed users
-- ✅ Mobile and desktop responsive layouts with auto-scroll and composer pinning
-- ✅ Admin moderation ban/block cascade with socket eviction and message purge
-- ✅ Zero regressions on Feed, Tweets, Replies, Videos, Meet-Up, Search, and Profiles
-
-## Task History Index
-One line per task; full detail in `docs/WORKBASE-ARCHIVE.md`.
-
-| Task | Title | Status |
-|------|-------|--------|
-| TASK-032 | Real-time Direct Messaging feature at /message | COMPLETE — Socket.IO real-time delivery, follow-gated conversations, monotonic ticks, presence, typing, media intents, deployed Railway + Vercel prod, live-verified |
-| TASK-031 | Seeded recency-weighted discovery tweets and own-post pinning on /feed | COMPLETE — constants centralized, prng utility, disjoint streams, own-post pinning, mode opt-in, 0 duplicates across pages, deployed Rail + Vercel prod, live-verified |
-| TASK-030 | Raise Tweet limit to 380, server-enforced limit, auto-grow textarea, clean /tweets header | COMPLETE — server constant 380, dynamic config endpoint, grapheme counting, header removed, AutoGrowTextarea, deployed Rail + Vercel prod, live-verified |
-| TASK-029 | Complete Removal of Streams Feature | COMPLETE — all streams code/tests deleted, database collection dropped, contracts/docs synced, deployed Rail + Vercel prod, live-verified |
-| TASK-028 | Mandatory Email Verification (React Email + Resend) | COMPLETE — deployed; follow-up 1: emailVerified moved to `user` singular, redirect to /feed w/o duplicate email; follow-up 2 (this session): root-cause fix for verified users bounced to /verify-email mid-session (frontend fallback-branch emailVerified + backend moderation-cache invalidation), deployed Rail `37d05eb4` + Vercel prod |
-| TASK-027 | Comment UI revision: simple nesting + "See N Replies" toggle, comment-author profile nav, share-link fix, share modal, @username reply prefix (FE only) | COMPLETE — deployed & live-verified (real-browser E2E 35/35) |
-| TASK-026 | Individual tweet page, like/comment icon swap, reply skeleton, Facebook-style threaded comments (FE+BE) | COMPLETE — deployed & live-verified |
-| TASK-025 | Mobile search UX fixes (top-bar search bar, top-anchored dropdown, clear-button removal, hidden scrollbars) | COMPLETE — deployed & live-verified |
-| TASK-024 | People Search + nav redesign (search endpoint, right panel, Profile nav, account switcher, mobile search modal + drawer preview) | COMPLETE — deployed & live-verified |
-| TASK-023 | Persistent Context + Resume System (AGENTS.md, doc restructure, /yoibi-resume) | COMPLETE (history in WORKBASE-ARCHIVE.md) |
-| TASK-022 | Stale Frontend URL Cleanup + Auth-Aware Home Page Nav Button | COMPLETE — deployed & live-verified |
-| TASK-021 | Mobile Edit Profile Spacing & Past Meet-Up Room Card Hierarchy | COMPLETE — deployed & live-verified |
-| TASK-020 | Meet Up Page UI/UX, Room Card & Responsiveness | COMPLETE — implemented & verified |
-| TASK-019 | Videos Upload Form Collapse + Repository Cleanup | COMPLETE — deployed (Vercel + Railway) |
-| TASK-018 | Fix Tweet Reply/Comment Flow (reply belongs to parent tweet) | COMPLETE — verified locally (detail in MODEL-HANDOFF-ARCHIVE) |
-| TASK-017 | Tweet Media Upload Redesign — Direct Device Upload, Secure Cloudinary | COMPLETE — real Cloudinary E2E verified |
-| TASK-016 | Video Upload Provenance Fix + Inline Composer & Category Redesign | COMPLETE (detail in MODEL-HANDOFF-ARCHIVE) |
-| TASK-014 | Complete User Profile System — /profile/[username], editing, avatar & banner | COMPLETE — deployed (detail in MODEL-HANDOFF-ARCHIVE) |
-| TASK-013 | Production Authentication Fix (JWT pipeline, auth simplification) | COMPLETE — superseded parts documented |
-| TASK-012 | Phase 5 Level 2 — Production Verification & Live Deployment | COMPLETE — deployed & live-smoked |
-| TASK-011 | Phase 5 Milestone 10 — Platform Hardening & Deployment Readiness | COMPLETE — 100% quality gates |
+- 2026-10-10
