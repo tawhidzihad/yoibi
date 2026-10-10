@@ -3,10 +3,10 @@ import { LegalLayout, LegalProse, Toc } from "@/shared/layout/LegalLayout";
 export const metadata = {
   title: "Terms of Service | YOIBI",
   description:
-    "Terms and conditions for using YOIBI — the social platform for tweets, videos, and meet-ups.",
+    "Terms and conditions for using YOIBI — the social platform for tweets, videos, meet-ups, and direct messages.",
 };
 
-const lastUpdated = "September 2026";
+const lastUpdated = "October 2026";
 
 const tocItems = [
   { id: "acceptance", label: "Acceptance of Terms" },
@@ -125,8 +125,8 @@ export default function TermsOfServicePage() {
             <p>
               <strong>Ownership:</strong> You retain all ownership rights in the
               content you create and post on YOIBI (&quot;Your Content&quot;).
-              This includes tweets, videos, comments, profile
-              information, and any other material you submit.
+              This includes tweets, videos, comments, direct messages, media
+              attachments, profile information, and any other material you submit.
             </p>
             <p>
               <strong>License to YOIBI:</strong> By posting Your Content, you

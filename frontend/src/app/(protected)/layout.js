@@ -187,105 +187,6 @@ function AccountSwitcher({ user, onLogout }) {
     );
 }
 
-/**
- * Compact logged-in user card shown in the right sidebar while no search is
- * active — a lightweight "you" indicator with live counts (synced through
- * /auth/me via the profile-changed event, like before).
- */
-function ProfileMiniCard({ user }) {
-    const handle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
-    return (
-        <div className="rounded-xl border border-border/50 bg-card p-4">
-            <div className="mb-3 flex items-center gap-3">
-                <Avatar
-                    src={user?.avatarUrl || ""}
-                    name={user?.name || ""}
-                    handle={handle}
-                    size={40}
-                />
-                <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                        {user?.name || user?.handle || "User"}
-                    </p>
-                    {handle && (
-                        <p className="truncate text-xs text-muted-foreground">@{handle}</p>
-                    )}
-                </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 border-t border-border/50 pt-3">
-                {[
-                    { label: "Posts", value: user.postsCount ?? 0 },
-                    { label: "Followers", value: user.followersCount ?? 0 },
-                    { label: "Following", value: user.followingCount ?? 0 },
-                ].map(({ label, value }) => (
-                    <div key={label} className="text-center">
-                        <p className="text-sm font-bold text-foreground">{value}</p>
-                        <p className="text-xs text-muted-foreground">{label}</p>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
-
-function RightPanel({ user }) {
-    return (
-        <aside className="sticky top-0 h-screen w-[260px] shrink-0 overflow-y-auto border-l border-border/50 bg-background px-4 py-6">
-            {/* People search — inline results, no modal on desktop */}
-            <UserSearch
-                idleContent={user ? <ProfileMiniCard user={user} /> : null}
-            />
-        </aside>
-    );
-}
-
-/**
- * Compact profile-preview section at the top of the mobile drawer: banner,
- * avatar, name and handle — a glimpse of the profile page. The entire
- * section is one tappable area linking to the user's own profile.
- */
-function DrawerProfilePreview({ user, onNavigate }) {
-    const handle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
-    return (
-        <Link
-            href={profilePathFor(user)}
-            onClick={onNavigate}
-            className="mb-6 block overflow-hidden rounded-xl border border-border/50 bg-card transition-colors hover:border-cyan-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-            aria-label="View my profile"
-        >
-            {/* Banner (same deliberate gradient as the profile page when empty) */}
-            <div className="relative h-16 w-full overflow-hidden bg-gradient-to-br from-cyan-500/15 via-secondary to-background">
-                {user?.bannerUrl ? (
-                    <Image
-                        src={user.bannerUrl}
-                        alt=""
-                        fill
-                        sizes="280px"
-                        className="object-cover"
-                    />
-                ) : null}
-            </div>
-            <div className="px-3 pb-3">
-                <div className="-mt-6 mb-1.5 w-fit rounded-full border-2 border-card">
-                    <Avatar
-                        src={user?.avatarUrl || ""}
-                        name={user?.name || ""}
-                        handle={handle}
-                        size={48}
-                    />
-                </div>
-                <p className="truncate text-sm font-bold text-foreground">
-                    {user?.name || user?.handle || "User"}
-                </p>
-                {handle && (
-                    <p className="truncate text-xs text-muted-foreground">@{handle}</p>
-                )}
-            </div>
-        </Link>
-    );
-}
-
 function ProtectedContent({ children, user, handleLogout }) {
     const pathname = usePathname();
     const { totalUnread } = useMessages();
@@ -447,6 +348,116 @@ function ProtectedContent({ children, user, handleLogout }) {
                 </div>
             </div>
         </div>
+    );
+}
+
+/**
+ * Compact logged-in user card shown in the right sidebar while no search is
+ * active — a lightweight "you" indicator with live counts (synced through
+ * /auth/me via the profile-changed event, like before).
+ */
+function ProfileMiniCard({ user }) {
+    const handle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
+    const profileHandle = handle;
+    return (
+        <div className="rounded-xl border border-border/50 bg-card p-4">
+            <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 min-w-0">
+                    <Avatar
+                        src={user?.avatarUrl || ""}
+                        name={user?.name || ""}
+                        handle={handle}
+                        size={40}
+                    />
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">
+                            {user?.name || user?.handle || "User"}
+                        </p>
+                        {handle && (
+                            <p className="truncate text-xs text-muted-foreground">@{handle}</p>
+                        )}
+                    </div>
+                </div>
+                {profileHandle ? (
+                    <Link
+                        href={`/profile/${profileHandle}`}
+                        className="text-xs font-medium text-cyan-500 hover:underline shrink-0"
+                    >
+                        My Profile
+                    </Link>
+                ) : null}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 border-t border-border/50 pt-3">
+                {[
+                    { label: "Posts", value: user.postsCount ?? 0 },
+                    { label: "Followers", value: user.followersCount ?? 0 },
+                    { label: "Following", value: user.followingCount ?? 0 },
+                ].map(({ label, value }) => (
+                    <div key={label} className="text-center">
+                        <p className="text-sm font-bold text-foreground">{value}</p>
+                        <p className="text-xs text-muted-foreground">{label}</p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function RightPanel({ user }) {
+    return (
+        <aside className="sticky top-0 h-screen w-[260px] shrink-0 overflow-y-auto border-l border-border/50 bg-background px-4 py-6">
+            {/* People search — inline results, no modal on desktop */}
+            <UserSearch
+                idleContent={user ? <ProfileMiniCard user={user} /> : null}
+            />
+        </aside>
+    );
+}
+
+/**
+ * Compact profile-preview section at the top of the mobile drawer: banner,
+ * avatar, name and handle — a glimpse of the profile page. The entire
+ * section is one tappable area linking to the user's own profile.
+ */
+function DrawerProfilePreview({ user, onNavigate }) {
+    const handle = user?.handle ? String(user.handle).replace(/^@/, "").trim() : "";
+    return (
+        <Link
+            href={profilePathFor(user)}
+            onClick={onNavigate}
+            className="mb-6 block overflow-hidden rounded-xl border border-border/50 bg-card transition-colors hover:border-cyan-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+            aria-label="View my profile"
+        >
+            {/* Banner (same deliberate gradient as the profile page when empty) */}
+            <div className="relative h-16 w-full overflow-hidden bg-gradient-to-br from-cyan-500/15 via-secondary to-background">
+                {user?.bannerUrl ? (
+                    <Image
+                        src={user.bannerUrl}
+                        alt=""
+                        fill
+                        sizes="280px"
+                        className="object-cover"
+                    />
+                ) : null}
+            </div>
+            <div className="px-3 pb-3">
+                <div className="-mt-6 mb-1.5 w-fit rounded-full border-2 border-card">
+                    <Avatar
+                        src={user?.avatarUrl || ""}
+                        name={user?.name || ""}
+                        handle={handle}
+                        size={48}
+                    />
+                </div>
+                <p className="truncate text-sm font-bold text-foreground">
+                    {user?.name || user?.handle || "User"}
+                </p>
+                {handle && (
+                    <p className="truncate text-xs text-muted-foreground">@{handle}</p>
+                )}
+            </div>
+        </Link>
     );
 }
 

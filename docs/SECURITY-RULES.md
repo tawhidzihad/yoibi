@@ -64,7 +64,14 @@ Only explicitly public client variables may use the `NEXT_PUBLIC_` prefix (`NEXT
   - `Permissions-Policy: camera=(self), microphone=(self), geolocation=(), interest-cohort=()` (permits LiveKit camera/mic on same-origin pages while blocking unauthorized third-party embeds)
 - **Content Security Policy (CSP)**:
   - Restrictive CSP is intentionally deferred for post-MVP hardening to prevent breakage of LiveKit WebRTC media transport, WebSocket upgrade protocols, inline Next.js Turbopack hydration scripts, and Cloudinary media delivery.
-- **Socket.IO Realtime Security**: YOIBI no longer uses Socket.IO — realtime communication for Meet-Up uses LiveKit WebRTC directly with short-lived tokens minted by the backend.
+- **Socket.IO Realtime Security (Direct Messaging)**:
+  - Socket.IO gateway operates at `/socket.io/` attached to the primary HTTP server.
+  - Handshake authentication requires a valid Better Auth JWT (`auth.token` or `headers.authorization`), verified cryptographically against JWKS via `jose` before any connection is accepted.
+  - Blocked users (`isBlocked: true`) are denied connection immediately during handshake.
+  - Multi-socket tracking per user ID (`presence.service.js`) guarantees correct online/offline state across multiple tabs or devices without state leakage.
+  - Room joins (`conversation:<id>`) are strictly authorized: only validated participants of the conversation can join or emit to the room.
+  - Conversation initiation authorization is follow-gated: direct 1:1 conversation creation requires an established follow relationship between participants. Direct REST calls attempting unauthorized creation are rejected with 403 `FOLLOW_REQUIRED`.
+  - Admin block and ban triggers real-time socket eviction: active socket connections are forcibly disconnected and room subscriptions vacated immediately.
 
 ## 6. LiveKit & Realtime Media Access Policy
 - **Meet-Up Collaborative Rooms**:
@@ -82,8 +89,8 @@ Only explicitly public client variables may use the `NEXT_PUBLIC_` prefix (`NEXT
 - Asset deletion uses server-side signed API requests with `CLOUDINARY_API_SECRET`.
 
 ## 8. Admin Moderation & Ban Orchestration
-- **Block**: Access-denial state (`isBlocked: true`). Revokes Better Auth sessions and immediately denies API and socket access with 403 `ACCOUNT_BLOCKED`. User is redirected to account-blocked page. Unblock restores access.
-- **Ban**: Permanent destructive data cleanup orchestrated across 5 phases and 9 stages. Requires handle confirmation. Purges tweets, replies, videos, Cloudinary assets, LiveKit sessions, follows, and deletes MongoDB and Better Auth accounts while preserving an immutable AuditLog record.
+- **Block**: Access-denial state (`isBlocked: true`). Revokes Better Auth sessions and immediately denies API and socket access with 403 `ACCOUNT_BLOCKED`. Active sockets are terminated immediately. User is redirected to account-blocked page. Unblock restores access.
+- **Ban**: Permanent destructive data cleanup orchestrated across 5 phases and 9 stages. Requires handle confirmation. Purges tweets, replies, videos, direct messages, conversation memberships, Cloudinary assets, LiveKit sessions, follows, and deletes MongoDB and Better Auth accounts while preserving an immutable AuditLog record.
 
 ## 9. Code Readability & Maintenance
 Security code must remain clean, modular, and maintainable. Avoid monolithic middleware files, magic condition chains, or unexplained security abstractions.

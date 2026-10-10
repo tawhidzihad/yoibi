@@ -53,6 +53,7 @@ yoibi/
 | **Backend** | Node.js, Express 5, Mongoose 9, `jose`, `express-rate-limit` | REST API, authorization, business rules, DB management |
 | **Database** | MongoDB / MongoDB Atlas | Persistent document storage |
 | **Realtime Media** | LiveKit Cloud (SFU) | Meet-Up collaborative rooms |
+| **Realtime Messaging** | Socket.IO (WebSockets / Polling fallback) | Real-time direct chat, presence, typing indicators, read ticks |
 | **Media & Video** | Cloudinary | Video storage and asset delivery |
 | **Deployment** | Vercel (Frontend), Railway (Backend) | Production hosting & zero-downtime scaling |
 
@@ -101,9 +102,10 @@ npm run build
 1. **Tweets & Social Feed (`/tweets`, `/feed`)**: 380-character micro-posts with image/video attachments, threaded replies, likes, retweets, and algorithmic/following feeds.
 2. **Community Videos (`/videos`)**: Short and long-form video sharing with server-signed Cloudinary direct uploads, 8 canonical categories, and playback initiation tracking.
 3. **Meet-Up Collaborative Rooms (`/meetup`)**: Multi-participant interactive audio/video/screen-sharing rooms with reservation TTLs, capacity enforcement, and presentation snapshots.
-4. **Admin & Moderation Suite (`/admin`)**: Dashboard analytics, user management, reversible user blocking (session revocation), content moderation, and permanent 5-phase / 9-stage destructive user ban orchestrator with pre-cleanup audit logging.
+4. **Direct Messaging (`/message`)**: Real-time 1:1 chat with text, signed Cloudinary images and videos, monotonic sent/delivered/read status ticks, debounced typing indicators, multi-socket online presence tracking, conversation filters, unread badges, and follow-gated initiation.
+5. **Admin & Moderation Suite (`/admin`)**: Dashboard analytics, user management, reversible user blocking (session revocation), content moderation, and permanent 5-phase / 9-stage destructive user ban orchestrator with pre-cleanup audit logging and real-time socket eviction.
 
-> **Scope note:** Direct Messaging (`/messages`), Activity Notifications (`/notifications`), and the sidebar "New Post" shortcut were intentionally removed from the current YOIBI product scope. Tweet creation remains available through the Tweets feature composer.
+> **Scope note:** Activity Notifications (`/notifications`) and the sidebar "New Post" shortcut remain deferred from the current YOIBI product scope. Tweet creation remains available through the Tweets feature composer, and Direct Messaging is fully supported.
 
 ---
 

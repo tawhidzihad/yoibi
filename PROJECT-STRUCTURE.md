@@ -77,6 +77,7 @@ yoibi/
 │       │   ├── comments/
 │       │   ├── reactions/
 │       │   ├── retweets/
+│       │   ├── messages/
 │       │   ├── media-upload/
 │       │   ├── meet-up/
 │       │   ├── reports/
@@ -121,6 +122,8 @@ yoibi/
         ├── integrations/
         │   ├── cloudinary/
         │   └── livekit/
+        ├── sockets/
+        │   └── socketServer.js
         └── utils/
 ```
 
@@ -131,11 +134,12 @@ yoibi/
 - `src/lib/api`: one central API client and request helpers. Do not scatter raw `fetch` details across pages.
 - `backend/routes`: URL and HTTP method wiring only.
 - `backend/controllers`: parse HTTP input and shape HTTP output; keep business rules in services.
-- `backend/services`: business logic.
+- `backend/services`: business logic (including messages, presence, moderation).
 - `backend/repositories`: database access.
 - `backend/models`: MongoDB schemas/models.
 - `backend/validators`: request validation.
 - `backend/middleware`: auth, authorization, rate limits, CORS, error handling, request context.
+- `backend/sockets`: Socket.IO realtime gateway, JWT handshake authentication, room joins, status tick updates, typing indicators, and presence tracking.
 - `backend/integrations`: vendor SDK wrappers only.
 - `contracts`: frontend/backend agreement. Changes here must be reviewed by both sides.
 

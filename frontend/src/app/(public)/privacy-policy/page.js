@@ -3,10 +3,10 @@ import { LegalLayout, LegalProse, Toc } from "@/shared/layout/LegalLayout";
 export const metadata = {
   title: "Privacy Policy | YOIBI",
   description:
-    "How we collect, use, and protect your data on YOIBI — the social platform for tweets, videos, and meet-ups.",
+    "How we collect, use, and protect your data on YOIBI — the social platform for tweets, videos, meet-ups, and direct messages.",
 };
 
-const lastUpdated = "September 2026";
+const lastUpdated = "October 2026";
 
 const tocItems = [
   { id: "intro", label: "Introduction" },
@@ -45,8 +45,8 @@ export default function PrivacyPolicyPage() {
             <h2 id="intro">Introduction</h2>
             <p>
               YOIBI (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a
-              social media platform for tweets, videos, and
-              meet-up rooms. This Privacy Policy explains how we collect, use,
+              social media platform for tweets, videos,
+              meet-up rooms, and direct messages. This Privacy Policy explains how we collect, use,
               disclose, and safeguard your information when you use our platform
               at <a href="https://www.yoibi.com">www.yoibi.com</a>.
             </p>
@@ -64,11 +64,11 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 <strong>Content you create:</strong> your tweets, replies,
-                videos, and meet-up room details.
+                videos, meet-up room details, and direct messages.
               </li>
               <li>
                 <strong>Media you upload:</strong> images, video files, and
-                thumbnails.
+                thumbnails (including media attached to tweets, profile banners, and direct messages).
               </li>
             </ul>
 
@@ -107,7 +107,7 @@ export default function PrivacyPolicyPage() {
               </li>
               <li>
                 <strong>Content delivery:</strong> to store, display, and
-                distribute the tweets, videos, and meet-up rooms you
+                distribute the tweets, videos, meet-up rooms, and direct messages you
                 create.
               </li>
               <li>
@@ -158,7 +158,7 @@ export default function PrivacyPolicyPage() {
             <ul>
               <li>
                 <strong>Media hosting:</strong> We use Cloudinary to store and
-                serve video files, images, and thumbnails. Your media files are
+                serve video files, images, and thumbnails (including direct message media). Your media files are
                 stored on Cloudinary&apos;s secure servers.
               </li>
               <li>
@@ -166,8 +166,8 @@ export default function PrivacyPolicyPage() {
                 verification emails and important notifications.
               </li>
               <li>
-                <strong>Realtime audio/video infrastructure:</strong> We use LiveKit
-                for WebRTC-based meet-up rooms.
+                <strong>Realtime audio/video and messaging infrastructure:</strong> We use LiveKit
+                for WebRTC-based meet-up rooms, and Socket.IO for direct messaging, online presence, and typing indicators.
               </li>
               <li>
                 <strong>Database storage:</strong> We use MongoDB Atlas for

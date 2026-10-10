@@ -438,6 +438,19 @@ export function DirectMessagesView({
                             onBack={isMobileView ? handleBackToInbox : null}
                         />
 
+                        {/* Connection status banners */}
+                        {connectionStatus === "reconnecting" && (
+                            <div className="flex items-center justify-center gap-2 bg-amber-500/10 border-b border-amber-500/20 px-4 py-1.5 text-xs text-amber-500 font-medium select-none">
+                                <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                <span>Reconnecting to chat server...</span>
+                            </div>
+                        )}
+                        {connectionStatus === "disconnected" && (
+                            <div className="flex items-center justify-center gap-2 bg-rose-500/10 border-b border-rose-500/20 px-4 py-1.5 text-xs text-rose-500 font-medium select-none">
+                                <span>Disconnected. Real-time messages paused until reconnect.</span>
+                            </div>
+                        )}
+
                         {partnerError ? (
                             <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-muted-foreground">
                                 <ShieldAlert size={36} className="text-rose-500 mb-2" />

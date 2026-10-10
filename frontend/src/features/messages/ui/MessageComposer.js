@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { AutoGrowTextarea } from "@/shared/ui/AutoGrowTextarea";
-import { Paperclip, SendHorizontal, X, AlertCircle, Loader2 } from "lucide-react";
+import { Paperclip, SendHorizontal, X, AlertCircle, Loader2, RotateCw } from "lucide-react";
 import Image from "next/image";
 import { messagesApi } from "../api/messagesApi";
 import { getSocket } from "../socket/socketClient";
@@ -121,13 +121,19 @@ export function MessageComposer({
             error: null
         });
 
+        uploadFile(file, resourceType);
+    };
+
+    const uploadFile = async (file, resourceType) => {
         setIsUploading(true);
+        setErrorMessage("");
 
         try {
             // 1. Get signed intent
             const intentRes = await messagesApi.getUploadIntent(conversationId, resourceType);
             if (!intentRes.success || !intentRes.data) {
-                throw new Error(intentRes.message || "Failed to get upload authorization");
+                const isExpired = intentRes.status === 410 || intentRes.error === "INTENT_EXPIRED" || (intentRes.message && intentRes.message.toLowerCase().includes("expired"));
+                throw new Error(isExpired ? "Upload expired, please try again." : (intentRes.message || "Failed to get upload authorization"));
             }
 
             const intent = intentRes.data;
@@ -151,13 +157,15 @@ export function MessageComposer({
 
             if (!uploadRes.ok) {
                 const errJson = await uploadRes.json().catch(() => ({}));
-                throw new Error(errJson.error?.message || `Upload failed with status ${uploadRes.status}`);
+                const isExpired = uploadRes.status === 410 || (errJson.error?.message && errJson.error.message.toLowerCase().includes("expired"));
+                throw new Error(isExpired ? "Upload expired, please try again." : (errJson.error?.message || `Upload failed with status ${uploadRes.status}`));
             }
 
             const uploadResult = await uploadRes.json();
 
             setStagedMedia((prev) => prev ? {
                 ...prev,
+                error: null,
                 uploadedData: {
                     url: uploadResult.secure_url || uploadResult.url,
                     publicId: uploadResult.public_id,
@@ -170,8 +178,9 @@ export function MessageComposer({
             } : null);
         } catch (err) {
             if (err.name !== "AbortError") {
-                setErrorMessage(err.message || "Upload failed. Please try again.");
-                setStagedMedia((prev) => prev ? { ...prev, error: err.message } : null);
+                const msg = err.message || "Upload failed. Please try again.";
+                setErrorMessage(msg);
+                setStagedMedia((prev) => prev ? { ...prev, error: msg } : null);
             }
         } finally {
             setIsUploading(false);
@@ -277,6 +286,24 @@ export function MessageComposer({
                             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 text-white gap-1 backdrop-blur-xs">
                                 <Loader2 size={18} className="animate-spin text-cyan-400" />
                                 <span className="text-[10px] font-medium">Uploading...</span>
+                            </div>
+                        )}
+
+                        {/* Error with retry overlay */}
+                        {stagedMedia.error && !isUploading && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 text-white gap-1 p-2 text-center backdrop-blur-xs">
+                                <span className="text-[10px] text-rose-300 font-medium leading-tight">
+                                    {stagedMedia.error}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => uploadFile(stagedMedia.file, stagedMedia.resourceType)}
+                                    className="mt-1 flex items-center gap-1 rounded bg-cyan-500 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-cyan-600 cursor-pointer"
+                                    aria-label="Retry upload"
+                                >
+                                    <RotateCw size={10} />
+                                    <span>Retry</span>
+                                </button>
                             </div>
                         )}
                     </div>
