@@ -283,6 +283,17 @@ Do not expose LiveKit secrets.
 
 ---
 
+# 15.1 Direct Messages & Socket.IO Cleanup
+
+Before deleting the user profile:
+
+- **Message Media Snapshots (Phase B)**: Collect Cloudinary `public_id` values of media attachments on all messages sent by the banned user. Delete these media assets from Cloudinary.
+- **Message Content Purge (Phase C)**: Delete all messages sent by the banned user (`senderId === bannedUserId`).
+- **Realtime Socket Eviction**: Forcibly disconnect all active Socket.IO connections held by the banned user across all devices/tabs (`disconnectUserSockets(bannedUserId, "account_banned")`).
+- **Reversibility Guard**: For temporary user blocks, sockets are disconnected with `"account_blocked"`, preventing blocked users from sending or receiving real-time messages.
+
+---
+
 # 16. Durable Ban Operation
 
 Ban is destructive and multi-step. It MUST NOT be implemented as an uncontrolled sequence with no durable state.

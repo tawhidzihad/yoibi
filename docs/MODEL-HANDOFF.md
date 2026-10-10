@@ -6,58 +6,67 @@ Every session writes to this file in EXACTLY this section structure:
 `## Current Status` · `## Last Completed Step` · `## Exact Next Step` · `## Files Touched This Session` · `## Known Issues / Blockers` · `## Session Date` · `## What Is Working` · `## Reference`
 
 ## Current Status
-- Session Date: 2026-10-09
-- Active task: TASK-031 — Seeded Recency-Weighted Discovery Tweets & Own-Post Pinning on /feed
-- Overall phase: Production live; Seeded discovery mixing and own-post pinning deployed to Railway and Vercel, live production fully verified
-- Completion status: `DONE` — Backend and frontend updated, contracts/docs synced, deployed to Railway & Vercel, live production fully verified.
-- Git repository status: commits created, production deployed and verified, ready for final push.
+- Session Date: 2026-10-10
+- Active task: TASK-032 — Direct Messaging Real-Time System at /message
+- Overall phase: Complete Direct Messaging feature implemented, integrated, documented, and fully verified across backend and frontend.
+- Completion status: `DONE` — Full stack feature complete, tests 100% pass, frontend build and lint 0 errors.
+- Git repository status: commits staged and created.
 - Current branch: `main`
 
 ## Last Completed Step
-1. **Tunable Constants & PRNG Foundation:**
-   - Centralized all tunable numbers in `backend/src/config/constants.js`: `FEED_DISCOVERY_EVERY = 4`, `FEED_DISCOVERY_WINDOW_DAYS = 14`, `FEED_DISCOVERY_POOL_SIZE = 100`, `FEED_OWN_PIN_MINUTES = 10`.
-   - Created deterministic PRNG utility in `backend/src/utils/prng.js` with `mulberry32` and recency-weighted random selection without replacement.
-
-2. **Repository & Service Layer:**
-   - Extended `tweets.repository.js` with `findDiscoveryCandidates`, `findPinnedTweets`, and `excludeTweetIds` in `findPaginated` and `count`.
-   - Updated `tweets.service.js` with `mode=feed` branch: generated `feedSeed`, extracted pinned own tweets for page 1, fetched and filtered candidate pool (excluding replies, own tweets, blocked authors, deleted authors, pinned tweets), generated disjoint discovery sequence for session seed, queried base stream excluding discovery and pinned tweets, sliced per-page discovery picks, and interleaved after every 4 base tweets.
-   - Non-feed requests (`mode` omitted) remain 100% chronological with zero alteration.
-
-3. **Validation, Routing & Frontend:**
-   - Added `mode`, `seed`, `cursor` to `listTweetsQuerySchema` in `tweets.validator.js`, returning HTTP 400 `VALIDATION_ERROR` for malformed values via route validation `{ statusCode: 400 }`.
-   - Updated `tweetsApi.getTweets` to pass `mode` and `seed`.
-   - Updated `FeedView.js` to pass `mode: "feed"`, manage `feedSeedRef`, reset on reload, and perform client-side ID deduplication when appending pages.
-
-4. **Testing, Deployment & Live Production Verification:**
-   - Added automated test suite in `backend/tests/feed-discovery.test.js` integrated into `tweets.test.js`.
-   - Passed all local quality gates: backend tests 100%, backend lint 0 errors, backend audit 0 vulnerabilities, frontend lint 0 errors, frontend build 19/19 pages successful.
-   - Deployed Railway backend (`a75ee8da-62ae-4738-8de0-f0703ad0d57c`) and Vercel frontend (`dpl_8jKdKPPbpLomFrU8juhuVocCzHSc`).
-   - Live tested on production: verified 400 on malformed seed/cursor/mode; verified standard `/tweets` has no `feedSeed`; verified `mode=feed` returns `feedSeed`; verified multiple seeds have exactly 0 cross-page duplicates; verified mix changes between seeds; verified 0 console errors and clean layout.
+1. **Design Reference Archive:**
+   - 5 visual reference images saved in `docs/design-refs/messages/` and committed.
+2. **Phase 1 & 2 Backend Implementation:**
+   - Models: `Conversation` and `Message` in `backend/src/models/`.
+   - Repositories: `conversations.repository.js` and `messages.repository.js`.
+   - Signed Cloudinary upload intents for direct messages in `backend/src/integrations/cloudinary/cloudinary.js`.
+   - In-memory presence service with multi-connection socket tracking.
+   - Socket.IO server in `backend/src/sockets/socketServer.js` with Better Auth JWT handshake verification.
+   - REST endpoints at `/api/v1/messages` with follow-gated conversation creation, cursor pagination, read/delivered receipts, search, active-friends.
+   - Admin moderation ban/block cascade with socket eviction and message purge.
+   - 100% test pass on `backend/tests/index.js` including new `messages.test.js`.
+3. **Phase 2 Frontend Implementation:**
+   - Socket client singleton with dynamic token acquisition on reconnect.
+   - Global `MessagesContext` for live unread badge, presence, typing, active friends.
+   - Layout integration in `frontend/src/app/(protected)/layout.js` with navigation badge on desktop and mobile drawer.
+   - Profile page "Message" button in `ProfileHeader.js` (visible when following non-self user).
+   - Full suite of UI components in `frontend/src/features/messages/ui/`: `ActiveFriendsRow`, `ConversationCard`, `ChatHeader`, `TypingIndicator`, `MediaCards`, `MessageBubble`, `StatusTicks`, `MessageComposer`, `ChatThread`, `InboxView`, `DirectMessagesView`.
+   - Route pages: `/message` and `/message/[conversationId]`.
+4. **Documentation & Quality Gates:**
+   - `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` updated with all messages endpoints and Socket.IO events.
+   - `docs/ENVIRONMENT.md` updated with `NEXT_PUBLIC_SOCKET_URL`.
+   - `docs/BAN-DELETION-PLAN.md` updated with message media snapshot and purge policy.
+   - `npm run lint` in `frontend`: 0 errors.
+   - `npm run build` in `frontend`: 20/20 routes compiled successfully with Turbopack.
 
 ## Exact Next Step
-- None — TASK-031 is COMPLETE.
+- Deploy backend to Railway (`railway up` in `backend/`) and frontend to Vercel, then perform live production verification on `https://www.yoibi.com/message`.
 
 ## Files Touched (this session)
 - Full list documented in `docs/WORKBASE.md`.
-- Summary: 2 files created, 11 files modified, backend & frontend deployed, production live-tested and verified clean.
+- Summary: 11 frontend files created, 4 contract & doc files updated, layout & profile updated.
 
 ## Known Issues / Blockers
-- None — all deployment and verification steps completed successfully. Older tweets from blocked/banned authors remain in the base chronological feed (current platform behavior preserved per task specification; to be addressed in a future task).
+- None — all local tests, lint, and build checks passed with zero errors.
 
 ## What Is Working
-- ✅ Seeded recency-weighted discovery tweets interleaved after every 4 base tweets on `/feed`
-- ✅ Deterministic PRNG (`mulberry32`) ensures stable pagination without shifts on same seed
-- ✅ Mathematically disjoint base and discovery streams guarantee 0 duplicate tweets across pages
-- ✅ Own-post pinning on page 1 pins viewer's top-level tweets from the last 10 minutes at index 0
-- ✅ Discovery candidate pool strictly excludes replies, own tweets, blocked authors, and deleted authors
-- ✅ Standard `/tweets` and profile Tweets tab remain 100% chronological and unaffected
-- ✅ Malformed seed, cursor, and mode rejected with HTTP 400 `VALIDATION_ERROR`
-- ✅ Client-side ID deduplication and seed tracking operational in `FeedView.js`
+- ✅ Follow-gated direct message conversations
+- ✅ Socket.IO real-time delivery with Better Auth JWT verification
+- ✅ Monotonic Sent (✓) -> Delivered (✓✓ neutral) -> Read (✓✓ colored) status ticks
+- ✅ Multi-connection presence tracking (online/offline transitions)
+- ✅ Debounced real-time typing indicators with 3s timeout
+- ✅ Cloudinary signed upload intents for images and videos with lightbox modal and video preview
+- ✅ Active friends row with online status dots
+- ✅ Inbox filters (All, Unread, Following, Online) and search
+- ✅ Live unread count badge in desktop left navigation and mobile drawer
+- ✅ Profile page "Message" button for followed users
 - ✅ All core features (Feed, Tweets, Replies, Likes, Retweets, Search, Profiles, Meet-Up, Legal) 100% operational
-
 
 ## Reference
 - Entry point for any agent: root `AGENTS.md`
+- Active task scratchpad: `docs/WORKBASE.md`
+- Visual Design References: `docs/design-refs/messages/`
+
 - Resume command: `/yoibi-resume` (`.claude/commands/yoibi-resume.md`)
 - Historical session logs + architecture notes (auth, profile, media provenance, reply flow, hardening): `docs/MODEL-HANDOFF-ARCHIVE.md`
 - Full task history: `docs/WORKBASE-ARCHIVE.md`

@@ -11,34 +11,31 @@ Every session writes to this file in EXACTLY this section structure:
 > **In YOIBI, Account Moderation enforces the strict distinction: Block is reversible account suspension (Better Auth `banUser()` + session revocation, data preserved); Ban is permanent, irreversible data purge (Better Auth `removeUser()` + 5-phase data purge).**
 
 ## Current Status
-- Task ID: TASK-031
-- Title: Seeded recency-weighted discovery tweets and own-post pinning on /feed
-- Status: **COMPLETE** — Feed discovery implemented with deterministic PRNG (mulberry32), recency weighting, disjoint candidate/base query streams, own-post pinning on page 1, strict opt-in via `mode=feed`, zero cross-page duplicates, deployed to Railway & Vercel, live-verified.
+- Task ID: TASK-032
+- Title: Real-time Direct Messaging feature at /message
+- Status: **COMPLETE** — Full direct messaging system implemented across backend and frontend, including follow-gated conversations, idempotency, monotonic delivery and read ticks, Socket.IO real-time gateway with Better Auth JWKS verification, multi-connection presence tracking, typing indicators, Cloudinary signed upload intents for media (images and videos) with lightbox preview, active friends row, inbox filters (All, Unread, Following, Online), message search, profile page Message button, unread counts badge in navigation, and full test suite passing 100%.
 - Completion Level: `COMPLETE`
 - Summary:
-  - Added seeded recency-weighted discovery mixing and own-post pinning exclusively to `/feed` while preserving 100% chronological behavior for standard `/tweets` and profile tabs.
-  - Tunable constants centralized in `backend/src/config/constants.js`:
-    - `FEED_DISCOVERY_EVERY = 4` (after every 4 base tweets, 1 discovery tweet is inserted)
-    - `FEED_DISCOVERY_WINDOW_DAYS = 14` (candidates from the last 14 days)
-    - `FEED_DISCOVERY_POOL_SIZE = 100` (max candidates fetched per bounded, indexed query)
-    - `FEED_OWN_PIN_MINUTES = 10` (viewer's own tweets from the last 10 minutes pinned on page 1)
-  - Pure deterministic PRNG utility in `backend/src/utils/prng.js`: `mulberry32` with recency weighting `1 / (1 + ageHours / 24)` and hourly reference time window, ensuring identical output for same seed + same page across requests.
-  - Mathematically disjoint streams: discovery sequence for the session seed is strictly excluded from the base chronological stream query (`_id: { $nin: [...] }`), guaranteeing zero duplicate tweets between base and discovery across all pages.
-  - Candidate exclusions: replies (`replyToId: null`), viewer's own tweets (`authorId: { $ne: currentUserId }`), blocked authors (`isBlocked: true`), deleted/banned authors (purged from `User` collection), and pinned tweets are strictly excluded from discovery candidates.
-  - Own-post pinning: on page 1 of an opted-in `/feed` request, the viewer's own top-level tweets created within `FEED_OWN_PIN_MINUTES` (10 minutes) are placed at the very top (newest first) and excluded from the rest of the stream so they never repeat.
-  - Client-side deduplication & seed tracking: `FeedView.js` tracks `feedSeedRef`, passes it on pagination, resets on fresh load/retry, and deduplicates items by ID (`items.filter(t => !existingIds.has(t.id))`).
-  - Strict input validation: `seed`, `cursor`, `mode` validated with Zod, returning HTTP 400 `VALIDATION_ERROR` for malformed values.
-  - Contracts synchronized: `contracts/API-CONTRACT.md` and `contracts/openapi.yaml` updated with `mode`, `seed`, `cursor`, `filter`, `authorHandle`, and `feedSeed`.
-  - Quality gates: 100% backend test suites passed (including 15 assertions in `feed-discovery.test.js`), 0 backend lint errors, 0 backend audit vulnerabilities, 0 frontend lint errors, 19/19 frontend pages compiled in `next build`.
-  - Production deployments: Railway backend deployment `a75ee8da-62ae-4738-8de0-f0703ad0d57c` Online; Vercel frontend deployment `dpl_8jKdKPPbpLomFrU8juhuVocCzHSc` Ready and aliased to `https://www.yoibi.com`.
-  - Live production verification:
-    - Direct API: malformed seed/cursor/mode returned HTTP 400 `VALIDATION_ERROR`.
-    - Standard `/tweets`: status 200, strictly chronological, no `feedSeed`.
-    - Feed `mode=feed`: status 200, `feedSeed` integer returned.
-    - Multiple seeds tested: Page 1 + Page 2 consecutive pages showed exactly 0 duplicate items across pages for all seeds. Different seeds showed different mixes.
-    - Response time verified healthy (834 ms vs 419 ms).
-    - Browser smoke test verified login redirect, clean console (0 errors), zero UI breaks.
-    - Note on base stream: As instructed, older tweets from blocked/banned authors are not excluded from the base stream in this task (current behavior preserved), and will be addressed in a separate dedicated moderation task.
+  - Designed and archived 5 visual reference images in `docs/design-refs/messages/`.
+  - Phase 1 & 2 Backend:
+    - Centralized messaging constants in `backend/src/config/constants.js` (`MESSAGE_TEXT_MAX_LENGTH = 2000`, `MESSAGE_IMAGE_MAX_BYTES = 10MB`, `MESSAGE_VIDEO_MAX_BYTES = 50MB`, `TYPING_TIMEOUT_MS = 3000`).
+    - Models: `conversation.model.js` (participantKey sorted, unreadCounts map, lastReadAt) and `message.model.js` (compound index for idempotency, text, media, status).
+    - Repositories: `conversations.repository.js`, `messages.repository.js`, extended `users.repository.js`.
+    - Services: `presence.service.js` (multi-socket presence), `messages.service.js` (follow-gated conversation creation, idempotency, grapheme limit enforcement, signed media intent creation).
+    - Socket.IO gateway in `backend/src/sockets/socketServer.js` mounted in `server.js` with Better Auth JWT handshake verification, events: `conversation:join/leave`, `message:send/delivered/read`, `typing:start/stop`, `presence:sync`, `auth:force_disconnect`.
+    - Controllers & routes mounted at `/api/v1/messages`.
+    - Moderation integration in `admin.service.js` (media snapshot in Phase B, message purge in Phase C, real-time socket eviction).
+    - Comprehensive test suite in `backend/tests/messages.test.js` passing 100%.
+  - Phase 2 Frontend:
+    - Socket singleton client in `frontend/src/features/messages/socket/socketClient.js` with dynamic token refreshing.
+    - Centralized API methods in `frontend/src/features/messages/api/messagesApi.js`.
+    - Context in `frontend/src/features/messages/context/MessagesContext.js` managing live unread counts, presence, typing, active friends.
+    - App layout in `frontend/src/app/(protected)/layout.js` wrapped in `MessagesProvider` with live unread badge in desktop and mobile drawer.
+    - Profile header in `frontend/src/features/profile/ui/ProfileHeader.js` updated with follow-gated "Message" button.
+    - Feature UI components in `frontend/src/features/messages/ui/`: `ActiveFriendsRow.js`, `ConversationCard.js`, `ChatHeader.js`, `TypingIndicator.js`, `MediaCards.js` (with lightbox & video preview), `MessageBubble.js` (with `StatusTicks.js`), `MessageComposer.js` (with `AutoGrowTextarea`, grapheme counter, Cloudinary upload), `ChatThread.js` (cursor pagination, date dividers, auto-scroll), `InboxView.js`, `DirectMessagesView.js`.
+    - Routes: `/message` and `/message/[conversationId]`.
+  - Contracts & documentation: `contracts/API-CONTRACT.md`, `contracts/openapi.yaml`, `docs/ENVIRONMENT.md`, and `docs/BAN-DELETION-PLAN.md` updated.
+  - Quality gates: 100% backend tests passing (including direct messaging assertions), 0 backend lint errors, 0 frontend lint errors, 20/20 Next.js routes built and statically optimized.
 
 ## Last Completed Step
 1. **Tunable Constants & PRNG Foundation:**

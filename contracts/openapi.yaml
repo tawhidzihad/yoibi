@@ -1716,6 +1716,220 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenError'
 
+  /messages/config:
+    get:
+      tags:
+        - Messages
+      summary: Get messaging limits and configuration
+      responses:
+        '200':
+          description: Messaging limits config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+
+  /messages/conversations:
+    get:
+      tags:
+        - Messages
+      summary: List user conversations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [all, unread, following, online]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Paginated conversation list
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      tags:
+        - Messages
+      summary: Create or retrieve conversation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recipientId
+              properties:
+                recipientId:
+                  type: string
+      responses:
+        '201':
+          description: Conversation created
+        '200':
+          description: Existing conversation retrieved
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /messages/conversations/{id}/messages:
+    get:
+      tags:
+        - Messages
+      summary: Get messages in conversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Messages array
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+    post:
+      tags:
+        - Messages
+      summary: Send message (REST fallback)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - clientMessageId
+              properties:
+                clientMessageId:
+                  type: string
+                text:
+                  type: string
+                media:
+                  type: object
+      responses:
+        '201':
+          description: Message created
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /messages/conversations/{id}/read:
+    post:
+      tags:
+        - Messages
+      summary: Mark conversation messages as read
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversation read
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /messages/read-all:
+    post:
+      tags:
+        - Messages
+      summary: Mark all conversations as read
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: All conversations read
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /messages/media/upload-intent:
+    post:
+      tags:
+        - Messages
+      summary: Generate signed Cloudinary upload intent for direct messaging media
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - conversationId
+                - resourceType
+              properties:
+                conversationId:
+                  type: string
+                resourceType:
+                  type: string
+                  enum: [image, video]
+      responses:
+        '200':
+          description: Signed upload intent parameters
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /messages/active-friends:
+    get:
+      tags:
+        - Messages
+      summary: Get online followed users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of active friends
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
 components:
   securitySchemes:
     bearerAuth:

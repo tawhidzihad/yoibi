@@ -1504,3 +1504,90 @@ Email verification is required for full platform access. Users with `emailVerifi
   }
   ```
 - **Error (429 `RATE_LIMITED`):** Already sent a code in the last 60 seconds.
+
+---
+
+## 11. Direct Messages & Realtime
+
+### 11.1 Endpoints
+
+#### `GET /api/v1/messages/config`
+- **Auth:** Optional / Public
+- **Description:** Returns limits for message length (2000 graphemes), image upload max bytes (10MB), and video upload max bytes (50MB).
+
+#### `GET /api/v1/messages/conversations`
+- **Auth:** Required (`Bearer <token>`)
+- **Query:** `filter` (`all` | `unread` | `following` | `online`), `search`, `cursor`, `limit` (default 20, max 50).
+- **Description:** Lists conversations for the authenticated user, ordered by most recent message activity.
+
+#### `POST /api/v1/messages/conversations`
+- **Auth:** Required (`Bearer <token>`)
+- **Body:** `{ "recipientId": "<string>" }`
+- **Description:** Creates or returns an existing 1-on-1 direct conversation. Follow-gated: user must follow recipient to initiate a new conversation.
+
+#### `GET /api/v1/messages/conversations/:id`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Retrieves conversation details if the authenticated user is a participant.
+
+#### `GET /api/v1/messages/conversations/:id/messages`
+- **Auth:** Required (`Bearer <token>`)
+- **Query:** `cursor`, `limit` (default 30, max 50).
+- **Description:** Returns paginated messages in ascending chronological order for thread view.
+
+#### `POST /api/v1/messages/conversations/:id/messages`
+- **Auth:** Required (`Bearer <token>`)
+- **Body:** `{ "clientMessageId": "<string>", "text": "<string>", "media": { ... } }`
+- **Description:** REST fallback to send a message. Idempotent on `(conversationId, senderId, clientMessageId)`.
+
+#### `POST /api/v1/messages/conversations/:id/delivered`
+- **Auth:** Required (`Bearer <token>`)
+- **Body:** `{ "messageIds": ["<string>"] }`
+- **Description:** Marks specific messages as delivered.
+
+#### `POST /api/v1/messages/conversations/:id/read`
+- **Auth:** Required (`Bearer <token>`)
+- **Body:** `{ "messageIds": ["<string>"] }` (optional)
+- **Description:** Marks messages as read and resets unread count for the participant.
+
+#### `POST /api/v1/messages/read-all`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Marks all conversations as read for the authenticated user.
+
+#### `POST /api/v1/messages/media/upload-intent`
+- **Auth:** Required (`Bearer <token>`)
+- **Body:** `{ "conversationId": "<string>", "resourceType": "image" | "video" }`
+- **Description:** Returns server-signed Cloudinary upload parameters with strict folder and expiration constraints.
+
+#### `GET /api/v1/messages/active-friends`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Returns followed users who are currently connected/online.
+
+#### `GET /api/v1/messages/presence`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Returns presence map for relevant conversation partners.
+
+#### `GET /api/v1/messages/search?q=...`
+- **Auth:** Required (`Bearer <token>`)
+- **Description:** Performs full-text search across messages in user's conversations.
+
+### 11.2 Realtime Socket.IO Events
+
+**Client → Server:**
+- `conversation:join` `{ conversationId }` — Joins conversation room for instant broadcasts.
+- `conversation:leave` `{ conversationId }` — Leaves conversation room.
+- `message:send` `{ conversationId, clientMessageId, text, media }` — Sends message with ack confirmation.
+- `message:delivered` `{ conversationId, messageIds }` — Acknowledges delivery.
+- `message:read` `{ conversationId, messageIds }` — Acknowledges read receipt.
+- `typing:start` `{ conversationId }` — Broadcasts typing state to conversation partner.
+- `typing:stop` `{ conversationId }` — Clears typing state.
+- `presence:sync` — Requests presence status for followed users.
+
+**Server → Client:**
+- `message:new` `{ conversation, message }` — Broadcasts incoming message.
+- `message:delivered` `{ conversationId, messageIds }` — Delivery receipt update.
+- `message:read` `{ conversationId, messageIds }` — Read receipt update.
+- `typing:update` `{ conversationId, userId, isTyping }` — Partner typing indicator.
+- `presence:update` `{ userId, isOnline }` — User online/offline state change.
+- `unread:update` `{ totalUnread }` — Global badge count update.
+- `auth:force_disconnect` `{ reason }` — Disconnects user on account block or ban.
+

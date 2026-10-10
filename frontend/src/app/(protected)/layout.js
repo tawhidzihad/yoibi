@@ -13,7 +13,8 @@ import {
     Shield,
     Menu,
     User,
-    MoreHorizontal
+    MoreHorizontal,
+    MessageSquare
 } from "lucide-react";
 import { YoibiLogo } from "../../shared/ui/YoibiLogo";
 import { Avatar } from "../../shared/ui/Avatar";
@@ -21,12 +22,14 @@ import { LoadingFallback } from "../../shared/feedback/LoadingFallback";
 import { cn } from "../../shared/utils/cn";
 import { useAuth } from "../../features/auth/context/AuthContext";
 import { UserSearch } from "../../features/users/ui/UserSearch";
+import { MessagesProvider, useMessages } from "../../features/messages/context/MessagesContext";
 
 const baseNavItems = [
     { href: "/feed", label: "Feed", icon: Home },
     { href: "/tweets", label: "Tweets", icon: AtSign },
     { href: "/videos", label: "Videos", icon: Play },
     { href: "/meetup", label: "Meet Up", icon: Users },
+    { href: "/message", label: "Messages", icon: MessageSquare, isMessages: true },
 ];
 
 /**
@@ -48,6 +51,7 @@ function LeftNav({ user, onLogout }) {
     const pathname = usePathname();
     const isAdmin = user?.role === "admin";
     const profilePath = profilePathFor(user);
+    const { totalUnread } = useMessages();
     const navItems = [
         { href: profilePath, label: "Profile", icon: User, exact: true },
         ...baseNavItems,
@@ -68,7 +72,7 @@ function LeftNav({ user, onLogout }) {
 
             {/* Navigation */}
             <nav aria-label="Main navigation" className="flex flex-1 flex-col gap-1">
-                {navItems.map(({ href, label, icon: Icon, exact }) => {
+                {navItems.map(({ href, label, icon: Icon, exact, isMessages }) => {
                     const active = exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
                     return (
                         <Link
@@ -84,6 +88,11 @@ function LeftNav({ user, onLogout }) {
                         >
                             <Icon size={18} aria-hidden="true" />
                             <span className="flex-1">{label}</span>
+                            {isMessages && totalUnread > 0 ? (
+                                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-cyan-500 px-1.5 text-[11px] font-bold text-white shadow-sm">
+                                    {totalUnread > 99 ? "99+" : totalUnread}
+                                </span>
+                            ) : null}
                         </Link>
                     );
                 })}
@@ -277,10 +286,9 @@ function DrawerProfilePreview({ user, onNavigate }) {
     );
 }
 
-export default function ProtectedLayout({ children }) {
-    const { status, user, logout } = useAuth();
+function ProtectedContent({ children, user, handleLogout }) {
     const pathname = usePathname();
-    const router = useRouter();
+    const { totalUnread } = useMessages();
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
     useEffect(() => {
@@ -306,36 +314,6 @@ export default function ProtectedLayout({ children }) {
         window.addEventListener("keydown", handleEsc);
         return () => window.removeEventListener("keydown", handleEsc);
     }, []);
-
-    useEffect(() => {
-        if (status === "unauthenticated") {
-            const safeRedirect = getSafeReturnUrl(pathname);
-            router.replace(`/login?redirect=${encodeURIComponent(safeRedirect)}`);
-        } else if (status === "authenticated" && user?.isBlocked) {
-            router.replace(`/account-blocked?reason=${encodeURIComponent(user.blockReason || "")}`);
-        } else if (status === "authenticated" && user?.emailVerified !== true) {
-            // Unverified users must never reach authenticated routes — redirect
-            // on every navigation attempt, not just during login.
-            router.replace("/verify-email");
-        }
-    }, [status, user, pathname, router]);
-
-    if (status === "loading") {
-        return (
-            <div className="flex min-h-screen items-center justify-center bg-background">
-                <LoadingFallback label="Verifying session..." />
-            </div>
-        );
-    }
-
-    if (status === "unauthenticated" || (status === "authenticated" && user?.isBlocked) || (status === "authenticated" && user?.emailVerified !== true)) {
-        return null;
-    }
-
-    const handleLogout = async () => {
-        await logout();
-        router.push("/login");
-    };
 
     return (
         <div className="relative min-h-screen bg-background">
@@ -428,7 +406,7 @@ export default function ProtectedLayout({ children }) {
                                     <span>Admin</span>
                                 </Link>
                             )}
-                            {baseNavItems.map(({ href, label, icon: Icon }) => {
+                            {baseNavItems.map(({ href, label, icon: Icon, isMessages }) => {
                                 const active = pathname === href || pathname.startsWith(href + "/");
                                 return (
                                     <Link
@@ -444,7 +422,12 @@ export default function ProtectedLayout({ children }) {
                                         onClick={() => setIsDrawerOpen(false)}
                                     >
                                         <Icon size={20} aria-hidden="true" />
-                                        <span>{label}</span>
+                                        <span className="flex-1">{label}</span>
+                                        {isMessages && totalUnread > 0 ? (
+                                            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-cyan-500 px-1.5 text-[11px] font-bold text-white shadow-sm">
+                                                {totalUnread > 99 ? "99+" : totalUnread}
+                                            </span>
+                                        ) : null}
                                     </Link>
                                 );
                             })}
@@ -464,5 +447,49 @@ export default function ProtectedLayout({ children }) {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function ProtectedLayout({ children }) {
+    const { status, user, logout } = useAuth();
+    const pathname = usePathname();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (status === "unauthenticated") {
+            const safeRedirect = getSafeReturnUrl(pathname);
+            router.replace(`/login?redirect=${encodeURIComponent(safeRedirect)}`);
+        } else if (status === "authenticated" && user?.isBlocked) {
+            router.replace(`/account-blocked?reason=${encodeURIComponent(user.blockReason || "")}`);
+        } else if (status === "authenticated" && user?.emailVerified !== true) {
+            // Unverified users must never reach authenticated routes — redirect
+            // on every navigation attempt, not just during login.
+            router.replace("/verify-email");
+        }
+    }, [status, user, pathname, router]);
+
+    if (status === "loading") {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-background">
+                <LoadingFallback label="Verifying session..." />
+            </div>
+        );
+    }
+
+    if (status === "unauthenticated" || (status === "authenticated" && user?.isBlocked) || (status === "authenticated" && user?.emailVerified !== true)) {
+        return null;
+    }
+
+    const handleLogout = async () => {
+        await logout();
+        router.push("/login");
+    };
+
+    return (
+        <MessagesProvider>
+            <ProtectedContent user={user} handleLogout={handleLogout}>
+                {children}
+            </ProtectedContent>
+        </MessagesProvider>
     );
 }

@@ -14,7 +14,7 @@ YOIBI is architected as two decoupled, independently deployable applications:
 |---|---|---|---|---|---|---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend | Public (Client) | **Yes** | **Yes** | `http://localhost:5000/api/v1` | `https://api.yourdomain.com/api/v1` | Base REST API URL for frontend-to-backend communication. |
 | `NEXT_PUBLIC_BETTER_AUTH_URL` | Frontend | Public (Client) | **Yes** | **Yes** | `http://localhost:3000` | `https://yourdomain.com` | Base URL for Better Auth authentication client & server endpoints. |
-| `NEXT_PUBLIC_SOCKET_URL` | Frontend | Public (Client) | **Yes** | No (Optional/Ignored) | `http://localhost:5000` (or empty) | Ignored | Deprecated — Socket.IO realtime was removed from YOIBI. Realtime media uses LiveKit WebRTC. |
+| `NEXT_PUBLIC_SOCKET_URL` | Frontend | Public (Client) | **Yes** | **Yes** (or auto-derived) | `http://localhost:5000` | `https://yoibi-backend-production.up.railway.app` | Realtime Socket.IO connection URL for Direct Messaging (chat, online presence, typing, delivery status). |
 | `BETTER_AUTH_SECRET` | Frontend & Backend | Server-Only Secret | **NO** | **Yes** | `replace_with_secure_random_32_character_secret` | Random 32+ char cryptographic secret | Signs Better Auth sessions/JWTs on frontend and verifies them / signs admin API calls on backend. |
 | `GOOGLE_CLIENT_ID` | Frontend | Server-Only Config | **NO** | No (Optional) | `your_google_oauth_client_id` | Valid Google OAuth Client ID | Google Social Login OAuth Client ID. Production redirect URI: `https://www.yoibi.com/api/auth/callback/google` (must match the Google Cloud Console OAuth client exactly; update it if a custom domain is adopted). |
 | `GOOGLE_CLIENT_SECRET` | Frontend | Server-Only Secret | **NO** | No (Optional) | `your_google_oauth_client_secret` | Valid Google OAuth Client Secret | Google Social Login OAuth Client Secret. |
@@ -70,9 +70,12 @@ YOIBI is architected as two decoupled, independently deployable applications:
 - **Backend Only Authority**: The backend (`backend/src/integrations/livekit/livekit.js`) uses `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` to mint short-lived participant tokens containing least-privilege permissions and opaque identities (`participant_<uuid>`).
 - **Frontend Client**: The frontend receives the ephemeral token and `LIVEKIT_URL` via authenticated REST endpoints (`POST /api/v1/meetup/rooms/:id/join`). Neither `LIVEKIT_API_KEY` nor `LIVEKIT_API_SECRET` is ever exposed to the client.
 
-## 2.5 Realtime Transport
+## 2.5 Realtime Transport (Direct Messaging)
 
-> **Note:** Socket.IO and the associated realtime messaging/notification gateway were intentionally removed from YOIBI. Realtime media transport for Meet-Up uses LiveKit WebRTC directly. No WebSocket gateway or `socket.io` package is installed. The `NEXT_PUBLIC_SOCKET_URL` variable is ignored by the current application.
+- **Transport**: Socket.IO is attached to the Railway Express HTTP server for real-time Direct Messaging.
+- **Handshake Authentication**: Sockets connect with a verified Better Auth Bearer JWT verified against the JWKS endpoint.
+- **Reconnection Handling**: Handshake `auth` fetches fresh tokens on reconnect (`authClient.token()`).
+- **Scope**: Direct messaging text, signed media messages, typing indicators, delivery/read receipts, and multi-connection presence. Meet-Up continues to use LiveKit SFU WebRTC directly.
 
 ---
 

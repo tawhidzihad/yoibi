@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { MapPin, CalendarDays, Camera } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { MapPin, CalendarDays, Camera, MessageSquare } from "lucide-react";
 import { Button } from "@/shared/ui/Button";
 import { Avatar } from "@/shared/ui/Avatar";
 import { followUser, unfollowUser } from "@/lib/api/follows";
 import { COUNTRIES } from "@/shared/constants/countries";
+import { messagesApi } from "@/features/messages/api/messagesApi";
 
 /** Maps an ISO 3166-1 alpha-2 code to a clean display name ("BD" -> "Bangladesh"). */
 function countryName(code) {
@@ -63,8 +65,10 @@ export function ProfileHeader({ profile, isOwner, currentUser, onEditClick }) {
     // component with key={profile.id} whenever the viewed user changes, so no
     // effect-based re-sync is required (stale follow state cannot leak across
     // profile switches).
+    const router = useRouter();
     const [isFollowing, setIsFollowing] = useState(Boolean(profile?.isFollowing));
     const [followBusy, setFollowBusy] = useState(false);
+    const [messageBusy, setMessageBusy] = useState(false);
 
     const handle = profile?.handle ? String(profile.handle).replace(/^@/, "") : "";
     const isSelf = Boolean(isOwner || (currentUser?.id && currentUser.id === profile?.id));
@@ -86,6 +90,21 @@ export function ProfileHeader({ profile, isOwner, currentUser, onEditClick }) {
         }
     };
 
+    const handleMessage = async () => {
+        if (!profile?.id || messageBusy) return;
+        setMessageBusy(true);
+        try {
+            const res = await messagesApi.createConversation(profile.id);
+            if (res.success && res.data?.id) {
+                router.push(`/message?conversationId=${res.data.id}`);
+            }
+        } catch (err) {
+            console.error("Failed to start conversation:", err);
+        } finally {
+            setMessageBusy(false);
+        }
+    };
+
     const joined = formatJoined(profile?.createdAt);
 
     const stats = [
@@ -104,6 +123,8 @@ export function ProfileHeader({ profile, isOwner, currentUser, onEditClick }) {
                 isFollowing={isFollowing}
                 followBusy={followBusy}
                 toggleFollow={toggleFollow}
+                messageBusy={messageBusy}
+                handleMessage={handleMessage}
                 joined={joined}
                 stats={stats}
                 onEditClick={onEditClick}
@@ -112,7 +133,7 @@ export function ProfileHeader({ profile, isOwner, currentUser, onEditClick }) {
     );
 }
 
-function ProfileBody({ profile, handle, isSelf, isFollowing, followBusy, toggleFollow, joined, stats, onEditClick }) {
+function ProfileBody({ profile, handle, isSelf, isFollowing, followBusy, toggleFollow, messageBusy, handleMessage, joined, stats, onEditClick }) {
     return (
         <div className="px-4 pb-4 sm:px-6">
             {/* Avatar + actions row — avatar overlaps the banner naturally */}
@@ -137,15 +158,30 @@ function ProfileBody({ profile, handle, isSelf, isFollowing, followBusy, toggleF
                             Edit Profile
                         </Button>
                     ) : (
-                        <Button
-                            size="sm"
-                            variant={isFollowing ? "outline" : "primary"}
-                            loading={followBusy}
-                            onClick={toggleFollow}
-                            id={`follow-btn-${profile?.id || handle}`}
-                        >
-                            {isFollowing ? "Following" : "Follow"}
-                        </Button>
+                        <div className="flex items-center gap-2">
+                            {isFollowing ? (
+                                <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    loading={messageBusy}
+                                    onClick={handleMessage}
+                                    id={`message-btn-${profile?.id || handle}`}
+                                    className="flex items-center gap-1.5"
+                                >
+                                    <MessageSquare size={14} aria-hidden="true" />
+                                    Message
+                                </Button>
+                            ) : null}
+                            <Button
+                                size="sm"
+                                variant={isFollowing ? "outline" : "primary"}
+                                loading={followBusy}
+                                onClick={toggleFollow}
+                                id={`follow-btn-${profile?.id || handle}`}
+                            >
+                                {isFollowing ? "Following" : "Follow"}
+                            </Button>
+                        </div>
                     )}
                 </div>
             </div>
